@@ -1,7 +1,6 @@
 // simple_set.h
 
-#ifndef _SIMPLE_SET_H_
-#define _SIMPLE_SET_H_
+#pragma once
 
 #include "std_port/std_port_util.h"
 #include "simple_vector.h"
@@ -362,5 +361,3 @@ private:
 };
 
 } // End of namespace: simple
-
-#endif

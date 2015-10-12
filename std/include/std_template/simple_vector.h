@@ -1,7 +1,6 @@
 // simple_vector.h
 
-#ifndef _SIMPLE_VECTOR_H_
-#define _SIMPLE_VECTOR_H_
+#pragma once
 
 #include "simple.h"
 #include "std_port/std_port.h"
@@ -344,5 +343,3 @@ public:
 };
 
 } // End of namespace: simple
-
-#endif

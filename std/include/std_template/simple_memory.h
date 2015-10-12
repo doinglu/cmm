@@ -2,55 +2,67 @@
 
 #pragma once
 
+#ifndef XNEW
+// Other may replace the XNEW with themselves' definition
+
 #include <new>
 #include "std_memmgr/std_memmgr.h"
+#include "simple_util.h"
 
 namespace simple
 {
 
+// new
 template <typename T, typename... Types>
-T *xnew(const char *file, int line, Types&&... args)
+inline T *xnew(const char *file, int line, Types&&... args)
 {
-    T *p = (T *)std_allocate_memory(sizeof(T), "x", file, line);
-    new (p) T(args...);
+    T *p = (T *)std_allocate_memory(sizeof(T), "simple", file, line);
+    new (p) T(simple::forward<Types>(args)...);
     return p;
 }
 
+// delete
 template <typename T>
-void xdelete(T *p, const char *file, int line)
+inline void xdelete(const char *file, int line, T *p)
 {
     p->~T();
     std_free_memory(p, "x", file, line);
 }
 
 enum { RESERVE_FOR_ARRAY = 16 };
+enum { RESERVE_STAMP = 0x19770531 };
 
+// new[]
 template <typename T>
-T *xnew_arr(size_t n, const char *file, int line)
+T *xnew_arr(const char *file, int line, size_t n)
 {
-    char *b = (char *)std_allocate_memory(RESERVE_FOR_ARRAY + n * sizeof(T), "x", file, line);
-    *(size_t *) b = n;
+    char *b = (char *)std_allocate_memory(RESERVE_FOR_ARRAY + n * sizeof(T), "simple", file, line);
+    ((size_t *) b)[0] = n;
+    ((size_t *) b)[1] = RESERVE_STAMP;
     T *p = (T *)(b + RESERVE_FOR_ARRAY);
     for (size_t i = 0; i < n; i++, p++)
         new (p) T();
     return (T *)(b + RESERVE_FOR_ARRAY);
 }
 
+// delete[]
 template <typename T>
-void xdelete_arr(T *p, const char *file, int line)
+void xdelete_arr(const char *file, int line, T *p)
 {
     char *b = ((char *)p) - RESERVE_FOR_ARRAY;
-    size_t n = *(size_t *)b;
+    STD_ASSERT(("Bad stamp of allocated array.", ((size_t *)b)[1] == RESERVE_STAMP));
+    size_t n = ((size_t *)b)[0];
     for (size_t i = 0; i < n; i++, p++)
         p->~T();
-    std_free_memory(b, "x", file, line);
+    std_free_memory(b, "simple", file, line);
 }
 
-#define XNEW(T, ...)    simple::xnew<T>(__FILE__, __LINE__, __VA_ARGS__)
-#define XDELETE(p)      { simple::xdelete(p, __FILE__, __LINE__); (p) = 0; }
-
-#define XNEWN(T, n)     simple::xnew_arr<T>(n, __FILE__, __LINE__)
-#define XDELETEN(p)     simple::xdelete_arr(p, __FILE__, __LINE__);
-
+// Macro as operator
+#define XNEW(T, ...)    simple::xnew<T>(__FILE__, __LINE__, ##__VA_ARGS__)
+#define XDELETE(p)      { simple::xdelete(__FILE__, __LINE__, p); (p) = 0; }
+#define XNEWN(T, n)     simple::xnew_arr<T>(__FILE__, __LINE__, n)
+#define XDELETEN(p)     { simple::xdelete_arr(__FILE__, __LINE__, p); (p) = 0; }
 
 } // End of namespace: simple
+
+#endif

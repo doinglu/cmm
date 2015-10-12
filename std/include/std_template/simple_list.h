@@ -1,7 +1,6 @@
 // simple_list.h
 
-#ifndef _SIMPLE_LIST_H_
-#define _SIMPLE_LIST_H_
+#pragma once
 
 #include "simple.h"
 #include "std_port/std_port.h"
@@ -429,5 +428,3 @@ private:
 };
 
 } // End of namespace: simple
-
-#endif

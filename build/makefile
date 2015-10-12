@@ -5,6 +5,11 @@ CPPFLAGS_MACRO = -Wno-invalid-offsetof
 LINK_PLATFORM = -lrt -pthread
 endif
 
+ifeq ($(UNAME),Darwin)
+CPPFLAGS_MACRO = -Wno-invalid-offsetof
+LINK_PLATFORM =
+endif
+
 ARCH = -m64
 CFLAGS = -O2 $(ARCH) -I../std/include
 CPPFLAGS = $(CFLAGS) -std=c++11 $(CPPFLAGS_MACRO)

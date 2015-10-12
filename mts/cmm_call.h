@@ -77,7 +77,7 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
 
         // In the same domain, just do normal call
         Program::CalleeInfo callee;
-        if (!program->get_callee_by_name((String **)&function_name.m_string, &callee))
+        if (!program->get_public_callee_by_name((String **)&function_name.m_string, &callee))
             return Value();
 
         auto *object = entry->object;

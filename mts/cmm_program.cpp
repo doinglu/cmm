@@ -167,12 +167,28 @@ Member *Program::define_member(const simple::string& name, Value::Type type, Mem
 }
 
 // Add a function to callee map
+// Public function -> public callee
+// Private function of this component + public function -> self callee
 void Program::add_callee(ComponentNo component_no, Function *function)
 {
     CalleeInfo info;
     info.component_no = component_no;
     info.function = function;
-    m_callees.put(function->m_name, info);
+    if (function->is_public())
+    {
+        // Put in public callees
+        m_public_callees.put(function->m_name, info);
+
+        // Put in private callees if not existed
+        if (!m_self_callees.find(function->m_name))
+            m_self_callees.put(function->m_name, info);
+    }
+
+    if (component_no == 0 && function->is_private())
+    {
+        // Override previous entry if existed
+        m_self_callees[function->m_name] = info;
+    }
 }
 
 // Detail for components in a program
@@ -459,7 +475,7 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
         // Bad type of function name
         return Value();
 
-    if (!get_callee_by_name((String **)&function_name.m_string, &callee))
+    if (!get_public_callee_by_name((String **)&function_name.m_string, &callee))
         // No such function
         return Value();
 
@@ -472,6 +488,32 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
     // Call
     auto *object = Object::get_object_by_id(oid);
     auto component_no = callee.component_no;
+    ComponentOffset offset = m_components[component_no].offset;
+    auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
+    Function::Entry func = callee.function->m_func_entry;
+    return (component_impl->*func)(thread, object, component_no, args, n);
+}
+
+// Invoke self function
+// Call public function in this program OR private function of this component
+Value Program::invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n)
+{
+    CalleeInfo callee;
+
+    if (function_name.m_type != Value::STRING)
+        // Bad type of function name
+        return Value();
+
+    // Get program of the current module
+    auto *object = thread->get_this_object();
+    auto component_no = thread->get_this_component_no();
+    auto *to_program = m_components[component_no].program;
+
+    if (!to_program->get_self_callee_by_name((String **)&function_name.m_string, &callee))
+        // No such function
+        return Value();
+
+    // Call
     ComponentOffset offset = m_components[component_no].offset;
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::Entry func = callee.function->m_func_entry;

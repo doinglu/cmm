@@ -13,7 +13,7 @@ namespace cmm
 size_t Buffer::hash_value() const
 {
     if (this->hash)
-        this->hash;
+        return this->hash;
 
     size_t seed = 131; // 31 131 1313 13131 131313 etc..
     size_t h = 0;
@@ -179,8 +179,8 @@ size_t Value::hash_value() const
     {
     case STRING: return m_string->s.hash_value();
     case BUFFER: return m_buffer->hash_value();
+    default:     return (size_t)m_intptr;
     }
-    return (size_t)m_intptr;
 }
 
 
@@ -232,6 +232,7 @@ bool operator <(const Value& a, const Value& b)
         {
             case Value::STRING: return a.m_string->s < b.m_string->s;
             case Value::BUFFER: return compare_buffer(a.m_buffer, b.m_buffer) < 0;
+            default: break;
         }
     }
 
@@ -251,6 +252,7 @@ bool operator ==(const Value& a, const Value& b)
         {
             case Value::STRING: return a.m_string->s == b.m_string->s;
             case Value::BUFFER: return compare_buffer(a.m_buffer, b.m_buffer) == 0;
+            default: break;
         }
     }    
 

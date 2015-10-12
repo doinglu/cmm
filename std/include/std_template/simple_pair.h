@@ -1,7 +1,6 @@
 // simple_pair.h
 
-#ifndef _SIMPLE_PAIR_H_
-#define _SIMPLE_PAIR_H_
+#pragma once
 
 namespace simple
 {
@@ -86,5 +85,3 @@ bool operator >= (const T& p1, const T& p2)
 }
 
 } // End of namespace: simple
-
-#endif

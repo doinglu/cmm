@@ -54,6 +54,7 @@ public:
 	typedef enum
 	{
 		RANDOM_ARG = 1,
+        PRIVATE = 0x8000,
 	} Attrib;
 
     // Type of entry routine
@@ -74,6 +75,18 @@ public:
 public:
     // Get the entry pointer
     Entry get_func_entry() { return m_func_entry; }
+
+    // Is this function public?
+    bool is_public()
+    {
+        return !is_private();
+    }
+
+    // Is this function private?
+    bool is_private()
+    {
+        return (m_attrib & PRIVATE) ? true : false;
+    }
 
 private:
     Program *m_program;
@@ -172,9 +185,9 @@ public:
     Member *define_member(const simple::string& name, Value::Type type, MemberOffset offset);
 
 public:
-    // Add a function to callee map
+    // Add a function to public callee map
     void add_callee(ComponentNo component_no, Function *function);
-        
+
     // Add component in this program
     void add_component(const simple::string& program_name, ComponentOffset offset);
 
@@ -188,16 +201,6 @@ public:
     void update_callees();
 
 public:
-    // Get callee by name
-    // Update *pp_string to shared string if found
-    bool get_callee_by_name(String **pp_name, CalleeInfo *ptr_info)
-    {
-        if (!Program::convert_to_shared(pp_name))
-            // This string is not in pool, not such callee
-            return false;
-        return m_callees.try_get(*pp_name, ptr_info);
-    }
-
     // Get component by component no
     Program *get_component(ComponentNo component_no)
     {
@@ -230,11 +233,34 @@ public:
         return m_object_size;
     }
 
+    // Get callee by name (access by public)
+    // Update *pp_string to shared string if found
+    bool get_public_callee_by_name(String **pp_name, CalleeInfo *ptr_info)
+    {
+        if (!Program::convert_to_shared(pp_name))
+            // This string is not in pool, not such callee
+            return false;
+        return m_public_callees.try_get(*pp_name, ptr_info);
+    }
+
+    // Get callee by name (access by this component)
+    // Update *pp_string to shared string if found
+    bool get_self_callee_by_name(String **pp_name, CalleeInfo *ptr_info)
+    {
+        if (!Program::convert_to_shared(pp_name))
+            // This string is not in pool, not such callee
+            return false;
+        return m_self_callees.try_get(*pp_name, ptr_info);
+    }
+
     // Create a new instance
     Object *new_instance(Domain *domain);
 
     // Invoke routine
     Value invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n);
+
+    // Invoke routine can be accessed by self component
+    Value invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n);
 
 private:
     // All constant strings of programs
@@ -269,7 +295,9 @@ private:
     simple::unsafe_vector<Member *> m_members;
 
     // Callees map by function name
-    simple::hash_map<String *, CalleeInfo> m_callees;
+    typedef simple::hash_map<String *, CalleeInfo> CalleInfoMap;
+    CalleInfoMap m_public_callees;  // Can be accessed by public
+    CalleInfoMap m_self_callees;    // Only can be accessed by self
 };
 
 } // End of namespace: cmm

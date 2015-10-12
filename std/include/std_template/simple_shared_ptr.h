@@ -1,7 +1,6 @@
 // simple_shared_ptr.h
 
-#ifndef _SIMPLE_SHARED_PTR_H_
-#define _SIMPLE_SHARED_PTR_H_
+#pragma once
 
 #include "std_port/std_port.h"
 #include "simple.h"
@@ -126,5 +125,3 @@ inline shared_ptr<T> make_shared(Types&&... args)
 }
 
 } // End of namespace: simple
-
-#endif

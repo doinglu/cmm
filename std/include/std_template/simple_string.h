@@ -1,7 +1,6 @@
 // simple_string
 
-#ifndef _SIMPLE_STRING_H_
-#define _SIMPLE_STRING_H_
+#pragma once
 
 #include "std_port/std_port_util.h"
 #include "simple_shared_ptr.h"
@@ -197,5 +196,3 @@ inline bool operator < (const string& s1, const string& s2)
 }
 
 } // End of namespace: simple
-
-#endif

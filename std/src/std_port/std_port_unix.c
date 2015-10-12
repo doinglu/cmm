@@ -258,7 +258,12 @@ extern void std_clear_timer(int index)
 /* Get current working directory */
 extern void std_get_cwd(char *path, size_t size)
 {
-    getcwd(path, size);
+    if (! size)
+        return;
+
+    if (getcwd(path, size) == NULL)
+        // Failed to getcwd
+        path[0] = 0;
 }
 
 /* Get temporary directory */

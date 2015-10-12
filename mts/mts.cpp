@@ -194,7 +194,7 @@ int main(int argn, char *argv[])
     call_other(&thread, ob->get_oid(), "create");
     call_other(&thread, ob2->get_oid(), "create");
     Value ret = call_other(&thread, ob->get_oid(), "test_call", ob2->get_oid());
-    printf("ret = %d.\n", (int) ret.to_int().m_int);
+    printf("ret = %d.\n", (int) ret.m_int);
     XDELETE(ob);
     thread.stop();
 

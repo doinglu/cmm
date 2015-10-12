@@ -1,7 +1,6 @@
 // simple_hash.h
 
-#ifndef _SIMPLE_HASH_H_
-#define _SIMPLE_HASH_H_
+#pragma once
 
 #include "std_port/std_port_util.h"
 #include "simple_vector.h"
@@ -429,5 +428,3 @@ template<> struct hash_func<simple::string>
 };
 
 } // End of namespace: simple
-
-#endif
