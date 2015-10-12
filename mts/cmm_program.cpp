@@ -491,7 +491,11 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
     ComponentOffset offset = m_components[component_no].offset;
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::Entry func = callee.function->m_func_entry;
-    return (component_impl->*func)(thread, object, component_no, args, n);
+
+    CallContextNode __context(thread, object, component_no, args, n, (Value*)0, 0);
+    thread->enter_function_call(&__context);
+    auto ret = (component_impl->*func)(thread, args, n);
+    return thread->leave_function_call(&__context, ret);
 }
 
 // Invoke self function
@@ -517,7 +521,12 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
     ComponentOffset offset = m_components[component_no].offset;
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::Entry func = callee.function->m_func_entry;
-    return (component_impl->*func)(thread, object, component_no, args, n);
+    auto *context = &thread->get_this_context()->value;
+    auto prev_component_no = context->m_this_component;
+    context->m_this_component = component_no;
+    Value ret = (component_impl->*func)(thread, args, n);
+    context->m_this_component = prev_component_no;
+    return ret;
 }
 
 } // End of namespace: cmm

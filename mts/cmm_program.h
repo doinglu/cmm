@@ -62,7 +62,7 @@ public:
     // Why use void *?
     // Since Entry would be routine in a class (can't be decided now), so
     // we use void * instead.
-    typedef Value(AbstractComponent::*Entry)(Thread *, Object *, ComponentNo, Value *, ArgNo);
+    typedef Value(AbstractComponent::*Entry)(Thread *, Value *, ArgNo);
 
 public:
     // Only private constructor, it should be created by Program only

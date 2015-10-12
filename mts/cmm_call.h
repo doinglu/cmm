@@ -30,7 +30,11 @@ inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo funct
 
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::Entry func = function->get_func_entry();
-    Value ret = (component_impl->*func)(thread, object, mapped_component_no, params, n);
+    auto *context = &thread->get_this_context()->value;
+    auto prev_component_no = context->m_this_component;
+    context->m_this_component = component_no;
+    Value ret = (component_impl->*func)(thread, params, n);
+    context->m_this_component = prev_component_no;
     return ret;
 }
 
@@ -51,7 +55,7 @@ inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Val
     auto *object = thread->get_this_object();
     auto component_no = thread->get_this_component_no();
     Function::Entry func = (Function::Entry) fptr;
-    Value ret = (component->*func)(thread, object, component_no, params, n);
+    Value ret = (component->*func)(thread, params, n);
     return ret;
 };
 
@@ -85,7 +89,15 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
         auto offset = program->get_component_offset(component_no);
         auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
         Function::Entry func = callee.function->get_func_entry();
-        return (component_impl->*func)(thread, object, component_no, params, n);
+        auto *context = &thread->get_this_context()->value;
+        auto *prev_object = context->m_this_object;
+        auto prev_component_no = context->m_this_component;
+        context->m_this_object = object;
+        context->m_this_component = component_no;
+        Value ret = (component_impl->*func)(thread, params, n);
+        context->m_this_component = prev_component_no;
+        context->m_this_object = prev_object;
+        return ret;
     }
 
     // Call into other domain

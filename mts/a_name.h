@@ -21,7 +21,7 @@ class __feature_name_impl : public AbstractComponent
 {
 public:
     // Function 0
-    Value set_name(Thread *_thread, Object *__this_object, ComponentNo __component_no, Value *__args, ArgNo __n)
+    Value set_name(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 1)
             throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
@@ -31,37 +31,31 @@ public:
 
         // Enter function
 //        Value __local[] = { };
-        CallContextNode __context(_thread, __this_object, __component_no, __args, __n, (Value*)0, 0);
-        _thread->enter_function_call(&__context);
         String* &name = __args[0].m_string;
 
         this->name = name;
-
-        return _thread->leave_function_call(&__context, Value());
+        return Value();
     }
 
     // Function 1
-    Value get_name(Thread *_thread, Object *__this_object, ComponentNo __component_no, Value *__args, ArgNo __n)
+    Value get_name(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 0)
             throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
 
-        CallContextNode __context(_thread, __this_object, __component_no, __args, __n, (Value*)0, 0);
-        _thread->enter_function_call(&__context);
-
-        return _thread->leave_function_call(&__context, this->name);
+        return this->name;
     }
 
     // Function 2
-    Value test_call_private(Thread *_thread, Object *__this_object, ComponentNo __component_no, Value *__args, ArgNo __n)
+    Value test_call_private(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 1)
             throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
 
-        CallContextNode __context(_thread, __this_object, __component_no, __args, __n, (Value*)0, 0);
-        _thread->enter_function_call(&__context);
         ObjectId other_oid;
         other_oid.i64 = __args[0].m_int;
+
+        auto *__this_object = _thread->get_this_object();
 
         std_freq_t b, e;
         Integer i;
@@ -106,22 +100,22 @@ public:
 
         Value ret = call_other(_thread, __this_object->get_oid(), "print");
         ret = Value(5);
-        return _thread->leave_function_call(&__context, ret);
+        return ret;
     }
 
     // Function 3
-    Value test_call(Thread *_thread, Object *__this_object, ComponentNo __component_no, Value *__args, ArgNo __n)
+    Value test_call(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 1)
             throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
 
-        CallContextNode __context(_thread, __this_object, __component_no, __args, __n, (Value*)0, 0);
-        _thread->enter_function_call(&__context);
         ObjectId other_oid;
         other_oid.i64 = __args[0].m_int;
 
+        auto *__this_object = _thread->get_this_object();
+
         Value ret = __this_object->get_program()->invoke_self(_thread, "test_call_private", __args, __n);
-        return _thread->leave_function_call(&__context, ret);
+        return ret;
     }
 
 private:
