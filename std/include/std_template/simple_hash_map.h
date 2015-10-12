@@ -134,18 +134,18 @@ public:
 
     vector<K> keys()
     {
-        vector<K> vec(size());
+        vector<K> vec(m_size);
         // Lookup entire table to add all keys
-        for (size_t i = 0; i < m_pairs.size(); i++)
+        for (size_t i = 0; i < m_size; i++)
             vec.push_back(m_pairs[i].first);
         return vec;
     }
 
     vector<V> values()
     {
-        vector<V> vec(size());
+        vector<V> vec(m_size);
         // Lookup entire table to add all keys
-        for (size_t i = 0; i < m_pairs.size(); i++)
+        for (size_t i = 0; i < m_size; i++)
             vec.push_back(m_pairs[i].second);
         return vec;
     }
@@ -318,6 +318,7 @@ public:
         m_map(0),
         m_size(0),
 #endif
+        m_index(0),
         m_cursor_ptr(0)
     {
     }
@@ -330,7 +331,15 @@ private:
         m_map = &m;
         m_size = (index_t) m.size();
 #endif
+        m_index = index;
         m_cursor_ptr = m.m_pairs.get_array_address(index);
+    }
+
+public:
+    // Get index of iterator
+    index_t get_index()
+    {
+        return m_index;
     }
 
 public:
@@ -351,6 +360,7 @@ public:
     // Move to next
     hash_map_iterator& operator ++ ()
     {
+        m_index++;
         m_cursor_ptr++;
         return *this;
     }
@@ -364,12 +374,12 @@ public:
 
     bool operator == (const hash_map_iterator& it) const
     {
-        return m_cursor_ptr == it.m_cursor_ptr;
+        return m_index == it.m_index;
     }
 
     bool operator < (const hash_map_iterator& it) const
     {
-        return m_cursor_ptr < it.m_cursor_ptr;
+        return m_index < it.m_index;
     }
 
 private:
@@ -378,6 +388,7 @@ private:
     hash_map_type *m_map;
     index_t m_size;
 #endif
+    index_t m_index;
     pair<K, V> *m_cursor_ptr;
 };
 

@@ -30,6 +30,7 @@ extern "C" {
 #define STD_MEMORY_NOT_ENOUGH           -10006
 
 #define STD_MEM_ALLOC(size)             std_allocate_memory(size, "STD", __FILE__, __LINE__)
+#define STD_MEM_ALLOCX(size, f, l)      std_allocate_memory(size, "STD", f, l)
 #define STD_MEM_REALLOC(p, size)        std_reallocate_memory(p, size, "STD", __FILE__, __LINE__)
 #define STD_MEM_FREE(ptr)               std_free_memory(ptr, "STD", __FILE__, __LINE__)
 

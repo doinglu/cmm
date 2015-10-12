@@ -17,13 +17,14 @@ private:
 public:
     static Object *new_instance()
     {
-        return new Self();
+        return XNEW(Self);
     }
 
     static Program *create_program()
     {
-        Program *program = new Program("/feature/name");
+        Program *program = XNEW(Program, "/feature/name");
 
+        program->define_object(sizeof(Self));
         program->set_new_instance_func(&new_instance);
 
         program->add_component("/feature/name", MEMBER_OFFSET(m_name));
@@ -31,7 +32,7 @@ public:
 
         program->define_function("set_name", (Function::Entry)&Impl::set_name, 1, 1);
         program->define_function("get_name", (Function::Entry)&Impl::get_name, 0, 0);
-        program->define_function("output", (Function::Entry)&Impl::output, 0, 0);
+        program->define_function("test_call", (Function::Entry)&Impl::test_call, 0, 0);
 
         return program;
     }

@@ -3,6 +3,7 @@
 #include "std_template/simple_string.h"
 #include "std_template/simple_vector.h"
 #include "std_template/simple_hash_map.h"
+#include "cmm_basic_types.h"
 
 namespace cmm
 {
@@ -147,12 +148,27 @@ public:
         m_int = (Integer)v;
     }
 
+    Value(Uint64 v)
+    {
+        m_type = INTEGER;
+        m_int = (Integer)v;
+    }
+
     // Construct from real
     Value(Real v)
     {
         m_type = REAL;
         m_real = v;
     }
+
+    // Construct from object
+    Value(ObjectId oid)
+    {
+        m_type = OBJECT;
+        m_oid = oid;
+    }
+
+    Value(Object *ob);
 
     // Contruct from reference values
     Value(Type type, ReferenceValue *v)
@@ -254,6 +270,7 @@ public:
         Integer          m_int;
         Real             m_real;
         IntPtr           m_intptr;
+        ObjectId         m_oid;
         ReferenceValue  *m_reference_value;
         String          *m_string;
         Buffer          *m_buffer;
@@ -320,7 +337,7 @@ public:
         type = Value::BUFFER;
 #endif
         this->hash = 0;
-        this->data = new Uint8[len];
+        this->data = XNEWN(Uint8, len);
         this->len = len;
         memcpy(this->data, bytes, len);
     }
@@ -328,7 +345,7 @@ public:
     virtual ~Buffer()
     {
         if (data)
-            delete data;
+            XDELETE(data);
     }
 
 public:

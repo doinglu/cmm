@@ -38,6 +38,7 @@ extern "C" {
 #define STD_VSNPRINTF               _vsnprintf
 #define STD_ERRNO()                 std_get_error()
 #else
+#include <stdlib.h>
 #define STD_ALLOCA(n)               alloca(n)
 #define STD_SNPRINTF                snprintf
 #define STD_VSNPRINTF               vsnprintf

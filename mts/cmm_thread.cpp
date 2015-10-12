@@ -1,5 +1,6 @@
 // cmm_thread.cpp
 
+#include <stddef.h>
 #include <stdio.h>
 #include "std_port/std_port_compiler.h"
 #include "std_port/std_port_os.h"
@@ -9,6 +10,30 @@
 
 namespace cmm
 {
+
+// Constructor for Thread start CallContext only
+CallContext::CallContext(Thread *thread) :
+    m_prev_context(0),
+    m_domain(thread->m_start_domain),
+    m_arg(0),
+    m_arg_count(0),
+    m_local(0),
+    m_local_count(0),
+    m_this_object(0),
+    m_this_component(0),
+    m_end_sp((void *)&thread),
+    m_thread(thread)
+{
+    STD_ASSERT(("This is top CallContext, m_prev_context must be 0.", !thread->m_context));
+    STD_ASSERT(("For top CallContext, current domain must be m_start_domain.", m_domain == thread->get_current_domain()));
+    m_domain_object = 0;
+
+    // Link to thread
+    CallContextNode *node;
+    void *ptr_node = ((Uint8 *)this) - offsetof(CallContextNode, value);
+    node = static_cast<CallContextNode *>(ptr_node);
+    thread->m_context = node;
+}
 
 // Constructor
 CallContext::CallContext(Thread *thread,
@@ -23,22 +48,22 @@ CallContext::CallContext(Thread *thread,
     m_local_count(local_count),
     m_this_object(this_object),
     m_this_component(this_component),
-    m_end_sp(&local_count),
+    m_end_sp((void *)&local_count),
     m_thread(thread)
 {
     // Update end_sp of previous context
-    if (m_prev_context)
-        m_prev_context->value.m_end_sp = &local_count;
+    STD_ASSERT(("There must be existed m_prev_context.", m_prev_context));
+    m_prev_context->value.m_end_sp = &local_count;
 
     // Save object in domain in this context
-    if (this_object->get_domain())
+    if (this_object && this_object->get_domain())
         m_domain_object = this_object;
     else
-        m_domain_object = m_prev_context ? m_prev_context->value.m_domain_object : 0;
+        m_domain_object = m_prev_context->value.m_domain_object;
 
-    // Link to previous context
+    // Link to thread
     CallContextNode *node;
-    void *ptr_node = ((Uint8 *)this) - (size_t)&((CallContextNode *)0)->value;
+    void *ptr_node = ((Uint8 *)this) - offsetof(CallContextNode, value);
     node = static_cast<CallContextNode *>(ptr_node);
     thread->m_context = node;
 }
@@ -89,7 +114,7 @@ Thread::~Thread()
         {
             auto *current = p;
             p = p->next;
-            delete current;
+            XDELETE(current);
         }
         m_value_list.reset();
     }
@@ -104,6 +129,14 @@ void Thread::start()
 
     // Bind this
     std_set_tls_data(m_thread_tls_id, this);
+
+    // Create a domain for this thread
+    m_start_domain = XNEW(Domain);
+    switch_domain(m_start_domain);
+
+    // Create a context for this thread
+    m_start_context = XNEW(CallContextNode, this);
+    m_context = m_start_context;
 }
 
 // Thread will be stopped
@@ -121,6 +154,16 @@ void Thread::stop()
         drop_local_values();
     }
 
+    // Destroy start domain & context for convenience
+    STD_ASSERT(m_current_domain == m_start_domain);
+    STD_ASSERT(m_context == m_start_context);
+
+    XDELETE(m_start_context);
+    m_context = 0;
+
+    m_start_domain->leave();
+    XDELETE(m_start_domain);
+
     // Unbind
     std_set_tls_data(m_thread_tls_id, 0);
 }
@@ -137,22 +180,22 @@ void Thread::enter_function_call(CallContextNode *context)
 // Pop stack & restore function context
 Value Thread::leave_function_call(CallContextNode *context, const Value& ret)
 {
-    if (m_current_domain)
-        m_current_domain->m_context_list.remove_node(context);
+    STD_ASSERT(("There must be existed current_domain.", m_current_domain));
+    m_current_domain->m_context_list.remove_node(context);
 
     auto c = &context->value;
 
     // Get previous domain object & back to previous frame
-    Object *prev_domain_object = c->m_prev_context ? c->m_prev_context->value.m_domain_object : 0;
+    Domain *prev_domain = c->m_prev_context->value.m_domain;
     c->m_thread->m_context = c->m_prev_context;
 
-    if (!will_change_domain(prev_domain_object))
+    if (!will_change_domain(prev_domain))
         // Domain won't be changed, return "ret" directly
         return ret;
 
     // Domain will be changed, try to copy ret to target domain
     Value dup_ret = duplicate_value_to_local(ret);
-    c->m_thread->switch_object(prev_domain_object);
+    c->m_thread->switch_domain(prev_domain);
     transfer_values_to_current_domain();
     return dup_ret;
 }
@@ -234,10 +277,8 @@ bool Thread::try_switch_object_by_id(ObjectId to_oid)
 }
 
 // Should I change domain if enter target object?
-bool Thread::will_change_domain(Object *to_object)
+bool Thread::will_change_domain(Domain *to_domain)
 {
-    Domain *to_domain = to_object ? to_object->get_domain() : 0;
-
     if (m_current_domain == to_domain)
         // No target domain or domain is not switched
         return false;

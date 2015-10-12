@@ -1,19 +1,22 @@
 // simple_string.c
 
-#include <malloc.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include "std_port/std_port.h"
+#include "std_port/std_port_os.h"
 #include "std_template/simple_string.h"
 
 namespace simple
 {
 
 // Create string
-size_t string::snprintf(const char *fmt, size_t n, ...)
+string& string::snprintf(const char *fmt, size_t n, ...)
 {
     if (n == 0)
-        return 0;
+    {
+        *this = "";
+        return *this;
+    }
 
     if (n > 1024)
         // Limit size to 1K
@@ -21,7 +24,10 @@ size_t string::snprintf(const char *fmt, size_t n, ...)
 
     char *buf = (char *)STD_ALLOCA(n);
     if (!buf)
-        return 0;
+    {
+        *this = "";
+        return *this;
+    }
 
     va_list va;
     va_start(va, n);
@@ -30,7 +36,7 @@ size_t string::snprintf(const char *fmt, size_t n, ...)
 
     buf[n - 1] = 0;
     *this = buf;
-    return length();
+    return *this;
 }
 
 // BKDR Hash Function

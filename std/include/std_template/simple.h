@@ -3,6 +3,8 @@
 #ifndef _SIMPLE_H_
 #define _SIMPLE_H_
 
+#include "simple_memory.h"
+
 namespace simple
 {
 

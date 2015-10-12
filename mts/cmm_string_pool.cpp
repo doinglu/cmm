@@ -14,7 +14,7 @@ StringPool::StringPool()
 StringPool::~StringPool()
 {
     for (auto it = m_pool.begin(); it != m_pool.end(); ++it)
-        delete it->second;
+        XDELETE(it->second);
     std_destroy_spin_lock(&m_lock);
 }
     
@@ -29,7 +29,7 @@ String *StringPool::find_or_insert(const simple::string& str)
     if (!m_pool.try_get(str, &string_in_pool))
     {
         // Not found in pool, create new "CONSTANT" string
-        string_in_pool = new String(str);
+        string_in_pool = XNEW(String, str);
         string_in_pool->attrib |= (ReferenceValue::CONSTANT | ReferenceValue::SHARED);
         m_pool.put(str, string_in_pool);
     }

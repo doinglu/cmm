@@ -39,25 +39,25 @@ public:
         std_init_spin_lock(&m_entries_lock);
 
         // Init pages
-        m_pages = new NodePage *[m_max_pages];
+        m_pages = XNEWN(NodePage *, m_max_pages);
         for (size_t i = 0; i < m_max_pages; i++)
             m_pages[i] = 0;
         m_page_count = 0;
 
         // Init the free entries list
-        m_free_entries = new EntryList();
+        m_free_entries = XNEW(EntryList);
     }
 
     ~GlobalIdManager()
     {
         // Free the free entries list
-        delete m_free_entries;
+        XDELETE(m_free_entries);
 
         // Free pages
         for (size_t i = 0; i < m_max_pages; i++)
             if (m_pages[i])
-                delete m_pages[i];
-        delete m_pages;
+                XDELETE(m_pages[i]);
+        XDELETEN(m_pages);
 
         // Free entries lock
         std_destroy_spin_lock(&m_entries_lock);
@@ -75,13 +75,13 @@ public:
             if (m_page_count >= m_max_pages)
             {
                 STD_TRACE("Out of object id entries page, please adjust Object::MAX_PAGES.\n");
-                return false;
+                return 0;
             }
-            auto *m_page = new NodePage();
+            auto *m_page = XNEW(NodePage);
             if (!m_page)
             {
                 STD_TRACE("Can not allocate new object id entries page.\n");
-                return false;
+                return 0;
             }
             memset(m_page, 0, sizeof(NodePage));
             auto page_no = m_page_count++;
@@ -172,7 +172,7 @@ private:
     // Return the node by id (check valid, any input is fine)
     Node *get_node_by_id_safe(GlobalId gid)
     {
-        ObjectNodePage *page;
+        NodePage *page;
 
         if (gid.index_page >= m_max_pages)
             // Bad index

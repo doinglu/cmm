@@ -19,18 +19,21 @@ namespace cmm
     public:
         static Object *new_instance()
         {
-            return new Self();
+            return XNEW(Self);
         }
 
         static Program *create_program()
         {
-            Program *program = new Program("/clone/entity");
+            Program *program = XNEW(Program, "/clone/entity");
 
+            program->define_object(sizeof(Self));
             program->set_new_instance_func(&new_instance);
 
             program->add_component("/clone/entity", MEMBER_OFFSET(m_entity));
             program->add_component("/feature/name", MEMBER_OFFSET(m_name));
             program->add_component("/feature/desc", MEMBER_OFFSET(m_desc));
+
+            program->define_function("create", (Function::Entry)&Impl::create, 0, 0);
 
             return program;
         }

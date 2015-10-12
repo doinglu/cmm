@@ -15,14 +15,24 @@ Object::ObjectIdManager *Object::m_id_manager = 0;
 int Object::init()
 {
     // Create the id manager
-    m_id_manager = new Object::ObjectIdManager(MAX_ID_PAGES);
+    m_id_manager = XNEW(Object::ObjectIdManager, MAX_ID_PAGES);
     return 0;
 }
 
 void Object::shutdown()
 {
     // Destory the id manager
-    delete Object::m_id_manager;
+    XDELETE(Object::m_id_manager);
+}
+
+// Object destructor
+Object::~Object()
+{
+    if (m_domain)
+        m_domain->object_was_destructed(this);
+
+    if (m_oid.i64)
+        free_oid();
 }
 
 // Allocate an ID & assign to this object
@@ -53,7 +63,7 @@ void Object::set_domain(Domain *domain)
     if (m_domain)
         throw "Object was already in domain.";
     m_domain = domain;
-    domain->join(this);
+    domain->join_object(this);
 
     // Update entry.domain
     auto *entry = Object::m_id_manager->get_entry_by_id(m_oid);

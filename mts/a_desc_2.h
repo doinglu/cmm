@@ -17,13 +17,14 @@ private:
 public:
     static Object *new_instance()
     {
-        return new Self();
+        return XNEW(Self);
     }
 
     static Program *create_program()
     {
-        Program *program = new Program("/feature/desc");
+        Program *program = XNEW(Program, "/feature/desc");
 
+        program->define_object(sizeof(Self));
         program->set_new_instance_func(&new_instance);
 
         program->add_component("/feature/desc", MEMBER_OFFSET(m_desc));

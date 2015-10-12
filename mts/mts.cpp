@@ -14,9 +14,9 @@
 #include "std_port/std_port.h"
 #include "std_port/std_port_type.h"
 #include "std_memmgr/std_memmgr.h"
+#include "cmm_memory.h"
 #include "cmm_domain.h"
 #include "cmm_object.h"
-#include "cmm_memory.h"
 #include "cmm_thread.h"
 #include "cmm_value.h"
 
@@ -77,7 +77,7 @@ void IncSum(Test *ob)
         {
 			count = call(thread, ob, &Test::calc_prime2, to_n).to_int().m_int;
         }
-        //        delete new int;
+        //        XDELETE(XNEW(int));
         //std::string s("sum");
         //simple::string s("sum");
 //        table["sum"]++;
@@ -186,25 +186,29 @@ int main(int argn, char *argv[])
     Thread thread;
     thread.start();
 
-    auto *domain = new Domain();
+    auto *domain = XNEW(Domain);
     auto *program = Program::find_program_by_name(Value("/clone/entity").m_string);
     auto *ob = program->new_instance(domain);
-    call_other(&thread, ob->get_oid(), "set_name", "aaa");
-    Value ret = call_other(&thread, ob->get_oid(), "output");
-    delete ob;
+    auto *domain2 = XNEW(Domain);
+    auto *ob2 = program->new_instance(domain2);
+    call_other(&thread, ob->get_oid(), "create");
+    call_other(&thread, ob2->get_oid(), "create");
+    Value ret = call_other(&thread, ob->get_oid(), "test_call", ob2->get_oid());
+    printf("ret = %d.\n", (int) ret.to_int().m_int);
+    XDELETE(ob);
     thread.stop();
 
     Thread::shutdown();
-    Program::shutdown();
-    Object::shutdown();
     Domain::shutdown();
+    Object::shutdown();
+    Program::shutdown();
     return 0;
 
 #if 0
     simple::vector<Domain *> domains;
     simple::vector<Test *> test_obs;
-    domains.push_back(new Domain());
-    test_obs.push_back(new Test());
+    domains.push_back(XNEW(Domain));
+    test_obs.push_back(XNEW(Test));
     test_obs[0]->set_domain(domains[0]);
 
     printf("Single thread cost:\n");
@@ -221,8 +225,8 @@ int main(int argn, char *argv[])
 //    table["sum"] = 0;
     for (auto i = 1; i <= maxThreadCount; i++)
     {
-        domains.push_back(new Domain());
-        test_obs.push_back(new Test());
+        domains.push_back(XNEW(Domain));
+        test_obs.push_back(XNEW(Test));
         test_obs[i]->set_domain(domains[0]);
         std_create_task(NULL, NULL, (void *) Entry, test_obs[i]);
     }
@@ -236,8 +240,8 @@ int main(int argn, char *argv[])
     for (auto i = 0; i < domains.size(); i++)
     {
         domains[i]->gc();
-        delete domains[i];
-        delete test_obs[i];
+        XDELETE(domains[i]);
+        XDELETE(test_obs[i]);
     }
 #endif
 

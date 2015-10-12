@@ -25,6 +25,11 @@ class Thread;
 class CallContext
 {
 friend Thread;
+friend simple::list_node<CallContext>;
+
+private:
+    // Constructor for Thread start CallContext only
+    CallContext(Thread *thread);
 
 public:
     CallContext(Thread *thread, Object *this_object, ComponentNo this_component,
@@ -174,7 +179,7 @@ public:
     bool try_switch_object_by_id(ObjectId to_oid);
 
     // Will change domain?
-    bool will_change_domain(Object *to_object);
+    bool will_change_domain(Domain *to_domain);
 
 public:
     // Bind value to local memory list
@@ -210,6 +215,13 @@ private:
     // When a function trying to invoke another domain function, the m_current_domain
     // will be updated before enter the new domain.
     Domain *m_current_domain;
+
+private:
+    // Start domain for convenience
+    Domain *m_start_domain;
+
+    // Start CallContextNode for convenience
+    CallContextNode *m_start_context;
 
 private:
     static std_tls_t m_thread_tls_id;

@@ -61,7 +61,7 @@ ReferenceValue *String::copy_to_local(Thread *thread)
         // Don't copy
         return this;
 
-    auto *v = new String(this->s);
+    auto *v = XNEW(String, this->s);
     thread->bind_value(v);
     return v;
 }
@@ -73,7 +73,7 @@ ReferenceValue *Buffer::copy_to_local(Thread *thread)
         // Don't copy
         return this;
 
-    auto *v = new Buffer(this->data, this->len);
+    auto *v = XNEW(Buffer, this->data, this->len);
     thread->bind_value(v);
     return v;
 }
@@ -96,7 +96,7 @@ ReferenceValue *Array::copy_to_local(Thread *thread)
         // Don't copy
         return this;
 
-    auto *v = new Array(this->a.size());
+    auto *v = XNEW(Array, this->a.size());
     thread->bind_value(v);
     // Bind before copy elements in case of exception when copying
 
@@ -113,7 +113,7 @@ ReferenceValue *Map::copy_to_local(Thread *thread)
         // Don't copy
         return this;
 
-    auto *v = new Map(this->m.size());
+    auto *v = XNEW(Map, this->m.size());
     thread->bind_value(v);
     // Bind before copy elements in case of exception when copying
 
@@ -152,9 +152,14 @@ void Map::mark(MarkValueState& state)
     }
 }
 
+Value::Value(Object *ob) :
+    Value(ob->get_oid())
+{
+}
+
 Value::Value(const simple::char_t *c_str)
 {
-    auto *v = new String(c_str);
+    auto *v = XNEW(String, c_str);
     v->bind_to_domain_or_local();
     m_type = STRING;
     m_string = v;
@@ -162,7 +167,7 @@ Value::Value(const simple::char_t *c_str)
 
 Value::Value(const simple::string& str)
 {
-    auto *v = new String(str);
+    auto *v = XNEW(String, str);
     v->bind_to_domain_or_local();
     m_type = STRING;
     m_string = v;
@@ -182,14 +187,14 @@ size_t Value::hash_value() const
 // para should be const char *
 Value Value::new_local_string(const char *c_str)
 {
-    auto *v = new String(c_str);
+    auto *v = XNEW(String, c_str);
     Thread::get_current_thread()->bind_value(v);
     return Value(v);
 }
 
 Value Value::new_local_buffer(Uint8 *data, size_t len)
 {
-    auto *v = new Buffer(data, len);
+    auto *v = XNEW(Buffer, data, len);
     Thread::get_current_thread()->bind_value(v);
     return Value(v);
 }
@@ -197,7 +202,7 @@ Value Value::new_local_buffer(Uint8 *data, size_t len)
 // para should be const char *
 Value Value::new_domain_string(Domain *domain, const char *c_str)
 {
-    auto *v = new String(c_str);
+    auto *v = XNEW(String, c_str);
     STD_ASSERT(domain == Thread::get_current_thread_domain());
     domain->bind_value(v);
     return Value(v);
@@ -205,7 +210,7 @@ Value Value::new_domain_string(Domain *domain, const char *c_str)
 
 Value Value::new_domain_map(Domain *domain, size_t size_hint)
 {
-    auto *v = new Map(size_hint);
+    auto *v = XNEW(Map, size_hint);
     STD_ASSERT(domain == Thread::get_current_thread_domain());
     domain->bind_value(v);
     return Value(v);

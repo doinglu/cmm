@@ -17,7 +17,7 @@ template <typename T>
 struct list_node
 {
     struct list_node *next;
-    struct list_node **pp_prev;
+    struct list_node *prev;
     T value;
 
     template <class... Types>
@@ -32,6 +32,12 @@ struct list_node
 template <typename T>
 class manual_list
 {
+    struct stub_node
+    {
+        struct stub_node *next;
+        struct stub_node *prev;
+    };
+
 public:
     typedef list_iterator<T> iterator;
     typedef list_node<T> node;
@@ -39,16 +45,23 @@ public:
 
 public:
     manual_list() :
-        m_head(0),
-        m_pp_tail(&m_head),
+        m_head((node *)&m_begin_stub),
+        m_tail((node *)&m_end_stub),
         m_size(0)
     {
+        // Initialize stub nodes
+        m_begin_stub.prev = 0;
+        m_begin_stub.next = &m_end_stub;
+        m_end_stub.prev = &m_begin_stub;
+        m_end_stub.next = 0;
     }
 
     manual_list& operator = (const manual_list& other)
     {
         m_size = 0;
-        for (size_t i = 0, node *p = other.m_head;
+        node *p;
+        size_t i;
+        for (i = 0, p = other.m_head->next;
              i < other.m_size;
              i++, p = p->next)
         {
@@ -64,7 +77,7 @@ public:
             throw "Index is out of range in manual_list.";
 
         // Lookup element in manual_list by index
-        node *p = m_head;
+        node *p = m_head->next;
         while (index--)
             p = p->next;
         return p->value;
@@ -74,9 +87,9 @@ public:
     iterator find(const T& element)
     {
         size_t i = 0;
-        auto *p = m_head;
+        auto *p = m_head->next;
         for (;
-             p != 0;
+             p != m_tail;
              p = p->next, i++)
         {
             if (p->value == element)
@@ -100,15 +113,10 @@ public:
 
         // Before processed: Prev This Next
         // After processed:  Prev Next
-        *this_node->pp_prev = this_node->next;
-        if (this_node->next)
-        {
-            this_node->next->pp_prev = this_node->pp_prev;
-        } else
-        {
-            // This node is the last one, update pp_tail
-            m_pp_tail = this_node->pp_prev;
-        }
+        auto *prev = this_node->prev;
+        auto *next = this_node->next;
+        prev->next = next;
+        next->prev = prev;
 
         // Update size
         m_size--;
@@ -128,13 +136,13 @@ public:
     // Begin of container
     iterator begin()
     {
-        return iterator(*this, 0, m_head);
+        return iterator(*this, 0, m_head->next);
     }
 
     // End of container
     iterator end()
     {
-        iterator it(*this, 0, NULL);
+        iterator it(*this, m_size, m_tail);
         return it;
     }
 
@@ -142,12 +150,11 @@ public:
     void append_node(node *p)
     {
         // Link this node to manual_list
-        *m_pp_tail = p;
-        p->pp_prev = m_pp_tail;
-        p->next = 0;
-
-        // Move pp tail to next 
-        m_pp_tail = &p->next;
+        auto *prev = m_tail->prev;
+        prev->next = p;
+        p->prev = prev;
+        p->next = m_tail;
+        m_tail->prev = p;
 
         // Update size
         m_size++;
@@ -157,23 +164,13 @@ public:
     void insert_node_before(iterator it, node *p)
     {
         node *this_node = it.m_cursor_ptr;
-        if (!this_node)
-        {
-            // Insert before the NULL node (or the manual_list is empty)
-            append_node(p);
-            return;
-        }
 
         // Before processed: Prev This Next
         // After processed:  Prev Node This Next
-
-        // Link Prev <-> Node
-        p->pp_prev = this_node->pp_prev;
-        *this_node->pp_prev = p;
-
-        // Link Node <-> This
+        this_node->prev->next = p;
+        p->prev = this_node->prev;
         p->next = this_node;
-        this_node->pp_prev = &p->next;
+        this_node->prev = p;
 
         // Update size
         m_size++;
@@ -182,7 +179,7 @@ public:
     // Insert node p after node it. it can't be end()
     void insert_node_after(iterator it, node *p)
     {
-        STD_ASSERT(("Expect valid node to insert after.", it.m_cursor_ptr));
+        STD_ASSERT(("Expect valid node to insert after.", it.m_cursor_ptr != m_tail));
         insert_node_before(++it, p);
 
         // Update size
@@ -191,13 +188,18 @@ public:
 
 protected:
     // hash table
-    node  *m_head, **m_pp_tail;
+    stub_node m_begin_stub, m_end_stub;
+    node *m_head, *m_tail;
     size_t m_size;
 };
 
 template <typename T>
 class list : public manual_list<T>
 {
+    typedef manual_list<T> base;
+    typedef typename base::iterator iterator;
+    typedef typename base::node node;
+
 public:
     list()
     {
@@ -222,10 +224,12 @@ public:
 
     list& operator = (const list& other)
     {
-        m_size = 0;
-        for (size_t i = 0, node *p = other.m_head;
-        i < other.m_size;
-            i++, p = p->next)
+        base::m_size = 0;
+        node *p;
+        size_t i;
+        for (i = 0, p = other.m_head->next;
+             i < other.m_size;
+             i++, p = p->next)
         {
             append(p->value);
         }
@@ -235,27 +239,24 @@ public:
 
     list& operator = (list&& other)
     {
-        m_size = other.m_size;
-        m_head = other.m_head;
-
-        // Set pointer to ptr tail
-        if (!m_head)
+        base::m_size = other.m_size;
+        if (base::m_size == 0)
         {
-            // The list is empty, set pp to m_head
-            m_pp_tail == &m_head;
-        }
-        else
+            base::m_head->next = base::m_tail;
+            base::m_tail->prev = base::m_head;
+        } else
         {
-            // The list is not empty
-            m_pp_tail = other.m_pp_tail;
-            // set pp to m_head
-            m_head->pp_prev = &m_head;
-        }
+            // Steal list nodes between other.head & other.tail
+            base::m_head->next = other.m_head->next;
+            base::m_head->next->prev = base::m_head;
+            base::m_tail->prev = other.m_tail->prev;
+            base::m_tail->prev->next = base::m_tail;
 
-        // Reset other
-        other.m_size = 0;
-        other.m_head = 0;
-        other.m_pp_tail = &other.m_head;
+            // Reset other
+            other.m_size = 0;
+            other.m_head->next = other.m_tail;
+            other.m_tail->prev = other.m_head;
+        }
         return *this;
     }
 
@@ -263,8 +264,8 @@ public:
     void clear()
     {
         // Remove elements
-        node *p = m_head;
-        while (p)
+        node *p = base::m_head->next;
+        while (p != base::m_tail)
         {
             node *this_node = p;
             p = p->next;
@@ -272,57 +273,57 @@ public:
         }
 
         // Reset list
-        m_size = 0;
-        m_head = 0;
-        m_pp_tail = &m_head;
+        base::m_size = 0;
+        base::m_head->next = base::m_tail;
+        base::m_tail->prev = base::m_head;
     }
 
     // Insert before
     void insert_before(iterator it, const T& element)
     {
-        node *p = new node(element);
+        node *p = XNEW(node, element);
         insert_node_before(it, p);
     }
 
     // Insert before
     void insert_before(iterator it, T&& element)
     {
-        node *p = new node(simple::move(element));
+        node *p = XNEW(node, simple::move(element));
         insert_node_before(it, p);
     }
 
     // Insert after
     void insert_after(iterator it, const T& element)
     {
-        node *p = new node(element);
+        node *p = XNEW(node, element);
         insert_node_after(it, p);
     }
 
     // Insert after
     void insert_after(iterator it, T&& element)
     {
-        node *p = new node(simple::move(element));
+        node *p = XNEW(node, simple::move(element));
         insert_node_after(it, p);
     }
 
     // Append element @ tail
     void append(const T& element)
     {
-        node *p = new node(element);
+        node *p = XNEW(node, element);
         append_node(p);
     }
 
     // Append element @ tail
     void append(T&& element)
     {
-        node *p = new node(simple::move(element));
+        node *p = XNEW(node, simple::move(element));
         append_node(p);
     }
 
     // Remove an element @ index
     void remove_at(size_t index)
     {
-        if (index >= m_size)
+        if (index >= base::m_size)
             throw "Element is out of range when remove from list.";
 
         remove(iterator(*this, index));
@@ -358,23 +359,6 @@ public:
 
 private:
     // Construct iterator by mapping & type (Begin, End)
-    list_iterator(list_type& the_list, size_t index)
-    {
-#ifdef _DEBUG
-        m_list = &the_list;
-        m_size = the_list.size();
-        STD_ASSERT(("Expect valid index [0..m_size].", index <= m_size));
-#endif
-        m_index = index;
-
-        // Lookup the node by index
-        node *p = the_list.m_head;
-        while (index--)
-            p = p->next;
-        m_cursor_ptr = p;
-    }
-
-    // Construct iterator by mapping & type (Begin, End)
     list_iterator(list_type& the_list, size_t index, node *p)
     {
 #ifdef _DEBUG
@@ -382,6 +366,8 @@ private:
         m_size = the_list.size();
         STD_ASSERT(("Expect valid index in [0..m_size].", index <= m_size));
 #endif
+        STD_ASSERT(index == 0 && p == the_list.m_head->next ||
+                   index == the_list.size() && p == the_list.m_tail);
         m_index = index;
         m_cursor_ptr = p;
     }

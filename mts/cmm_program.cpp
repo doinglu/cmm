@@ -44,8 +44,8 @@ struct std_critical_section *Program::m_program_cs = 0;
 
 int Program::init()
 {
-    m_string_pool = new StringPool();
-    m_all_programs = new ProgramNameMap();
+    m_string_pool = XNEW(StringPool);
+    m_all_programs = XNEW(ProgramNameMap);
 
     std_new_critical_section(&m_program_cs);
     return 0;
@@ -54,16 +54,16 @@ int Program::init()
 void Program::shutdown()
 {
     // Clear all programs
-    auto& programs = m_all_programs->values();
+    auto programs = m_all_programs->values();
     for (auto it = programs.begin(); it != programs.end(); ++it)
-        delete *it;
+        XDELETE(*it);
     STD_ASSERT(("All programs should be freed", m_all_programs->size() == 0));
-    delete m_all_programs;
+    XDELETE(m_all_programs);
 
     std_delete_critical_section(m_program_cs);
 
     // Clear all strings
-    delete m_string_pool;
+    XDELETE(m_string_pool);
 }
 
 // Create a program
@@ -82,7 +82,7 @@ Program::~Program()
 {
     // Destruct all functions
     for (auto it = m_functions.begin(); it != m_functions.end(); ++it)
-        delete *it;
+        XDELETE(*it);
 
     std_enter_critical_section(m_program_cs);
     m_all_programs->erase(m_name);
@@ -147,7 +147,7 @@ Function *Program::define_function(const simple::string& name,
     ArgNo min_arg_no, ArgNo max_arg_no,
     Function::Attrib attrib)
 {
-    auto *function = new Function(this, name);
+    auto *function = XNEW(Function, this, name);
     function->m_func_entry = func_entry;
     function->m_min_arg_no = min_arg_no;
     function->m_max_arg_no = max_arg_no;
@@ -159,7 +159,7 @@ Function *Program::define_function(const simple::string& name,
 // Create member in this program
 Member *Program::define_member(const simple::string& name, Value::Type type, MemberOffset offset)
 {
-    auto *member = new Member(this, name);
+    auto *member = XNEW(Member, this, name);
     member->m_type = type;
     member->m_offset = offset;
     m_members.push_back(member);
@@ -451,31 +451,31 @@ Object *Program::new_instance(Domain *domain)
 }
 
 // Invoke a function in program
-Value Program::invoke(Thread *__thread, ObjectId __oid, const Value& __function_name, Value *__args, ArgNo __n)
+Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n)
 {
     CalleeInfo callee;
 
-    if (__function_name.m_type != Value::STRING)
+    if (function_name.m_type != Value::STRING)
         // Bad type of function name
         return Value();
 
-    if (!get_callee_by_name((String **)&__function_name.m_string, &callee))
+    if (!get_callee_by_name((String **)&function_name.m_string, &callee))
         // No such function
         return Value();
 
-    if (!__thread->try_switch_object_by_id(__oid))
+    if (!thread->try_switch_object_by_id(oid))
         // The object is not existed or just destructed
         return Value();
 
-    __thread->transfer_values_to_current_domain();
+    thread->transfer_values_to_current_domain();
 
     // Call
-    auto *object = Object::get_object_by_id(__oid);
+    auto *object = Object::get_object_by_id(oid);
     auto component_no = callee.component_no;
     ComponentOffset offset = m_components[component_no].offset;
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::Entry func = callee.function->m_func_entry;
-    return (component_impl->*func)(__thread, object, component_no, __args, __n);
+    return (component_impl->*func)(thread, object, component_no, args, n);
 }
 
 } // End of namespace: cmm

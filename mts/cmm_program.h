@@ -35,7 +35,7 @@ public:
 		NULLABLE = 1,
 	} Attrib;
 
-private:
+public:
     // Only private constructor, it should be created by Function only
     Parameter(Function *function, const simple::string& name);
 
@@ -61,9 +61,9 @@ public:
     // Why use void *?
     // Since Entry would be routine in a class (can't be decided now), so
     // we use void * instead.
-    typedef Value(AbstractComponent::*Entry)(Thread *, Object *object, ComponentNo component_no, Value *__args, size_t __n);
+    typedef Value(AbstractComponent::*Entry)(Thread *, Object *, ComponentNo, Value *, ArgNo);
 
-private:
+public:
     // Only private constructor, it should be created by Program only
     Function(Program *program, const simple::string& name);
 
@@ -156,6 +156,12 @@ public:
     static void update_all_callees();
 
 public:
+    // Decribe the object properties
+    void define_object(size_t object_size)
+    {
+        m_object_size = object_size;
+    }
+
     // Create function in this program
     Function *define_function(const simple::string& name,
                               Function::Entry func_entry,
@@ -218,11 +224,17 @@ public:
         return mapped_component_no;
     }
 
+    // Get object's size
+    size_t get_object_size()
+    {
+        return m_object_size;
+    }
+
     // Create a new instance
     Object *new_instance(Domain *domain);
 
     // Invoke routine
-    Value invoke(Thread *__thread, ObjectId __oid, const Value& __function_name, Value *__args, ArgNo n);
+    Value invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n);
 
 private:
     // All constant strings of programs
@@ -236,6 +248,7 @@ private:
 private:
     Attrib m_attrib;
     String *m_name;
+    size_t m_object_size;
 
     // New() instance function
     NewInstanceFunc m_new_instance_func;

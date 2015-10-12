@@ -7,6 +7,7 @@
 #include "std_template/simple_hash_set.h"
 #include "cmm_domain.h"
 #include "cmm_object.h"
+#include "cmm_program.h"
 #include "cmm_value.h"
 
 int conflict; ////----
@@ -25,11 +26,11 @@ int Domain::init()
     std_new_critical_section(&m_domain_cs);
 
     // Create the id manager
-    m_id_manager = new DomainIdManager(MAX_ID_PAGES);
+    m_id_manager = XNEW(DomainIdManager, MAX_ID_PAGES);
 
     // Create the domain 0
-    m_all_domains = new DomainIdMap();
-    m_domain_0 = new Domain();
+    m_all_domains = XNEW(DomainIdMap);
+    m_domain_0 = XNEW(Domain);
     return 0;
 }
 
@@ -39,13 +40,13 @@ void Domain::shutdown()
     // Clear all domains
     auto domains = m_all_domains->values();
     for (auto it = domains.begin(); it != domains.end(); ++it)
-        delete *it;
+        XDELETE(*it);
     STD_ASSERT(("All domains should be freed.", m_all_domains->size() == 0));
-    delete m_all_domains;
+    XDELETE(m_all_domains);
     m_domain_0 = 0;
 
     // Destory the id manager
-    delete m_id_manager;
+    XDELETE(m_id_manager);
 
     std_delete_critical_section(m_domain_cs);
 }
@@ -76,6 +77,12 @@ Domain::Domain()
 
 Domain::~Domain()
 {
+    // Remove all objects
+    auto objects = m_objects.to_array();
+    for (auto it = objects.begin(); it != objects.end(); ++it)
+        XDELETE(*it);
+    STD_ASSERT(("There are still alive objects in domain.", m_objects.size() == 0));
+
 #ifdef _DEBUG
     gc();
     STD_ASSERT(m_value_list.get_count() == 0);
@@ -123,6 +130,10 @@ void Domain::leave()
 // Garbage collect
 void Domain::gc()
 {
+    if (!m_value_list.get_count())
+        // Value list is empty
+        return;
+
     auto b = std_get_current_us_counter();////----
     auto *thread = Thread::get_current_thread();
     auto *context = thread ? thread->get_this_context() : 0;
@@ -131,7 +142,7 @@ void Domain::gc()
         context->value.update_end_sp(&context);
 
     MarkValueState state(&m_value_list);
-    ReferenceValue *low = (ReferenceValue *)-1, *high = 0;
+    ReferenceValue *low, *high;
 
     // Mask of valid pointer
     // For all valid pointer, the last N bits should be zero
@@ -139,6 +150,8 @@ void Domain::gc()
 
     // Put all values into the map
     auto *p = m_value_list.get_list();
+    low = p;
+    high = p;
     while (p)
     {
         // Reset bound of valid pointers
@@ -170,13 +183,26 @@ void Domain::gc()
     }
 
     // Scan all member objects in this domain
+    for (auto it = m_objects.begin(); it != m_objects.end(); ++it)
+    {
+        auto *object = *it;
+        auto *p = (ReferenceValue **)object;
+        size_t size = object->get_program()->get_object_size();
+        auto *p_end = (ReferenceValue **)(((char *)p) + size);
+        while (p < p_end)
+        {
+            if (((IntPtr)*p & mask) == 0 && *p >= low && *p <= high)
+                mark_value(state, *p);
+            p++;
+        }
+    }
 
     // Free all non-refered values & regenerate value list
     auto end = state.set.end();
     for (auto it = state.set.begin(); it != end; ++it)
     {
         // Value is not refered, free it
-        delete *it;
+        XDELETE(*it);
     }
 
     // Reset gc counter
@@ -209,7 +235,7 @@ void Domain::mark_value(MarkValueState& state, ReferenceValue *ptr_value)
 }
 
 // Let object join in domain
-void Domain::join(Object *ob)
+void Domain::join_object(Object *ob)
 {
     STD_ASSERT(ob->get_domain() == this);
     m_objects.put(ob);

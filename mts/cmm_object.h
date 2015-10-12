@@ -38,7 +38,7 @@ public:
 
 public:
     Object() { }
-    virtual ~Object() { }
+    virtual ~Object();
 
 public:
     // Allocate an oid for this object

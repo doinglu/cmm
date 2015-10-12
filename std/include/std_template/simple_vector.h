@@ -32,7 +32,7 @@ public:
     {
         m_space = count;
         m_size = count;
-        m_array = new T[count];
+        m_array = XNEWN(T, count);
         for (size_t i = 0; i < count; i++)
             m_array[i] = arr[i];
     }
@@ -43,14 +43,14 @@ public:
         if (capacity < 1)
             capacity = 1;
         m_space = capacity;
-        m_array = new T[m_space];
+        m_array = XNEWN(T, m_space);
         m_size = 0;
     }
 
     ~vector()
     {
         if (m_array)
-            delete[] m_array;
+            XDELETEN(m_array);
         STD_DEBUG_SET_NULL(m_array);
     }
 
@@ -59,9 +59,9 @@ public:
         if (m_space < vec.size())
         {
             // Reallocate array
-            delete[] m_array;
+            XDELETEN(m_array);
             m_space = vec.size();
-            m_array = new T[m_space];
+            m_array = XNEWN(T, m_space);
         }
 
         m_size = vec.size();
@@ -74,7 +74,7 @@ public:
     vector& operator = (vector&& vec)
     {
         if (m_array)
-            delete[] m_array;
+            XDELETEN(m_array);
 
         // Steal m_array from vec
         m_space = vec.m_space;
@@ -106,10 +106,10 @@ public:
     {
         T *new_array;
         m_space *= 2;
-        new_array = new T[m_space];
+        new_array = XNEWN(T, m_space);
         for (size_t i = 0; i < m_size; i++)
             new_array[i] = simple::move(m_array[i]);
-        delete[] m_array;
+        XDELETEN(m_array);
         m_array = new_array;
     }
 
@@ -129,10 +129,10 @@ public:
 
         T *new_array;
         m_space = to;
-        new_array = new T[m_space];
+        new_array = XNEWN(T, m_space);
         for (size_t i = 0; i < m_size; i++)
             new_array[i] = simple::move(m_array[i]);
-        delete[] m_array;
+        XDELETEN(m_array);
         m_array = new_array;
     }
 

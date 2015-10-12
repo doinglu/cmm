@@ -5,34 +5,6 @@
 #include "std_memmgr/std_memmgr.h"
 #include "cmm_memory.h"
 
-#if 1
-void *operator new(size_t size)
-{
-    void *p;
-    if (std_is_mem_mgr_installed())
-    {
-        p = STD_MEM_ALLOC(size);
-    }
-    else
-    {
-        p = malloc(size);
-    }
-    return p;
-}
-
-void operator delete(void *p) throw()
-{
-    if (std_is_mem_mgr_installed())
-    {
-        STD_MEM_FREE(p);
-    }
-    else
-    {
-        free(p);
-    }
-}
-#endif
-
 namespace cmm
 {
 

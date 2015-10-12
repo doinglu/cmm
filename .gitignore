@@ -7,6 +7,8 @@
 *.user
 *.filters
 *.out
+*.opensdf
+log.txt
 Outputs/**
 Debug/**
 Release/**

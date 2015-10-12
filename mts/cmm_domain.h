@@ -84,7 +84,7 @@ public:
 
 public:
     // Let object join in domain
-    void join(Object *ob);
+    void join_object(Object *ob);
 
     // Object was destructed, left domain
     void object_was_destructed(Object *ob);

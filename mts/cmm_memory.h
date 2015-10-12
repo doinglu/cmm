@@ -4,9 +4,7 @@
 #pragma once
 
 #include "std_port/std_port_type.h"
-
-void *operator new(size_t size);
-void  operator delete(void *p) throw();
+#include "std_memmgr/std_memmgr.h"
 
 namespace cmm
 {

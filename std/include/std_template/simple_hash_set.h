@@ -110,7 +110,11 @@ public:
 
     vector<K> to_array()
     {
-        return m_keys;
+        vector<K> vec(m_size);
+        // Lookup entire table to add all keys
+        for (size_t i = 0; i < m_size; i++)
+            vec.push_back(m_keys[i]);
+        return vec;
     }
 
 private:
@@ -283,6 +287,7 @@ public:
         m_set(0),
         m_size(0),
 #endif
+        m_index(0),
         m_cursor_ptr(0)
     {
     }
@@ -295,7 +300,15 @@ private:
         m_set = &set;
         m_size = (index_t) set.size();
 #endif
+        m_index = index;
         m_cursor_ptr = set.m_keys.get_array_address(index);
+    }
+
+public:
+    // Get index of iterator
+    index_t get_index()
+    {
+        return m_index;
     }
 
 public:
@@ -316,6 +329,7 @@ public:
     // Move to next
     hash_set_iterator& operator ++ ()
     {
+        m_index++;
         m_cursor_ptr++;
         return *this;
     }
@@ -329,12 +343,12 @@ public:
 
     bool operator == (const hash_set_iterator& it) const
     {
-        return m_cursor_ptr == it.m_cursor_ptr;
+        return m_index == it.m_index;
     }
 
     bool operator < (const hash_set_iterator& it) const
     {
-        return m_cursor_ptr < it.m_cursor_ptr;
+        return m_index < it.m_index;
     }
 
 private:
@@ -343,6 +357,7 @@ private:
     hash_set_type *m_set;
     index_t m_size;
 #endif
+    index_t m_index;
     K *m_cursor_ptr;
 };
 

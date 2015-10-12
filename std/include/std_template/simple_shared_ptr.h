@@ -107,7 +107,7 @@ private:
         if (m_ref_obj)
         {
             if (--m_ref_obj->m_ref_counter <= 0)
-                delete m_ref_obj;
+                XDELETE(m_ref_obj);
         }
     }
 
@@ -120,7 +120,7 @@ template<class T, class... Types>
 inline shared_ptr<T> make_shared(Types&&... args)
 {
     // Create T & make a shared ptr to it
-    ref_obj<T> *obj = new ref_obj<T>(simple::forward<Types>(args)...);
+    ref_obj<T> *obj = XNEW(ref_obj<T>, simple::forward<Types>(args)...);
     shared_ptr<T> ret(obj);
     return ret;
 }

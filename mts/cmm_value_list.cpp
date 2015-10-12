@@ -56,7 +56,7 @@ void ValueList::free()
         p = p->next;
 
         // Free it
-        delete value;
+        XDELETE(value);
     }
 }
 

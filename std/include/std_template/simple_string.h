@@ -28,7 +28,7 @@ public:
         m_len = (string_size_t) size;
         // Allocate memory for long string
         if (is_dynamic_allocated())
-            m_alloc = new char_t[m_len + 1];
+            m_alloc = XNEWN(char_t, m_len + 1);
         *data_ptr() = 0;
     }
 
@@ -38,7 +38,7 @@ public:
 
         // Allocate memory for long string
         if (is_dynamic_allocated())
-            m_alloc = new char_t[m_len + 1];
+            m_alloc = XNEWN(char_t, m_len + 1);
 
         memcpy(data_ptr(), c_str, (m_len + 1) * sizeof(char_t));
     }
@@ -50,7 +50,7 @@ public:
 		// Allocate memory for long string
 		if (is_dynamic_allocated())
 		{
-			m_alloc = new char_t[m_len + 1];
+			m_alloc = XNEWN(char_t, m_len + 1);
 			memcpy(data_ptr(), s.data_ptr(), (m_len + 1) * sizeof(char_t));
 		} else
 		{
@@ -76,7 +76,7 @@ public:
     {
         if (is_dynamic_allocated())
         {
-            delete[] m_alloc;
+            XDELETEN(m_alloc);
             STD_DEBUG_SET_NULL(m_alloc);
         }
         STD_DEBUG_SET_NULL(m_len);
@@ -85,13 +85,13 @@ public:
     string& operator = (const string& s)
     {
         if (is_dynamic_allocated())
-            delete[] m_alloc;
+            XDELETEN(m_alloc);
 
         m_len = s.m_len;
 
         // Allocate memory for long string
         if (is_dynamic_allocated())
-            m_alloc = new char_t[m_len + 1];
+            m_alloc = XNEWN(char_t, m_len + 1);
 
         memcpy(data_ptr(), s.data_ptr(), (m_len + 1) * sizeof(char_t));
         return *this;
@@ -100,7 +100,7 @@ public:
     string& operator = (string&& s)
     {
         if (is_dynamic_allocated())
-            delete[] m_alloc;
+            XDELETEN(m_alloc);
 
         m_len = s.m_len;
 
@@ -154,7 +154,7 @@ public:
     }
 
     // Generate by format string
-    size_t snprintf(const char *fmt, size_t n, ...);
+    string& snprintf(const char *fmt, size_t n, ...);
 
 public:
     // Hash a c_str
