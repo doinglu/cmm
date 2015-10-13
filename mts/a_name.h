@@ -61,7 +61,7 @@ public:
         Integer i;
         double t;
         b = std_get_current_us_counter();
-        for (i = 0; i < 1000; i++)
+        for (i = 0; i < 100000; i++)
             call_near(_thread, this, &__feature_name_impl::get_name);
         e = std_get_current_us_counter();
         t = (double)(e - b);
@@ -70,7 +70,7 @@ public:
         printf("Per near call is %.3gns.\nAppromix %.3fM cps.\n", t, (1000. / t));
 
         b = std_get_current_us_counter();
-        for (i = 0; i < 1000; i++)
+        for (i = 0; i < 100000; i++)
             call_far(_thread, 0, 1);
         e = std_get_current_us_counter();
         t = (double)(e - b);
@@ -80,7 +80,7 @@ public:
 
         Value fun_name = "get_name";
         b = std_get_current_us_counter();
-        for (i = 0; i < 1000; i++)
+        for (i = 0; i < 100000; i++)
             call_other(_thread, __this_object->get_oid(), fun_name);
         e = std_get_current_us_counter();
         t = (double)(e - b);
@@ -90,7 +90,7 @@ public:
 
         fun_name = "do_nothing";
         b = std_get_current_us_counter();
-        for (i = 0; i < 1000; i++)
+        for (i = 0; i < 10000; i++)
             call_other(_thread, other_oid, fun_name);
         e = std_get_current_us_counter();
         t = (double)(e - b);
@@ -98,8 +98,19 @@ public:
         t *= 1000;
         printf("Per domain call is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
 
+        fun_name = "set_name";
+        Value set_to = "Name was set";
+        b = std_get_current_us_counter();
+        for (i = 0; i < 10000; i++)
+            call_other(_thread, other_oid, fun_name, set_to);
+        e = std_get_current_us_counter();
+        t = (double)(e - b);
+        t = t / (double)i;
+        t *= 1000;
+        printf("Per domain call with parameter is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
+
         Value str_a = "a", str_b = "b";
-        Value m(Value::new_domain_map(_thread->get_current_domain()));
+        Value m(Value::new_map(_thread->get_current_domain()));
         m["a"] = 1;
         m["b"] = 2;
         b = std_get_current_us_counter();
@@ -111,7 +122,7 @@ public:
         t *= 1000;
         printf("Per mapping read is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
 
-        m = Value::new_domain_map(_thread->get_current_domain());
+        m = Value::new_map(_thread->get_current_domain());
         m["a"] = 1;
         m["b"] = 2;
         b = std_get_current_us_counter();
@@ -123,7 +134,7 @@ public:
         t *= 1000;
         printf("Per mapping write is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
 
-        Value ret = call_other(_thread, __this_object->get_oid(), "print");
+        Value ret = call_other(_thread, other_oid, "print");
         ret = Value(5);
         return ret;
     }

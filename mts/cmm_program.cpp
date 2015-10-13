@@ -479,11 +479,9 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
         // No such function
         return Value();
 
-    if (!thread->try_switch_object_by_id(oid))
+    if (!thread->try_switch_object_by_id(thread, oid, args, n))
         // The object is not existed or just destructed
         return Value();
-
-    thread->transfer_values_to_current_domain();
 
     // Call
     auto *object = Object::get_object_by_id(oid);

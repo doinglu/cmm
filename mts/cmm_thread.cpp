@@ -151,7 +151,7 @@ void Thread::stop()
     {
         printf("There are still %zu active reference values when thread is stopped.\n",
                m_value_list.get_count());
-        drop_local_values();
+        m_value_list.free();
     }
 
     // Destroy start domain & context for convenience
@@ -178,7 +178,7 @@ void Thread::enter_function_call(CallContextNode *context)
 
 // Leave function call
 // Pop stack & restore function context
-Value Thread::leave_function_call(CallContextNode *context, const Value& ret)
+Value Thread::leave_function_call(CallContextNode *context, Value& ret)
 {
     STD_ASSERT(("There must be existed current_domain.", m_current_domain));
     m_current_domain->m_context_list.remove_node(context);
@@ -194,10 +194,10 @@ Value Thread::leave_function_call(CallContextNode *context, const Value& ret)
         return ret;
 
     // Domain will be changed, try to copy ret to target domain
-    Value dup_ret = duplicate_value_to_local(ret);
+    ret.copy_to_local(c->m_thread);
     c->m_thread->switch_domain(prev_domain);
     transfer_values_to_current_domain();
-    return dup_ret;
+    return ret;
 }
 
 // Switch execution ownership to a new domain
@@ -228,7 +228,7 @@ void Thread::switch_object(Object *to_object)
 // Switch object by oid
 // Since the object may be destructed in other thread, I must lock the
 // object & switch to it
-bool Thread::try_switch_object_by_id(ObjectId to_oid)
+bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *args, ArgNo n)
 {
     // ATTENTION:
     // We can these values no matter the entry is freed or allocated, since
@@ -241,6 +241,12 @@ bool Thread::try_switch_object_by_id(ObjectId to_oid)
 
     if (m_current_domain != to_domain)
     {
+        // Domain will be changed
+        // Copy arguments to thread local value list & pass to target
+        for (ArgNo i = 0; i < n; i++)
+            args[i].copy_to_local(thread);
+        thread->transfer_values_to_current_domain();
+
         // OK, Switch the domain first
         if (m_current_domain)
             // Leave previous domain
@@ -285,20 +291,6 @@ bool Thread::will_change_domain(Domain *to_domain)
 
     // I will change domain
     return true;
-}
-
-// Drop local values
-void Thread::drop_local_values()
-{
-    m_value_list.free();
-}
-
-// Duplicate value to local value list
-// When call/ret to other domain, we need copy the value to local value list first
-// Then use "transfer_values_to_current_domain" after having switched
-Value Thread::duplicate_value_to_local(const Value& value)
-{
-    return value.copy_to_local(this);
 }
 
 // Transfer all values in local value list to current domain

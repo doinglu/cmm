@@ -167,7 +167,7 @@ public:
     void enter_function_call(CallContextNode *context);
 
     // Leave function call
-    Value leave_function_call(CallContextNode *context, const Value& ret);
+    Value leave_function_call(CallContextNode *context, Value& ret);
 
     // Switch execution ownership to a new domain
     void switch_domain(Domain *to_domain);
@@ -176,7 +176,7 @@ public:
     void switch_object(Object *to_object);
 
     // Try to switch execution ownership to a new domain by oid
-    bool try_switch_object_by_id(ObjectId to_oid);
+    bool try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *args, ArgNo n);
 
     // Will change domain?
     bool will_change_domain(Domain *to_domain);
@@ -188,12 +188,7 @@ public:
         m_value_list.append_value(value);
     }
 
-    // Drop all values in local value list
-    void drop_local_values();
-
-    // Duplicate domain value to local value list
-    Value duplicate_value_to_local(const Value& value);
-
+private:
     // Transfer all values in local value list to current domain
     void transfer_values_to_current_domain();
 

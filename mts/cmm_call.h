@@ -44,7 +44,6 @@ inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo funct
 {
     Value params[] = { args... };
     ArgNo n = sizeof(params) / sizeof(params[0]);
-    thread->transfer_values_to_current_domain();
     return call_far(thread, component_no, function_no, params, n);
 }
 
@@ -65,7 +64,6 @@ inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Typ
 {
     Value params[] = { args... };
     ArgNo n = sizeof(params) / sizeof(params[0]);
-    thread->transfer_values_to_current_domain();
     return call_near(thread, fptr, params, n);
 };
 

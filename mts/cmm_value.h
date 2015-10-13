@@ -77,7 +77,7 @@ public:
 
 private:
     // Bind the reference value to a domain
-    inline void bind_to_domain_or_local();
+    inline void bind_to_current_domain();
 
 public:
     Uint attrib;
@@ -264,22 +264,19 @@ public:
     // Domain/local relative operations
 public:
     // Copy this value to local value list if this is a reference type value
-    Value copy_to_local(Thread *thread) const
+    Value copy_to_local(Thread *thread)
     {
         if (m_type < REFERENCE_VALUE)
             return *this;
 
         // Copy reference value
-        return Value(m_type, ((ReferenceValue *) m_reference_value)->copy_to_local(thread));
+        m_reference_value = m_reference_value->copy_to_local(thread);
+        return *this;
     }
 
-    // New values & bind to thread
-    static Value new_local_string(const char *c_str);
-    static Value new_local_buffer(Uint8 *data, size_t len);
-
     // New values & bind to current domain
-    static Value new_domain_string(Domain *domain, const char *c_str);
-    static Value new_domain_map(Domain *domain, size_t size_hint = 8);
+    static Value new_string(Domain *domain, const char *c_str);
+    static Value new_map(Domain *domain, size_t size_hint = 8);
 
 public:
     Value& operator =(const Value& value)

@@ -45,13 +45,11 @@ int compare_buffer(Buffer *a, Buffer *b)
 
 // Try to bind a reference value to a domain's values list first,
 // Or bind to thread local values list IF no domain found
-void ReferenceValue::bind_to_domain_or_local()
+void ReferenceValue::bind_to_current_domain()
 {
-    Thread *thread = Thread::get_current_thread();
-    if (!thread->get_current_domain())
-        thread->bind_value(this);
-    else
-        thread->get_current_domain()->bind_value(this);
+    Domain *domain = Thread::get_current_thread_domain();
+    STD_ASSERT(("No found domain when bind_to_current_domain.", domain));
+    domain->bind_value(this);
 }
 
 // Duplicate string to local
@@ -160,7 +158,7 @@ Value::Value(Object *ob) :
 Value::Value(const simple::char_t *c_str)
 {
     auto *v = XNEW(String, c_str);
-    v->bind_to_domain_or_local();
+    v->bind_to_current_domain();
     m_type = STRING;
     m_string = v;
 }
@@ -168,7 +166,7 @@ Value::Value(const simple::char_t *c_str)
 Value::Value(const simple::string& str)
 {
     auto *v = XNEW(String, str);
-    v->bind_to_domain_or_local();
+    v->bind_to_current_domain();
     m_type = STRING;
     m_string = v;
 }
@@ -183,24 +181,8 @@ size_t Value::hash_value() const
     }
 }
 
-
-// para should be const char *
-Value Value::new_local_string(const char *c_str)
-{
-    auto *v = XNEW(String, c_str);
-    Thread::get_current_thread()->bind_value(v);
-    return Value(v);
-}
-
-Value Value::new_local_buffer(Uint8 *data, size_t len)
-{
-    auto *v = XNEW(Buffer, data, len);
-    Thread::get_current_thread()->bind_value(v);
-    return Value(v);
-}
-
-// para should be const char *
-Value Value::new_domain_string(Domain *domain, const char *c_str)
+// Create a reference value belonged to this domain
+Value Value::new_string(Domain *domain, const char *c_str)
 {
     auto *v = XNEW(String, c_str);
     STD_ASSERT(domain == Thread::get_current_thread_domain());
@@ -208,7 +190,8 @@ Value Value::new_domain_string(Domain *domain, const char *c_str)
     return Value(v);
 }
 
-Value Value::new_domain_map(Domain *domain, size_t size_hint)
+// Create a reference value belonged to this domain
+Value Value::new_map(Domain *domain, size_t size_hint)
 {
     auto *v = XNEW(Map, size_hint);
     STD_ASSERT(domain == Thread::get_current_thread_domain());
