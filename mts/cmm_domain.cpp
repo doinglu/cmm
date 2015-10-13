@@ -53,7 +53,7 @@ void Domain::shutdown()
 
 Domain::Domain()
 {
-    m_type = Normal;
+    m_type = NORMAL;
     m_id.i64 = 0;
     m_running = 0;
     m_wait_counter = 0;
@@ -174,7 +174,7 @@ void Domain::gc()
     {
         // Mark all values
         auto &context = *it;
-        auto *p = (ReferenceValue **)context.m_arg + context.m_arg_count;
+        auto *p = (ReferenceValue **)context.m_start_sp;
         while (--p > (ReferenceValue **)context.m_end_sp)
         {
             if (((IntPtr)*p & mask) == 0 && *p >= low && *p <= high)

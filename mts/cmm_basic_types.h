@@ -3,9 +3,12 @@
 #pragma once
 
 #include "std_port/std_port_type.h"
+#include "std_template/simple_string.h"
 
 namespace cmm
 {
+
+typedef simple::char_t char_t; // Character of string
 
 #if 1
 typedef Uint16 ArgNo;               // Argument count/no
@@ -22,6 +25,20 @@ typedef size_t ComponentOffset;     // Offset of component in class Object
 typedef size_t MapOffset;           // Map offset for component no map
 typedef size_t FunctionNo;          // Number of function in a program
 #endif
+
+typedef enum
+{
+    NIL = 0,            // Can be casted to any other type
+    INTEGER = 1,        // Integer (int64)
+    REAL = 2,           // Float (double)
+    OBJECT = 3,         // Object
+    REFERENCE_VALUE = 9,// Type >= ReferenceValue is a ReferenceValue type
+    STRING = 9,         // String
+    BUFFER = 10,        // Binary data
+    FUNCTION = 11,      // Function pointer
+    ARRAY = 12,         // Array
+    MAPPING = 13,       // Mapping
+}  ValueType;
 
 // Global Id is a 64bits, cross multi-process Id.
 // The Id.process_id indicates the process;

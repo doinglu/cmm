@@ -23,9 +23,8 @@ friend class Thread;
 public:
     enum Type
     {
-        Normal = 0,     // Normal domain, require lock
-        ReadOnly = 1,   // Simple object, all members are readonly, enter without lock
-        Utility = 2,    // Simple object, utility functions only, enter without lock
+        NORMAL = 0,      // Normal domain, require lock
+        READ_ONLY = 1,   // Simple object, all members are readonly, enter without lock
     };
 
     struct Entry

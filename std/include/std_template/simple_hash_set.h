@@ -41,24 +41,27 @@ public:
     {
     }
 
+    // Clear the content
+    void clear()
+    {
+        // Clear all keys, values & index list
+        m_keys.clear();
+        m_list.clear();
+
+        // Reset table empty entries
+        m_table.clear();
+        m_table.push_backs(BadIndex, MinCapacity * 2);
+        m_table_mask = (index_t)m_table.size() - 1;
+    }
+
+    // Is this hash map contains the key?
     bool contains(const K& key)
     {
         index_t index;
         return try_get_index(key, &index);
     }
 
-    index_t put(const K& key)
-    {
-        // Get the location (index != bad when found or be bad when not found)
-        index_t index;
-        if (try_get_index(key, &index))
-            // Found, just return index
-            return index;
-
-        // Not found, insert this new node
-        return insert(key);
-    }
-
+    // Erase pair by key
     bool erase(const K& key)
     {
         // Search in table
@@ -84,22 +87,27 @@ public:
         return false;
     }
 
-    bool find(const K& key) const
+    // Find the iterator by key
+    iterator find(const K& key)
     {
         index_t index;
-        return try_get_index(key, &index);
+        if (!try_get_index(key, &index))
+            return end();
+
+        return iterator(*this, index);
     }
 
-    void clear()
+    // Put key pair into map, replace if existed
+    index_t put(const K& key)
     {
-        // Clear all keys, values & index list
-        m_keys.clear();
-        m_list.clear();
+        // Get the location (index != bad when found or be bad when not found)
+        index_t index;
+        if (try_get_index(key, &index))
+            // Found, just return index
+            return index;
 
-        // Reset table empty entries
-        m_table.clear();
-        m_table.push_backs(BadIndex, MinCapacity * 2);
-        m_table_mask = (index_t) m_table.size() - 1;
+        // Not found, insert this new node
+        return insert(key);
     }
 
     size_t size()
@@ -107,6 +115,8 @@ public:
         return m_size;
     }
 
+public:
+    // Generate vector of keys
     vector<K> to_array()
     {
         vector<K> vec(m_size);
@@ -222,7 +232,7 @@ private:
     // Insert new value into set
     index_t insert(const K& key)
     {
-        STD_ASSERT(! find(key));
+        STD_ASSERT(! contains(key));
 
         // Add the key into table list
         index_t index;
@@ -305,7 +315,7 @@ private:
 
 public:
     // Get index of iterator
-    index_t get_index()
+    index_t get_index() const
     {
         return m_index;
     }
@@ -313,14 +323,14 @@ public:
 public:
     K& operator * ()
     {
-        STD_ASSERT(m_size == m_set->size());
+        STD_ASSERT(m_size == (index_t)m_set->size());
         STD_ASSERT(*this < m_set->end());
         return *m_cursor_ptr;
     }
 
     K *operator -> ()
     {
-        STD_ASSERT(m_size == m_set->size());
+        STD_ASSERT(m_size == (index_t)m_set->size());
         STD_ASSERT(*this < m_set->end());
         return m_cursor_ptr;
     }

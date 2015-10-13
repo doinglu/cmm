@@ -21,6 +21,7 @@ CallContext::CallContext(Thread *thread) :
     m_local_count(0),
     m_this_object(0),
     m_this_component(0),
+    m_start_sp((void *)&thread),
     m_end_sp((void *)&thread),
     m_thread(thread)
 {
@@ -48,6 +49,7 @@ CallContext::CallContext(Thread *thread,
     m_local_count(local_count),
     m_this_object(this_object),
     m_this_component(this_component),
+    m_start_sp((void *)(arg + arg_count)),
     m_end_sp((void *)&local_count),
     m_thread(thread)
 {
@@ -137,6 +139,9 @@ void Thread::start()
     // Create a context for this thread
     m_start_context = XNEW(CallContextNode, this);
     m_context = m_start_context;
+
+    // Join this context into start domain
+    m_start_domain->m_context_list.append_node(m_start_context);
 }
 
 // Thread will be stopped
@@ -158,7 +163,10 @@ void Thread::stop()
     STD_ASSERT(m_current_domain == m_start_domain);
     STD_ASSERT(m_context == m_start_context);
 
+    // Remove context from the start domain
+    m_start_domain->m_context_list.remove_node(m_start_context);
     XDELETE(m_start_context);
+    m_start_context = 0;
     m_context = 0;
 
     m_start_domain->leave();

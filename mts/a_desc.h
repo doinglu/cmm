@@ -25,7 +25,7 @@ public:
         if (__n != 0)
             throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
 
-        printf("Name: %s.\n", call_far(_thread, 1 /* Component:Name */, 1 /* get_name() */).m_string->s.c_str());
+        printf("Name: %s.\n", call_far(_thread, 1 /* Component:Name */, 1 /* get_name() */).m_string->c_str());
 
         return Value();
     }

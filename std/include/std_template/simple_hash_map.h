@@ -44,32 +44,27 @@ public:
     {
     }
 
-    bool try_get(const K& key, V* ptr_value) const
+    // Clear the content
+    void clear()
     {
-        index_t index;
-        if (! try_get_index(key, &index))
-            // Failed to get the element in hash map
-            return false;
+        // Clear all keys, values & index list
+        m_pairs.clear();
+        m_list.clear();
 
-        *ptr_value = m_pairs[index].second;
-        return true;
+        // Reset table empty entries
+        m_table.clear();
+        m_table.push_backs(BadIndex, MinCapacity * 2);
+        m_table_mask = (index_t)m_table.size() - 1;
     }
 
-    index_t put(const K& key, const V& value)
+    // Is this hash map contains the key?
+    bool contains(const K& key) const
     {
-        // Get the location (index != bad when found or be bad when not found)
         index_t index;
-        if (try_get_index(key, &index))
-        {
-            // Found, just replace
-            m_pairs[index].second = value;
-            return index;
-        }
-
-        // Not found, insert this new key-value pair
-        return insert(key, value);
+        return try_get_index(key, &index);
     }
 
+    // Erase pair by key
     bool erase(const K& key)
     {
         // Search in table
@@ -95,22 +90,47 @@ public:
         return false;
     }
 
-    bool find(const K& key) const
+    // Find the iterator by key
+    iterator find(const K& key) const
     {
         index_t index;
-        return try_get_index(key, &index);
+        if (!try_get_index(key, &index))
+            return end();
+
+        return iterator(*this, index);
     }
 
-    void clear()
+    // Put key-value pair into map, replace if existed
+    index_t put(const K& key, const V& value)
     {
-        // Clear all keys, values & index list
-        m_pairs.clear();
-        m_list.clear();
+        // Get the location (index != bad when found or be bad when not found)
+        index_t index;
+        if (try_get_index(key, &index))
+        {
+            // Found, just replace
+            m_pairs[index].second = value;
+            return index;
+        }
 
-        // Reset table empty entries
-        m_table.clear();
-        m_table.push_backs(BadIndex, MinCapacity * 2);
-        m_table_mask = (index_t) m_table.size() - 1;
+        // Not found, insert this new key-value pair
+        return insert(key, value);
+    }
+
+    // Try to get the value by key, return false if not found
+    bool try_get(const K& key, V* ptr_value) const
+    {
+        index_t index;
+        if (!try_get_index(key, &index))
+            // Failed to get the element in hash map
+            return false;
+
+        *ptr_value = m_pairs[index].second;
+        return true;
+    }
+
+    size_t size()
+    {
+        return m_size;
     }
 
     V& operator [] (const K& key)
@@ -126,11 +146,8 @@ public:
         return m_pairs[index].second;
     }
 
-    size_t size()
-    {
-        return m_size;
-    }
-
+public:
+    // Generate vector of keys
     vector<K> keys()
     {
         vector<K> vec(m_size);
@@ -140,6 +157,7 @@ public:
         return vec;
     }
 
+    // Generate vector of values
     vector<V> values()
     {
         vector<V> vec(m_size);
@@ -253,7 +271,7 @@ private:
     // Insert new value into map
     index_t insert(const K& key, const V& value)
     {
-        STD_ASSERT(! find(key));
+        STD_ASSERT(! contains(key));
 
         // Add the pair into table list
         index_t index;

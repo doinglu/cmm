@@ -180,6 +180,7 @@
     <ClInclude Include="cmm_memory.h" />
     <ClInclude Include="cmm_string_pool.h" />
     <ClInclude Include="cmm_basic_types.h" />
+    <ClInclude Include="cmm_string_ptr.h" />
     <ClInclude Include="cmm_util.h" />
     <ClInclude Include="cmm_value_list.h" />
     <ClInclude Include="cmm_object.h" />

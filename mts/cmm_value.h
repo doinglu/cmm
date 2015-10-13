@@ -42,7 +42,6 @@ public:
 public:
 	ReferenceValue() :
 #ifdef _DEBUG
-        type(0), // Value::NIL
         owner(0),
 #endif
 		attrib(0),
@@ -69,6 +68,9 @@ public:
         *pp_list_tail = this;
     }
 
+    // Return type of this referneced value
+    virtual ValueType get_type() = 0;
+
     // Copy to local value list
     virtual ReferenceValue *copy_to_local(Thread *thread) = 0;
 
@@ -83,7 +85,6 @@ public:
     Uint attrib;
     ReferenceValue *next;
 #ifdef _DEBUG
-    int type;           // Type of this reference value
     ValueList *owner;   // Owned by domain or thread
 #endif
 };
@@ -95,21 +96,6 @@ public:
 // correctly manually)
 class Value
 {
-public:
-    typedef enum
-    {
-        NIL = 0,            // Can be casted to any other type
-        INTEGER = 1,        // Integer (int64)
-        REAL = 2,           // Float (double)
-        OBJECT = 3,         // Object
-        REFERENCE_VALUE = 9,// Type >= ReferenceValue is a ReferenceValue type
-        STRING = 9,         // String
-        BUFFER = 10,        // Binary data
-        FUNCTION = 11,      // Function pointer
-        ARRAY = 12,         // Array
-        MAPPING = 13,       // Mapping
-    } Type;
-
 public:
     Value()
     {
@@ -171,9 +157,9 @@ public:
     Value(Object *ob);
 
     // Contruct from reference values
-    Value(Type type, ReferenceValue *v)
+    Value(ValueType type, ReferenceValue *v)
     {
-        STD_ASSERT(("Construct reference value with incorrect type.", type == v->type));
+        STD_ASSERT(("Construct reference value with incorrect type.", type == v->get_type()));
         m_type = type;
         m_reference_value = v;
     }
@@ -212,9 +198,48 @@ public:
     Value(const simple::char_t *c_str);
 	Value(const simple::string& str);
 
+    // Safe get values (check type)
+public:
+    // Return this value if they're expected type
+    const Value& as_nil() const { return expect_type(NIL); }
+    const Value& as_int() const { return expect_type(INTEGER); }
+    const Value& as_real() const { return expect_type(REAL); }
+    const Value& as_object() const { return expect_type(OBJECT); }
+    const Value& as_string() const { return expect_type(STRING); }
+    const Value& as_buffer() const { return expect_type(BUFFER); }
+    const Value& as_function() const { return expect_type(FUNCTION); }
+    const Value& as_array() const { return expect_type(ARRAY); }
+    const Value& as_map() const { return expect_type(MAPPING); }
+
+    Value& as_nil() { return expect_type(NIL); }
+    Value& as_int() { return expect_type(INTEGER); }
+    Value& as_real() { return expect_type(REAL); }
+    Value& as_object() { return expect_type(OBJECT); }
+    Value& as_string() { return expect_type(STRING); }
+    Value& as_buffer() { return expect_type(BUFFER); }
+    Value& as_function() { return expect_type(FUNCTION); }
+    Value& as_array() { return expect_type(ARRAY); }
+    Value& as_map() { return expect_type(MAPPING); }
+
+    Integer      get_int() const { return as_int().m_int; }
+    Real         gets_real() const { return as_real().m_real; }
+    ObjectId     get_object() const { return as_object().m_oid; }
+
+    const String      *get_string() const { return as_string().m_string; }
+    const Buffer      *get_buffer() const { return as_buffer().m_buffer; }
+    const FunctionPtr *get_function() const { return as_function().m_function; }
+    const Array       *get_array() const { return as_array().m_array; }
+    const Map         *get_map() const { return as_map().m_map; }
+
+    String      *get_string() { return as_string().m_string; }
+    Buffer      *get_buffer() { return as_buffer().m_buffer; }
+    FunctionPtr *get_function() { return as_function().m_function; }
+    Array       *get_array() { return as_array().m_array; }
+    Map         *get_map() { return as_map().m_map; }
+
 public:
     // Return name of this value
-    static const char *get_type_name(Type type)
+    static const char *get_type_name(ValueType type)
     {
         switch (type)
         {
@@ -234,15 +259,6 @@ public:
     // Calculate & cache hash number of the value
     size_t hash_value() const;
 
-    // Cast this value to integer
-    Value& to_int()
-    {
-        if (m_type == INTEGER)
-            return *this;
-
-        throw "Failed to convert to integer.";
-    }
-
 	// Is this reference value?
 	bool is_reference_value() const
 	{
@@ -261,6 +277,22 @@ public:
         return !is_zero();
     }
 
+private:
+    // Check type & return this value
+    const Value& expect_type(ValueType type) const
+    {
+        if (m_type != type)
+            throw simple::string().snprintf("Value type is not %s.", 128, get_type_name(type));
+        return *this;
+    }
+
+    Value& expect_type(ValueType type)
+    {
+        if (m_type != type)
+            throw simple::string().snprintf("Value type is not %s.", 128, get_type_name(type));
+        return (Value &)*this;
+    }
+
     // Domain/local relative operations
 public:
     // Copy this value to local value list if this is a reference type value
@@ -275,7 +307,7 @@ public:
     }
 
     // New values & bind to current domain
-    static Value new_string(Domain *domain, const char *c_str);
+    static Value new_string(Domain *domain, const char_t *c_str);
     static Value new_map(Domain *domain, size_t size_hint = 8);
 
 public:
@@ -293,7 +325,7 @@ public:
     Value operator [](const Value& value) const;
 
 public:
-    Type m_type;
+    ValueType m_type;
     union
     {
         Integer          m_int;
@@ -313,39 +345,84 @@ public:
 struct String : ReferenceValue
 {
 public:
+    typedef simple::string::string_hash_t string_hash_t;
+    typedef simple::string::string_size_t string_size_t;
+
+private:
+    // The string can be constructed by String::new_string() only,
+    // since the string data should be allocated at same time. That
+    // means the operation: new String(), String xxx is invalid. We
+    // must use String * to access it.
     String(size_t size) :
-        s(size)
+        m_hash_value(0)
     {
-#ifdef _DEBUG
-        type = Value::STRING;
-#endif
-    }
-
-    String(const simple::char_t *c_str) :
-        s(c_str)
-    {
-#ifdef _DEBUG
-        type = Value::STRING;
-#endif
-    }
-
-    String(const simple::string& str) :
-        s(str)
-    {
-#ifdef _DEBUG
-        type = Value::STRING;
-#endif
-    }
-
-    virtual ~String()
-    {
+        m_len = (string_size_t)size;
     }
 
 public:
+    virtual ValueType get_type() { return ValueType::STRING; }
     virtual ReferenceValue *copy_to_local(Thread *thread);
 
 public:
-    simple::string s;
+    size_t length() const { return m_len; }
+    const char_t *c_str() const { return m_buf; }
+
+    // Calculate hash value
+    size_t hash_value() const
+    {
+        if (!m_hash_value)
+            m_hash_value = simple::string::hash_string(m_buf) + 1;
+        
+        return (size_t) m_hash_value;
+    }
+
+public:
+    static String *new_string(size_t size)
+    {
+        String *string;
+        size_t total_size = sizeof(String) + sizeof(char_t) * size; // '\x0' is included
+        string = (String *)STD_MEM_ALLOC(total_size);
+        // ATTENTION:
+        // We can use XDELETE to free the string
+        new (string)String(size);
+        return string;
+    }
+
+    static String *new_string(const char_t *c_str)
+    {
+        size_t len = strlen(c_str);
+        auto *string = new_string(len);
+        memcpy(string->m_buf, c_str, (len + 1) * sizeof(char_t));
+        return string;
+    }
+
+    static String *new_string(const simple::string str)
+    {
+        size_t len = str.length();
+        auto *string = new_string(len);
+        memcpy(string->m_buf, str.c_str(), (len + 1) * sizeof(char_t));
+        return string;
+    }
+
+    static String *new_string(const String *other_string)
+    {
+        size_t len = other_string->length();
+        auto *string = new_string(len);
+        memcpy(string->m_buf, other_string->m_buf, (len + 1) * sizeof(char_t));
+        return string;
+    }
+
+    static void delete_string(String *string)
+    {
+        XDELETE(string);
+    }
+
+    static int compare(const String *a, const String *b);
+
+private:
+    mutable string_hash_t m_hash_value = 0;
+    string_size_t m_len;
+    char_t m_buf[1]; // For count size of terminator '\x0'
 };
 
 // VM value: buffer
@@ -354,9 +431,6 @@ struct Buffer : ReferenceValue
 public:
     Buffer(const void *bytes, size_t len)
     {
-#ifdef _DEBUG
-        type = Value::BUFFER;
-#endif
         this->hash = 0;
         this->data = XNEWN(Uint8, len);
         this->len = len;
@@ -373,7 +447,11 @@ public:
     size_t hash_value() const;
 
 public:
+    virtual ValueType get_type() { return ValueType::BUFFER; }
     virtual ReferenceValue *copy_to_local(Thread *thread);
+
+public:
+    static int compare(const Buffer *a, const Buffer *b);
 
 public:
     mutable size_t hash;
@@ -387,16 +465,10 @@ struct FunctionPtr : ReferenceValue
 public:
     FunctionPtr()
     {
-#ifdef _DEBUG
-        type = Value::FUNCTION;
-#endif
-    }
-
-    virtual ~FunctionPtr()
-    {
     }
 
 public:
+    virtual ValueType get_type() { return ValueType::FUNCTION; }
     virtual ReferenceValue *copy_to_local(Thread *thread);
     virtual void mark(MarkValueState& value_map);
 };
@@ -411,23 +483,17 @@ public:
     Array(size_t size_hint = 8) :
         a(size_hint)
     {
-#ifdef _DEBUG
-        type = Value::ARRAY;
-#endif
-    }
-
-    virtual ~Array()
-    {
     }
 
 public:
+    virtual ValueType get_type() { return ValueType::ARRAY; }
     virtual ReferenceValue *copy_to_local(Thread *thread);
     virtual void mark(MarkValueState& value_map);
 
 public:
     Value& operator [](const Value& index)
     {
-        if (index.m_type != Value::INTEGER)
+        if (index.m_type != ValueType::INTEGER)
             throw simple::string().snprintf("Bad index to array (expected integer got %s).", 128,
                                             Value::get_type_name(index.m_type));
 
@@ -461,16 +527,10 @@ public:
     Map(size_t size_hint = 4) :
         m(size_hint)
     {
-#ifdef _DEBUG
-        type = Value::MAPPING;
-#endif
-    }
-
-    virtual ~Map()
-    {
     }
 
 public:
+    virtual ValueType get_type() { return ValueType::MAPPING; }
     virtual ReferenceValue *copy_to_local(Thread *thread);
     virtual void mark(MarkValueState& value_map);
 
@@ -490,6 +550,16 @@ public:
 public:
     DataType m;
 };
+
+inline bool operator <(const String&a, const String& b)
+{
+    return String::compare(&a, &b) < 0;
+}
+
+inline bool operator ==(const String&a, const String& b)
+{
+    return String::compare(&a, &b) == 0;
+}
 
 bool operator <(const Value& a, const Value& b);
 bool operator ==(const Value& a, const Value& b);

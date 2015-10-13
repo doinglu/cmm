@@ -31,7 +31,7 @@ public:
         *data_ptr() = 0;
     }
 
-    string(const char *c_str = "")
+    string(const char_t *c_str = "")
     {
         m_len = (string_size_t) strlen(c_str);
 
@@ -141,7 +141,7 @@ public:
     size_t hash_value() const
     {
         if (! m_hash_value)
-            m_hash_value = hash_string(c_str()) + 1;
+            m_hash_value = hash_string(data_ptr()) + 1;
 
         return (size_t) m_hash_value;
     }
@@ -153,7 +153,7 @@ public:
     }
 
     // Generate by format string
-    string& snprintf(const char *fmt, size_t n, ...);
+    string& snprintf(const char_t *fmt, size_t n, ...);
 
 public:
     // Hash a c_str
@@ -171,7 +171,6 @@ private:
     }
 
 private:
-public:////----
     mutable string_hash_t m_hash_value = 0;
     string_size_t m_len; // Limited to 4G
     union

@@ -177,14 +177,14 @@ int main(int argn, char *argv[])
     Program::init();
     Thread::init();
 
+    Thread thread;
+    thread.start();
+
     __clone_entity_ob::create_program();
     __feature_desc_ob::create_program();
     __feature_name_ob::create_program();
 
     Program::update_all_callees();
-
-    Thread thread;
-    thread.start();
 
     auto *domain = XNEW(Domain);
     auto *program = Program::find_program_by_name(Value("/clone/entity").m_string);

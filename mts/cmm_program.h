@@ -37,12 +37,12 @@ public:
 
 public:
     // Only private constructor, it should be created by Function only
-    Parameter(Function *function, const simple::string& name);
+    Parameter(Function *function, const Value& name_value);
 
 private:
-	String      *m_name;     // Point to string pools in Program
-	Value::Type  m_type;     // Type of this argument
-	Attrib       m_attrib;   // Attrib of this parmeters
+	String    *m_name;     // Point to string pools in Program
+	ValueType  m_type;     // Type of this argument
+	Attrib     m_attrib;   // Attrib of this parmeters
 };
 
 // Function
@@ -66,11 +66,11 @@ public:
 
 public:
     // Only private constructor, it should be created by Program only
-    Function(Program *program, const simple::string& name);
+    Function(Program *program, const Value& name_value);
 
 public:
     // Create new parameter
-    Parameter *define_parameter(const simple::string& name);
+    Parameter *define_parameter(const Value& name_value);
 
 public:
     // Get the entry pointer
@@ -108,12 +108,12 @@ class Member
 friend Program;
 
 public:
-    Member(Program *program, const simple::string& name);
+    Member(Program *program, const Value& name_value);
 
 private:
     Program     *m_program;
     String      *m_name;
-    Value::Type  m_type;
+    ValueType    m_type;
     MemberOffset m_offset;
 };
 
@@ -148,7 +148,7 @@ public:
     static void shutdown();
 
 public:
-    Program(const simple::string& name);
+    Program(const Value& name_value);
     ~Program();
 
 public:
@@ -157,10 +157,10 @@ public:
     static String *convert_to_shared(String **pp_string);
         
     // Find or add a string into pool
-    static String *find_or_add_string(const simple::string& str);
+    static String *find_or_add_string(const String *string);
 
     // Find string in pool (return 0 if not found)
-    static String *find_string(const simple::string &str);
+    static String *find_string(const String *string);
 
     // Find a program by name (shared string)
     static Program *find_program_by_name(String *program_name);
@@ -176,20 +176,20 @@ public:
     }
 
     // Create function in this program
-    Function *define_function(const simple::string& name,
+    Function *define_function(const Value& name_value,
                               Function::Entry func_entry,
                               ArgNo min_arg_no, ArgNo max_arg_no,
                               Function::Attrib attrib = (Function::Attrib)0);
 
     // Create member in this program
-    Member *define_member(const simple::string& name, Value::Type type, MemberOffset offset);
+    Member *define_member(const Value& name_value, ValueType type, MemberOffset offset);
 
 public:
     // Add a function to public callee map
     void add_callee(ComponentNo component_no, Function *function);
 
     // Add component in this program
-    void add_component(const simple::string& program_name, ComponentOffset offset);
+    void add_component(const Value& program_name_value, ComponentOffset offset);
 
     // Set function handler: new_instance
     void set_new_instance_func(NewInstanceFunc func)
@@ -257,10 +257,12 @@ public:
     Object *new_instance(Domain *domain);
 
     // Invoke routine
-    Value invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n);
+    // function_name_value may be modified to shared string, IGNORE the const
+    Value invoke(Thread *thread, ObjectId oid, const Value& function_name_value, Value *args, ArgNo n);
 
     // Invoke routine can be accessed by self component
-    Value invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n);
+    // function_name_value may be modified to shared string, IGNORE the const
+    Value invoke_self(Thread *thread, const Value& function_name_value, Value *args, ArgNo n);
 
 private:
     // All constant strings of programs

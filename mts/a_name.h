@@ -26,7 +26,7 @@ public:
         if (__n != 1)
             throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
 
-        if (__args[0].m_type != Value::STRING)
+        if (__args[0].m_type != ValueType::STRING)
             throw simple::string().snprintf("Parameter 1 'name' is not string.", 256);
 
         // Enter function

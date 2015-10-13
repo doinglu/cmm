@@ -3,7 +3,8 @@
 #pragma once
 
 #include "std_template/simple_string.h"
-#include "std_template/simple_hash_map.h"
+#include "std_template/simple_hash_set.h"
+#include "cmm_string_ptr.h"
 #include "cmm_value.h"
 
 namespace cmm
@@ -16,12 +17,14 @@ public:
     ~StringPool();
 
 public:
-    String *find_or_insert(const simple::string& str);
-    String *find(const simple::string& str);
+    String *find_or_insert(const StringPtr& string_ptr);
+    String *find(const StringPtr& string_ptr);
 
 private:
     std_spin_lock_t m_lock;
-    simple::hash_map<simple::string, String *> m_pool;
+
+    typedef simple::hash_set<StringPtr, hash_string_ptr_func> Container;
+    Container m_pool;
 };
 
 }

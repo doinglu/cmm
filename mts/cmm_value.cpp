@@ -9,6 +9,15 @@
 namespace cmm
 {
 
+// Try to bind a reference value to a domain's values list first,
+// Or bind to thread local values list IF no domain found
+void ReferenceValue::bind_to_current_domain()
+{
+    Domain *domain = Thread::get_current_thread_domain();
+    STD_ASSERT(("No found domain when bind_to_current_domain.", domain));
+    domain->bind_value(this);
+}
+
 // Hash this buffer
 size_t Buffer::hash_value() const
 {
@@ -30,9 +39,21 @@ size_t Buffer::hash_value() const
     this->hash = h;
     return h;
 }
-    
+
+// Compare two strings, return -1 means less, 1 means greater, 0 means equal
+int String::compare(const String *a, const String *b)
+{
+    size_t len;
+
+    len = a->m_len;
+    if (len > b->m_len)
+        len = b->m_len;
+
+    return memcmp(a->m_buf, b->m_buf, (len + 1) * sizeof(char_t));
+}
+
 // Compare two buffers, return -1 means less, 1 means greater, 0 means equal
-int compare_buffer(Buffer *a, Buffer *b)
+int Buffer::compare(const Buffer *a, const Buffer *b)
 {
     // For buffer, compare len then data
     if (a->len < b->len)
@@ -43,15 +64,6 @@ int compare_buffer(Buffer *a, Buffer *b)
     return memcmp(a->data, b->data, a->len);
 }
 
-// Try to bind a reference value to a domain's values list first,
-// Or bind to thread local values list IF no domain found
-void ReferenceValue::bind_to_current_domain()
-{
-    Domain *domain = Thread::get_current_thread_domain();
-    STD_ASSERT(("No found domain when bind_to_current_domain.", domain));
-    domain->bind_value(this);
-}
-
 // Duplicate string to local
 ReferenceValue *String::copy_to_local(Thread *thread)
 {
@@ -59,7 +71,7 @@ ReferenceValue *String::copy_to_local(Thread *thread)
         // Don't copy
         return this;
 
-    auto *v = XNEW(String, this->s);
+    auto *v = String::new_string(this);
     thread->bind_value(v);
     return v;
 }
@@ -132,7 +144,7 @@ void Array::mark(MarkValueState& state)
 {
     auto end = a.end();
     for (auto it = a.begin(); it != end; ++it)
-        if (it->m_type >= Value::REFERENCE_VALUE)
+        if (it->m_type >= ValueType::REFERENCE_VALUE)
             Domain::mark_value(state, it->m_reference_value);
 }
 
@@ -142,10 +154,10 @@ void Map::mark(MarkValueState& state)
     auto end = m.end();
     for (auto it = m.begin(); it != end; ++it)
     {
-        if (it->first.m_type >= Value::REFERENCE_VALUE)
+        if (it->first.m_type >= ValueType::REFERENCE_VALUE)
             Domain::mark_value(state, it->first.m_reference_value);
 
-        if (it->second.m_type >= Value::REFERENCE_VALUE)
+        if (it->second.m_type >= ValueType::REFERENCE_VALUE)
             Domain::mark_value(state, it->second.m_reference_value);
     }
 }
@@ -157,7 +169,7 @@ Value::Value(Object *ob) :
 
 Value::Value(const simple::char_t *c_str)
 {
-    auto *v = XNEW(String, c_str);
+    auto *v = String::new_string(c_str);
     v->bind_to_current_domain();
     m_type = STRING;
     m_string = v;
@@ -165,7 +177,7 @@ Value::Value(const simple::char_t *c_str)
 
 Value::Value(const simple::string& str)
 {
-    auto *v = XNEW(String, str);
+    auto *v = String::new_string(str);
     v->bind_to_current_domain();
     m_type = STRING;
     m_string = v;
@@ -175,16 +187,16 @@ size_t Value::hash_value() const
 {
     switch (m_type)
     {
-    case STRING: return m_string->s.hash_value();
+    case STRING: return m_string->hash_value();
     case BUFFER: return m_buffer->hash_value();
     default:     return (size_t)m_intptr;
     }
 }
 
 // Create a reference value belonged to this domain
-Value Value::new_string(Domain *domain, const char *c_str)
+Value Value::new_string(Domain *domain, const char_t *c_str)
 {
-    auto *v = XNEW(String, c_str);
+    auto *v = String::new_string(c_str);
     STD_ASSERT(domain == Thread::get_current_thread_domain());
     domain->bind_value(v);
     return Value(v);
@@ -230,12 +242,12 @@ bool operator <(const Value& a, const Value& b)
 
     // Type is same
 
-    if (a.m_type >= Value::REFERENCE_VALUE)
+    if (a.m_type >= ValueType::REFERENCE_VALUE)
     {
         switch (a.m_type)
         {
-            case Value::STRING: return a.m_string->s < b.m_string->s;
-            case Value::BUFFER: return compare_buffer(a.m_buffer, b.m_buffer) < 0;
+            case ValueType::STRING: return String::compare(a.m_string, b.m_string) < 0;
+            case ValueType::BUFFER: return Buffer::compare(a.m_buffer, b.m_buffer) < 0;
             default: break;
         }
     }
@@ -250,12 +262,12 @@ bool operator ==(const Value& a, const Value& b)
         // Type is not same
         return false;
 
-    if (a.m_type >= Value::REFERENCE_VALUE)
+    if (a.m_type >= ValueType::REFERENCE_VALUE)
     {
         switch (a.m_type)
         {
-            case Value::STRING: return a.m_string->s == b.m_string->s;
-            case Value::BUFFER: return compare_buffer(a.m_buffer, b.m_buffer) == 0;
+            case ValueType::STRING: return String::compare(a.m_string, b.m_string) == 0;
+            case ValueType::BUFFER: return Buffer::compare(a.m_buffer, b.m_buffer) == 0;
             default: break;
         }
     }    

@@ -4,34 +4,36 @@
 #include "cmm_domain.h"
 #include "cmm_object.h"
 #include "cmm_program.h"
+#include "cmm_string_ptr.h"
 #include "cmm_thread.h"
+#include "cmm_value.h"
 
 namespace cmm
 {
 
-Parameter::Parameter(Function *function, const simple::string& name)
+Parameter::Parameter(Function *function, const Value& name_value)
 {
 }
 
-Function::Function(Program *program, const simple::string& name)
+Function::Function(Program *program, const Value& name_value)
 {
     m_program = program;
-    m_name = Program::find_or_add_string(name);
+    m_name = Program::find_or_add_string(name_value.get_string());
     m_min_arg_no = 0;
     m_max_arg_no = 0;
     m_attrib = (Attrib)0;
 }
 
-Parameter *Function::define_parameter(const simple::string& name)
+Parameter *Function::define_parameter(const Value& name_value)
 {
     return 0;
 }
 
-Member::Member(Program *program, const simple::string& name)
+Member::Member(Program *program, const Value& name_value)
 {
     m_program = program;
-    m_name = Program::find_or_add_string(name);
-    m_type = (Value::Type)0;
+    m_name = Program::find_or_add_string(name_value.get_string());
+    m_type = (ValueType)0;
     m_offset = 0;
 }
 
@@ -67,9 +69,9 @@ void Program::shutdown()
 }
 
 // Create a program
-Program::Program(const simple::string& name)
+Program::Program(const Value& name_value)
 {
-    m_name = Program::find_or_add_string(name);
+    m_name = Program::find_or_add_string(name_value.get_string());
     STD_ASSERT(("Program has been defined.", !find_program_by_name(m_name)));
 
     std_enter_critical_section(m_program_cs);
@@ -96,7 +98,7 @@ String *Program::convert_to_shared(String **pp_string)
     if (!(string->attrib & ReferenceValue::SHARED))
     {
         // Not shared? Lookup in pool
-        string = find_string(string->s);
+        string = find_string(string);
         if (string)
             // Modify previous string
             *pp_string = string;
@@ -106,16 +108,16 @@ String *Program::convert_to_shared(String **pp_string)
 }
 
 // Find or add a string into pool
-String *Program::find_or_add_string(const simple::string& str)
+String *Program::find_or_add_string(const String *string)
 {
     // Not found, create new string
-    return m_string_pool->find_or_insert(str);
+    return m_string_pool->find_or_insert(string);
 }
 
 // Find string in pool (return 0 if not found)
-String *Program::find_string(const simple::string &str)
+String *Program::find_string(const String *string)
 {
-    return m_string_pool->find(str);
+    return m_string_pool->find(string);
 }
 
 // Find a program by name (shared string)
@@ -142,12 +144,12 @@ void Program::update_all_callees()
 }
 
 // Create function in this program
-Function *Program::define_function(const simple::string& name,
+Function *Program::define_function(const Value& name_value,
     Function::Entry func_entry,
     ArgNo min_arg_no, ArgNo max_arg_no,
     Function::Attrib attrib)
 {
-    auto *function = XNEW(Function, this, name);
+    auto *function = XNEW(Function, this, name_value);
     function->m_func_entry = func_entry;
     function->m_min_arg_no = min_arg_no;
     function->m_max_arg_no = max_arg_no;
@@ -157,9 +159,9 @@ Function *Program::define_function(const simple::string& name,
 }
 
 // Create member in this program
-Member *Program::define_member(const simple::string& name, Value::Type type, MemberOffset offset)
+Member *Program::define_member(const Value& name_value, ValueType type, MemberOffset offset)
 {
-    auto *member = XNEW(Member, this, name);
+    auto *member = XNEW(Member, this, name_value);
     member->m_type = type;
     member->m_offset = offset;
     m_members.push_back(member);
@@ -180,7 +182,7 @@ void Program::add_callee(ComponentNo component_no, Function *function)
         m_public_callees.put(function->m_name, info);
 
         // Put in private callees if not existed
-        if (!m_self_callees.find(function->m_name))
+        if (!m_self_callees.contains(function->m_name))
             m_self_callees.put(function->m_name, info);
     }
 
@@ -373,11 +375,11 @@ instead.
 */
 
 // Add component in this program
-void Program::add_component(const simple::string& program_name, ComponentOffset offset)
+void Program::add_component(const Value& program_name_value, ComponentOffset offset)
 {
     // Lookup & add all new programs
     ComponentInfo component;
-    component.program_name = Program::find_or_add_string(program_name);
+    component.program_name = Program::find_or_add_string(program_name_value.get_string());
     component.program = 0; // Will be updated later in update_callees()
     component.offset = offset;
     m_components.push_back(component);
@@ -467,15 +469,15 @@ Object *Program::new_instance(Domain *domain)
 }
 
 // Invoke a function in program
-Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n)
+Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name_value, Value *args, ArgNo n)
 {
     CalleeInfo callee;
 
-    if (function_name.m_type != Value::STRING)
+    if (function_name_value.m_type != ValueType::STRING)
         // Bad type of function name
         return Value();
 
-    if (!get_public_callee_by_name((String **)&function_name.m_string, &callee))
+    if (!get_public_callee_by_name((String **)&function_name_value.m_string, &callee))
         // No such function
         return Value();
 
@@ -498,11 +500,11 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
 
 // Invoke self function
 // Call public function in this program OR private function of this component
-Value Program::invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n)
+Value Program::invoke_self(Thread *thread, const Value& function_name_value, Value *args, ArgNo n)
 {
     CalleeInfo callee;
 
-    if (function_name.m_type != Value::STRING)
+    if (function_name_value.m_type != ValueType::STRING)
         // Bad type of function name
         return Value();
 
@@ -511,7 +513,7 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
     auto component_no = thread->get_this_component_no();
     auto *to_program = m_components[component_no].program;
 
-    if (!to_program->get_self_callee_by_name((String **)&function_name.m_string, &callee))
+    if (!to_program->get_self_callee_by_name((String **)&function_name_value.m_string, &callee))
         // No such function
         return Value();
 

@@ -70,7 +70,7 @@ inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Typ
 // Call function in other object (without parameter)
 inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name, Value *params = 0, ArgNo n = 0)
 {
-    STD_ASSERT(function_name.m_type == Value::STRING);
+    STD_ASSERT(function_name.m_type == ValueType::STRING);
     auto *entry = Object::get_entry_by_id(oid);
     auto *program = entry->program;
     if (entry->domain == thread->get_current_domain())

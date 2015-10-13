@@ -62,6 +62,7 @@ public:
     Object *m_this_object;         // This object
     ComponentNo m_this_component;  // This component no
     Object *m_domain_object;       // Object which in domain
+    void   *m_start_sp;            // Start stack from pointer
     void   *m_end_sp;              // End stack frame pointer
     Thread *m_thread;              // In thread
 };

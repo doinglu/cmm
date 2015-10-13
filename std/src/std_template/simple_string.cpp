@@ -10,7 +10,7 @@ namespace simple
 {
 
 // Create string
-string& string::snprintf(const char *fmt, size_t n, ...)
+string& string::snprintf(const char_t *fmt, size_t n, ...)
 {
     if (n == 0)
     {
