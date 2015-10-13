@@ -107,7 +107,7 @@ public:
         BUFFER = 10,        // Binary data
         FUNCTION = 11,      // Function pointer
         ARRAY = 12,         // Array
-        MAP = 13,           // Mapping
+        MAPPING = 13,       // Mapping
     } Type;
 
 public:
@@ -204,7 +204,7 @@ public:
 
     Value(Map *v)
     {
-        m_type = MAP;
+        m_type = MAPPING;
         m_map = v;
     }
 
@@ -213,6 +213,24 @@ public:
 	Value(const simple::string& str);
 
 public:
+    // Return name of this value
+    static const char *get_type_name(Type type)
+    {
+        switch (type)
+        {
+        case NIL:      return "nil";
+        case INTEGER:  return "int";
+        case REAL:     return "real";
+        case OBJECT:   return "object";
+        case STRING:   return "string";
+        case BUFFER:   return "buffer";
+        case ARRAY:    return "array";
+        case MAPPING:  return "mapping";
+        case FUNCTION: return "function";
+        default:       return "bad type";
+        }
+    }
+
     // Calculate & cache hash number of the value
     size_t hash_value() const;
 
@@ -261,7 +279,21 @@ public:
 
     // New values & bind to current domain
     static Value new_domain_string(Domain *domain, const char *c_str);
-    static Value new_domain_map(Domain *domain, size_t size_hint);
+    static Value new_domain_map(Domain *domain, size_t size_hint = 8);
+
+public:
+    Value& operator =(const Value& value)
+    {
+        m_type = value.m_type;
+        m_intptr = value.m_intptr;
+        return *this;
+    }
+
+    // Put value to container
+    Value& operator [](const Value& value);
+
+    // Get index from container
+    Value operator [](const Value& value) const;
 
 public:
     Type m_type;
@@ -278,14 +310,6 @@ public:
         Array           *m_array;
         Map             *m_map;
     };
-
-public:
-    Value& operator =(const Value& value)
-    {
-        m_type = value.m_type;
-        m_intptr = value.m_intptr;
-        return *this;
-    }
 };
 
 // VM value: string
@@ -384,7 +408,7 @@ public:
 struct Array : ReferenceValue
 {
 public:
-    typedef simple::vector<Value> DataType;
+    typedef simple::unsafe_vector<Value> DataType;
 
 public:
     Array(size_t size_hint = 8) :
@@ -402,6 +426,20 @@ public:
 public:
     virtual ReferenceValue *copy_to_local(Thread *thread);
     virtual void mark(MarkValueState& value_map);
+
+public:
+    Value& operator [](const Value& index)
+    {
+        if (index.m_type != Value::INTEGER)
+            throw simple::string().snprintf("Bad index to array (expected integer got %s).", 128,
+                                            Value::get_type_name(index.m_type));
+
+        if (index.m_int < 0 || index.m_int >= (Integer)a.size())
+            throw simple::string().snprintf("Index out of range to array, got %lld.", 128,
+                                            (Int64)index.m_int);
+
+        return a[index.m_int];
+    }
 
 public:
     DataType a;
@@ -427,7 +465,7 @@ public:
         m(size_hint)
     {
 #ifdef _DEBUG
-        type = Value::MAP;
+        type = Value::MAPPING;
 #endif
     }
 
@@ -438,6 +476,19 @@ public:
 public:
     virtual ReferenceValue *copy_to_local(Thread *thread);
     virtual void mark(MarkValueState& value_map);
+
+public:
+    Value& operator [](const Value& index)
+    {
+        return m[index];
+    }
+
+    Value operator [](const Value& index) const
+    {
+        Value value;
+        m.try_get(index, &value);
+        return value;
+    }
 
 public:
     DataType m;

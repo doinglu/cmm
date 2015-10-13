@@ -44,7 +44,7 @@ public:
     {
     }
 
-    bool try_get(const K& key, V* ptr_value)
+    bool try_get(const K& key, V* ptr_value) const
     {
         index_t index;
         if (! try_get_index(key, &index))

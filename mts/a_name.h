@@ -88,7 +88,7 @@ public:
         t *= 1000;
         printf("Per other call is %.3gns.\nAppromix %.3fM cps.\n", t, (1000. / t));
 
-        fun_name = "get_name";
+        fun_name = "do_nothing";
         b = std_get_current_us_counter();
         for (i = 0; i < 1000; i++)
             call_other(_thread, other_oid, fun_name);
@@ -97,6 +97,31 @@ public:
         t = t / (double)i;
         t *= 1000;
         printf("Per domain call is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
+
+        Value str_a = "a", str_b = "b";
+        Value m(Value::new_domain_map(_thread->get_current_domain()));
+        m["a"] = 1;
+        m["b"] = 2;
+        b = std_get_current_us_counter();
+        for (i = 0; i < 1000; i++)
+            m[str_a];
+        e = std_get_current_us_counter();
+        t = (double)(e - b);
+        t = t / (double)i;
+        t *= 1000;
+        printf("Per mapping read is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
+
+        m = Value::new_domain_map(_thread->get_current_domain());
+        m["a"] = 1;
+        m["b"] = 2;
+        b = std_get_current_us_counter();
+        for (i = 0; i < 1000; i++)
+            m[str_b] = 5;
+        e = std_get_current_us_counter();
+        t = (double)(e - b);
+        t = t / (double)i;
+        t *= 1000;
+        printf("Per mapping write is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
 
         Value ret = call_other(_thread, __this_object->get_oid(), "print");
         ret = Value(5);
@@ -116,6 +141,14 @@ public:
 
         Value ret = __this_object->get_program()->invoke_self(_thread, "test_call_private", __args, __n);
         return ret;
+    }
+
+    // Function 4
+    Value do_nothing(Thread *_thread, Value *__args, ArgNo __n)
+    {
+        if (__n != 0)
+            throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 0, __n);
+        return Value();
     }
 
 private:

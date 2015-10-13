@@ -216,6 +216,27 @@ Value Value::new_domain_map(Domain *domain, size_t size_hint)
     return Value(v);
 }
 
+Value& Value::operator [](const Value& value)
+{
+    switch (m_type)
+    {
+    case MAPPING: return (*m_map)[value];
+    case ARRAY: return (*m_array)[value];
+    default: throw "Bad type of value to index.\n";
+    }
+}
+
+// Get index from container
+Value Value::operator [](const Value& value) const
+{
+    switch (m_type)
+    {
+    case MAPPING: return (*m_map)[value];
+    case ARRAY: return (*m_array)[value];
+    default: throw "Bad type of value to index.\n";
+    }
+}
+
 bool operator <(const Value& a, const Value& b)
 {
     // Compare type first

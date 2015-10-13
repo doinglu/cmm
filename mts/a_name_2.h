@@ -34,6 +34,7 @@ public:
         program->define_function("get_name", (Function::Entry)&Impl::get_name, 0, 0);
         program->define_function("test_call_private", (Function::Entry)&Impl::test_call_private, 0, 0, Function::Attrib::PRIVATE);
         program->define_function("test_call", (Function::Entry)&Impl::test_call, 0, 0);
+        program->define_function("do_nothing", (Function::Entry)&Impl::do_nothing, 0, 0);
 
         return program;
     }
