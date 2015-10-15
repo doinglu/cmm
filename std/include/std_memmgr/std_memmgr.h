@@ -36,7 +36,7 @@ extern "C" {
 
 #ifdef _DEBUG
 /* Do stat for debug mode with block detail mode */
-#define STD_BLOCK_DETAIL        0
+#define STD_BLOCK_DETAIL        1
 #define STD_STAT_ALLOC          (STD_BLOCK_DETAIL)
 #else
 /* Not stat */
@@ -63,8 +63,8 @@ typedef struct Mem_Code_Node
 typedef struct mem_code_node_stat
 {
     mem_code_node_t n;
-    Uint counter;
-    Uint size;
+    size_t counter;
+    size_t size;
 } mem_code_node_stat_t;
 #endif
 

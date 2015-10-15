@@ -7,7 +7,7 @@
 namespace cmm
 {
 
-struct ReferenceValue;
+struct ReferenceImpl;
 
 // Values list for thread/domain, using by GC
 class ValueList
@@ -20,7 +20,7 @@ public:
 
 public:
     // Bind value to list
-    void append_value(ReferenceValue *value);
+    void append_value(ReferenceImpl *value);
 
     // Concat two lists
     void concat_list(ValueList *list);
@@ -32,7 +32,7 @@ public:
     size_t get_count() { return m_count; }
 
     // Return the head of list
-    ReferenceValue *get_list() { return m_list; }
+    ReferenceImpl *get_list() { return m_list; }
 
     // Reset the list (don't free linked values)
     void reset()
@@ -44,8 +44,8 @@ public:
 
 private:
     // List of all reference values
-    ReferenceValue *m_list;
-    ReferenceValue **m_pp_last;
+    ReferenceImpl *m_list;
+    ReferenceImpl **m_pp_last;
     size_t m_count;
 };
 
@@ -53,7 +53,7 @@ private:
 struct MarkValueState
 {
 public:
-    simple::hash_set<struct ReferenceValue *> set;
+    simple::hash_set<struct ReferenceImpl *> set;
     ValueList *list;
 
 public:

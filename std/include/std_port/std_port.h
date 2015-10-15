@@ -29,6 +29,11 @@ extern "C" {
 #include "std_port_type.h"
 #include "std_port_spin_lock.h"
 
+#define STD_SIZE_N(arr)             sizeof(arr) / sizeof(arr[0])
+#ifndef SIZE_MAX
+#define SIZE_MAX                    ((size_t)-1)
+#endif
+
 #define STD_UNKNOWN_ERROR           -1
 
 /* Platform utillib */

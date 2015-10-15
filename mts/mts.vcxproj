@@ -176,8 +176,11 @@
     <ClInclude Include="a_entity.h" />
     <ClInclude Include="cmm_call.h" />
     <ClInclude Include="cmm_domain.h" />
+    <ClInclude Include="cmm_efun.h" />
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_memory.h" />
+    <ClInclude Include="cmm_operate.h" />
+    <ClInclude Include="cmm_reference_value.h" />
     <ClInclude Include="cmm_string_pool.h" />
     <ClInclude Include="cmm_basic_types.h" />
     <ClInclude Include="cmm_string_ptr.h" />
@@ -234,7 +237,10 @@
     <ClCompile Include="a_name.h" />
     <ClCompile Include="a_name_2.h" />
     <ClCompile Include="cmm_domain.cpp" />
+    <ClCompile Include="cmm_efun.cpp" />
+    <ClCompile Include="cmm_efun_core.cpp" />
     <ClCompile Include="cmm_memory.cpp" />
+    <ClCompile Include="cmm_operate.cpp" />
     <ClCompile Include="cmm_string_pool.cpp" />
     <ClCompile Include="cmm_value_list.cpp" />
     <ClCompile Include="cmm_object.cpp" />

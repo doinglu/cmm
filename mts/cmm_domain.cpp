@@ -142,7 +142,7 @@ void Domain::gc()
         context->value.update_end_sp(&context);
 
     MarkValueState state(&m_value_list);
-    ReferenceValue *low, *high;
+    ReferenceImpl *low, *high;
 
     // Mask of valid pointer
     // For all valid pointer, the last N bits should be zero
@@ -174,8 +174,8 @@ void Domain::gc()
     {
         // Mark all values
         auto &context = *it;
-        auto *p = (ReferenceValue **)context.m_start_sp;
-        while (--p > (ReferenceValue **)context.m_end_sp)
+        auto *p = (ReferenceImpl **)context.m_start_sp;
+        while (--p > (ReferenceImpl **)context.m_end_sp)
         {
             if (((IntPtr)*p & mask) == 0 && *p >= low && *p <= high)
                 mark_value(state, *p);
@@ -186,9 +186,9 @@ void Domain::gc()
     for (auto it = m_objects.begin(); it != m_objects.end(); ++it)
     {
         auto *object = *it;
-        auto *p = (ReferenceValue **)object;
+        auto *p = (ReferenceImpl **)object;
         size_t size = object->get_program()->get_object_size();
-        auto *p_end = (ReferenceValue **)(((char *)p) + size);
+        auto *p_end = (ReferenceImpl **)(((char *)p) + size);
         while (p < p_end)
         {
             if (((IntPtr)*p & mask) == 0 && *p >= low && *p <= high)
@@ -218,7 +218,7 @@ void Domain::gc()
 }
 
 // Mark value
-void Domain::mark_value(MarkValueState& state, ReferenceValue *ptr_value)
+void Domain::mark_value(MarkValueState& state, ReferenceImpl *ptr_value)
 {
     // Try remove from set
     if (!state.set.erase(ptr_value))

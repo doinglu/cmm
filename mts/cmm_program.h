@@ -40,7 +40,7 @@ public:
     Parameter(Function *function, const Value& name_value);
 
 private:
-	String    *m_name;     // Point to string pools in Program
+	StringImpl    *m_name;     // Point to string pools in Program
 	ValueType  m_type;     // Type of this argument
 	Attrib     m_attrib;   // Attrib of this parmeters
 };
@@ -76,6 +76,9 @@ public:
     // Get the entry pointer
     Entry get_func_entry() { return m_func_entry; }
 
+    // Get the function name
+    StringImpl *get_name() { return m_name; }
+        
     // Is this function public?
     bool is_public()
     {
@@ -90,7 +93,7 @@ public:
 
 private:
     Program *m_program;
-    String  *m_name;
+    StringImpl  *m_name;
 	ArgNo    m_min_arg_no;
 	ArgNo    m_max_arg_no;
 	Attrib   m_attrib;
@@ -112,7 +115,7 @@ public:
 
 private:
     Program     *m_program;
-    String      *m_name;
+    StringImpl      *m_name;
     ValueType    m_type;
     MemberOffset m_offset;
 };
@@ -138,7 +141,7 @@ public:
     // Component info
     struct ComponentInfo
     {
-        String *program_name;
+        StringImpl *program_name;
         Program *program;
         ComponentOffset offset;
     };
@@ -152,18 +155,18 @@ public:
     ~Program();
 
 public:
-    // Convert a normal String pointer to shared String pointer
+    // Convert a normal StringImpl pointer to shared StringImpl pointer
     // The *pp_string would be updated if found in pool
-    static String *convert_to_shared(String **pp_string);
+    static StringImpl *convert_to_shared(StringImpl **pp_string);
         
     // Find or add a string into pool
-    static String *find_or_add_string(const String *string);
+    static StringImpl *find_or_add_string(const StringImpl *string);
 
     // Find string in pool (return 0 if not found)
-    static String *find_string(const String *string);
+    static StringImpl *find_string(const StringImpl *string);
 
     // Find a program by name (shared string)
-    static Program *find_program_by_name(String *program_name);
+    static Program *find_program_by_name(StringImpl *program_name);
 
     // Update callees of all programs
     static void update_all_callees();
@@ -235,7 +238,7 @@ public:
 
     // Get callee by name (access by public)
     // Update *pp_string to shared string if found
-    bool get_public_callee_by_name(String **pp_name, CalleeInfo *ptr_info)
+    bool get_public_callee_by_name(StringImpl **pp_name, CalleeInfo *ptr_info)
     {
         if (!Program::convert_to_shared(pp_name))
             // This string is not in pool, not such callee
@@ -245,7 +248,7 @@ public:
 
     // Get callee by name (access by this component)
     // Update *pp_string to shared string if found
-    bool get_self_callee_by_name(String **pp_name, CalleeInfo *ptr_info)
+    bool get_self_callee_by_name(StringImpl **pp_name, CalleeInfo *ptr_info)
     {
         if (!Program::convert_to_shared(pp_name))
             // This string is not in pool, not such callee
@@ -269,13 +272,13 @@ private:
     static StringPool *m_string_pool;
 
     // Program name -> program map
-    typedef simple::hash_map<String *, Program *> ProgramNameMap;
+    typedef simple::hash_map<StringImpl *, Program *> ProgramNameMap;
     static ProgramNameMap *m_all_programs;
     static struct std_critical_section *m_program_cs;
 
 private:
     Attrib m_attrib;
-    String *m_name;
+    StringImpl *m_name;
     size_t m_object_size;
 
     // New() instance function
@@ -297,7 +300,7 @@ private:
     simple::unsafe_vector<Member *> m_members;
 
     // Callees map by function name
-    typedef simple::hash_map<String *, CalleeInfo> CalleInfoMap;
+    typedef simple::hash_map<StringImpl *, CalleeInfo> CalleInfoMap;
     CalleInfoMap m_public_callees;  // Can be accessed by public
     CalleInfoMap m_self_callees;    // Only can be accessed by self
 };

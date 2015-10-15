@@ -81,12 +81,22 @@ std_tls_t Thread::m_thread_tls_id = STD_NO_TLS_ID;
 int Thread::init()
 {
     std_allocate_tls(&m_thread_tls_id);
+
+    // Start current thread
+    Thread *thread = XNEW(Thread);
+    thread->start();
+
     return 0;
 }
 
 // Shutdown this moudule
 void Thread::shutdown()
 {
+    // Stop current thread
+    Thread *thread = Thread::get_current_thread();
+    thread->stop();
+    XDELETE(thread);
+
     std_free_tls(m_thread_tls_id);
 }
 

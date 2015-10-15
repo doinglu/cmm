@@ -31,7 +31,7 @@ public:
 
         // Enter function
 //        Value __local[] = { };
-        String* &name = __args[0].m_string;
+        StringImpl* &name = __args[0].m_string;
 
         this->name = name;
         return Value();

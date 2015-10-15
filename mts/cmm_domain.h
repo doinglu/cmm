@@ -11,7 +11,7 @@
 namespace cmm
 {
 
-struct ReferenceValue;
+struct ReferenceImpl;
 class Object;
 class Thread;
 
@@ -55,9 +55,11 @@ public:
 
 public:
     // Bind a value to this domain
-    void bind_value(ReferenceValue *value, size_t count = 1)
+    void bind_value(ReferenceImpl *value, size_t count = 1)
     {
         STD_ASSERT(("Value is already binded to domain.", !value->next));
+        STD_ASSERT(("Value is already binded to domain.", !value->owner));
+        value->owner = &m_value_list;
         m_value_list.append_value(value);
 
         // Should I need do a GC?
@@ -78,8 +80,14 @@ public:
     // Garbage collect
     void gc();
 
+    // Is this value in my value list?
+    const ValueList *get_value_list()
+    {
+        return &m_value_list;
+    }
+
     // Mark value
-    static void mark_value(MarkValueState& state, ReferenceValue *ptr_value);
+    static void mark_value(MarkValueState& state, ReferenceImpl *ptr_value);
 
 public:
     // Let object join in domain

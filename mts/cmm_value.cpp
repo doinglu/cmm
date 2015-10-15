@@ -9,21 +9,31 @@
 namespace cmm
 {
 
-// Try to bind a reference value to a domain's values list first,
-// Or bind to thread local values list IF no domain found
-void ReferenceValue::bind_to_current_domain()
+// Try to bind a reference value to a domain's values list.
+// This value must be NEW one & never be binded
+void ReferenceImpl::bind_to_current_domain()
 {
+    if (attrib & (ReferenceImpl::CONSTANT | ReferenceImpl::SHARED))
+        // For constant/shared value, don't bind
+        return;
+
     Domain *domain = Thread::get_current_thread_domain();
     STD_ASSERT(("No found domain when bind_to_current_domain.", domain));
+    if (this->owner)
+    {
+        // Already binded?
+        if (this->owner == domain->get_value_list())
+            // Binded to current domain already, ignored
+            return;
+
+        throw "Reference value was already binded to other owner.";
+    }
     domain->bind_value(this);
 }
 
 // Hash this buffer
-size_t Buffer::hash_value() const
+size_t BufferImpl::hash_this() const
 {
-    if (this->hash)
-        return this->hash;
-
     size_t seed = 131; // 31 131 1313 13131 131313 etc..
     size_t h = 0;
     size_t maxn = 64;
@@ -35,13 +45,11 @@ size_t Buffer::hash_value() const
         h = h * seed + (*p++);
     if (!h)
         h = 1;
-
-    this->hash = h;
     return h;
 }
 
 // Compare two strings, return -1 means less, 1 means greater, 0 means equal
-int String::compare(const String *a, const String *b)
+int StringImpl::compare(const StringImpl *a, const StringImpl *b)
 {
     size_t len;
 
@@ -53,7 +61,7 @@ int String::compare(const String *a, const String *b)
 }
 
 // Compare two buffers, return -1 means less, 1 means greater, 0 means equal
-int Buffer::compare(const Buffer *a, const Buffer *b)
+int BufferImpl::compare(const BufferImpl *a, const BufferImpl *b)
 {
     // For buffer, compare len then data
     if (a->len < b->len)
@@ -65,31 +73,31 @@ int Buffer::compare(const Buffer *a, const Buffer *b)
 }
 
 // Duplicate string to local
-ReferenceValue *String::copy_to_local(Thread *thread)
+ReferenceImpl *StringImpl::copy_to_local(Thread *thread)
 {
     if (is_constant())
         // Don't copy
         return this;
 
-    auto *v = String::new_string(this);
+    auto *v = StringImpl::alloc_string(this);
     thread->bind_value(v);
     return v;
 }
 
 // Duplicate buffer to local
-ReferenceValue *Buffer::copy_to_local(Thread *thread)
+ReferenceImpl *BufferImpl::copy_to_local(Thread *thread)
 {
     if (is_constant())
         // Don't copy
         return this;
 
-    auto *v = XNEW(Buffer, this->data, this->len);
+    auto *v = XNEW(BufferImpl, this->data, this->len);
     thread->bind_value(v);
     return v;
 }
 
 // Duplicate to local
-ReferenceValue *FunctionPtr::copy_to_local(Thread *thread)
+ReferenceImpl *FunctionPtrImpl::copy_to_local(Thread *thread)
 {
     if (is_constant())
         // Don't copy
@@ -100,13 +108,13 @@ ReferenceValue *FunctionPtr::copy_to_local(Thread *thread)
 }
 
 // Duplicate to local
-ReferenceValue *Array::copy_to_local(Thread *thread)
+ReferenceImpl *ArrayImpl::copy_to_local(Thread *thread)
 {
     if (is_constant())
         // Don't copy
         return this;
 
-    auto *v = XNEW(Array, this->a.size());
+    auto *v = XNEW(ArrayImpl, this->a.size());
     thread->bind_value(v);
     // Bind before copy elements in case of exception when copying
 
@@ -117,13 +125,13 @@ ReferenceValue *Array::copy_to_local(Thread *thread)
 }
 
 // Duplicate to local
-ReferenceValue *Map::copy_to_local(Thread *thread)
+ReferenceImpl *MapImpl::copy_to_local(Thread *thread)
 {
     if (is_constant())
         // Don't copy
         return this;
 
-    auto *v = XNEW(Map, this->m.size());
+    auto *v = XNEW(MapImpl, this->m.size());
     thread->bind_value(v);
     // Bind before copy elements in case of exception when copying
 
@@ -134,31 +142,31 @@ ReferenceValue *Map::copy_to_local(Thread *thread)
 }
 
 // Mark all elements in function ptr value
-void FunctionPtr::mark(MarkValueState& state)
+void FunctionPtrImpl::mark(MarkValueState& state)
 {
     ////---- To be added
 }
 
 // Mark all elements in this container
-void Array::mark(MarkValueState& state)
+void ArrayImpl::mark(MarkValueState& state)
 {
     auto end = a.end();
     for (auto it = a.begin(); it != end; ++it)
         if (it->m_type >= ValueType::REFERENCE_VALUE)
-            Domain::mark_value(state, it->m_reference_value);
+            Domain::mark_value(state, it->m_reference);
 }
 
 // Mark all elements in this container
-void Map::mark(MarkValueState& state)
+void MapImpl::mark(MarkValueState& state)
 {
     auto end = m.end();
     for (auto it = m.begin(); it != end; ++it)
     {
         if (it->first.m_type >= ValueType::REFERENCE_VALUE)
-            Domain::mark_value(state, it->first.m_reference_value);
+            Domain::mark_value(state, it->first.m_reference);
 
         if (it->second.m_type >= ValueType::REFERENCE_VALUE)
-            Domain::mark_value(state, it->second.m_reference_value);
+            Domain::mark_value(state, it->second.m_reference);
     }
 }
 
@@ -167,9 +175,9 @@ Value::Value(Object *ob) :
 {
 }
 
-Value::Value(const simple::char_t *c_str)
+Value::Value(const char *c_str, size_t len)
 {
-    auto *v = String::new_string(c_str);
+    auto *v = StringImpl::alloc_string(c_str, len);
     v->bind_to_current_domain();
     m_type = STRING;
     m_string = v;
@@ -177,12 +185,62 @@ Value::Value(const simple::char_t *c_str)
 
 Value::Value(const simple::string& str)
 {
-    auto *v = String::new_string(str);
+    auto *v = StringImpl::alloc_string(str);
     v->bind_to_current_domain();
     m_type = STRING;
     m_string = v;
 }
 
+// Compare with other value
+bool Value::operator <(const Value& b) const
+{
+    const Value& a = *this;
+
+    // Compare type first
+    if (a.m_type < b.m_type)
+        return true;
+    if (a.m_type > b.m_type)
+        return false;
+
+    // Type is same
+
+    if (a.m_type >= ValueType::REFERENCE_VALUE)
+    {
+        switch (a.m_type)
+        {
+        case ValueType::STRING: return StringImpl::compare(a.m_string, b.m_string) < 0;
+        case ValueType::BUFFER: return BufferImpl::compare(a.m_buffer, b.m_buffer) < 0;
+        default: break;
+        }
+    }
+
+    // Compare intptr only
+    return a.m_intptr < b.m_intptr;
+}
+
+// Compare with other value
+bool Value::operator ==(const Value& b) const
+{
+    const Value& a = *this;
+
+    if (a.m_type != b.m_type)
+        // Type is not same
+        return false;
+
+    if (a.m_type >= ValueType::REFERENCE_VALUE)
+    {
+        switch (a.m_type)
+        {
+        case ValueType::STRING: return StringImpl::compare(a.m_string, b.m_string) == 0;
+        case ValueType::BUFFER: return BufferImpl::compare(a.m_buffer, b.m_buffer) == 0;
+        default: break;
+        }
+    }
+
+    return a.m_intptr == b.m_intptr;
+}
+
+// Calculate & cache hash number of the value
 size_t Value::hash_value() const
 {
     switch (m_type)
@@ -194,9 +252,18 @@ size_t Value::hash_value() const
 }
 
 // Create a reference value belonged to this domain
-Value Value::new_string(Domain *domain, const char_t *c_str)
+Value Value::new_string(Domain *domain, const char *c_str, size_t len)
 {
-    auto *v = String::new_string(c_str);
+    auto *v = StringImpl::alloc_string(c_str, len);
+    STD_ASSERT(domain == Thread::get_current_thread_domain());
+    domain->bind_value(v);
+    return Value(v);
+}
+
+// Create a array value belonged to this domain
+Value Value::new_array(Domain *domain, size_t size_hint)
+{
+    auto *v = XNEW(ArrayImpl, size_hint);
     STD_ASSERT(domain == Thread::get_current_thread_domain());
     domain->bind_value(v);
     return Value(v);
@@ -205,7 +272,7 @@ Value Value::new_string(Domain *domain, const char_t *c_str)
 // Create a reference value belonged to this domain
 Value Value::new_map(Domain *domain, size_t size_hint)
 {
-    auto *v = XNEW(Map, size_hint);
+    auto *v = XNEW(MapImpl, size_hint);
     STD_ASSERT(domain == Thread::get_current_thread_domain());
     domain->bind_value(v);
     return Value(v);
@@ -232,47 +299,43 @@ Value Value::operator [](const Value& value) const
     }
 }
 
-bool operator <(const Value& a, const Value& b)
+// Concat with other string
+StringImpl *StringImpl::concat_string(const StringImpl *other)
 {
-    // Compare type first
-    if (a.m_type < b.m_type)
-        return true;
-    if (a.m_type > b.m_type)
-        return false;
+    size_t len1 = length();
+    size_t len2 = other->length();
+    size_t len = len1 + len2;
+    auto *string = StringImpl::alloc_string(len);
+    char_t *data = (char_t *)string->m_buf;
+    memcpy(data, m_buf, len1 * sizeof(char_t));
+    memcpy(data + len1, other->m_buf, len2 * sizeof(char_t));
+    data[len] = 0;
 
-    // Type is same
-
-    if (a.m_type >= ValueType::REFERENCE_VALUE)
-    {
-        switch (a.m_type)
-        {
-            case ValueType::STRING: return String::compare(a.m_string, b.m_string) < 0;
-            case ValueType::BUFFER: return Buffer::compare(a.m_buffer, b.m_buffer) < 0;
-            default: break;
-        }
-    }
-
-    // Compare intptr only
-    return a.m_intptr < b.m_intptr;
+    // Replace with new string
+    return string;
 }
 
-bool operator ==(const Value& a, const Value& b)
+// Get sub string
+StringImpl *StringImpl::sub_string(size_t offset, size_t len)
 {
-    if (a.m_type != b.m_type)
-        // Type is not same
-        return false;
+    if (offset >= length())
+        return StringImpl::alloc_string();
 
-    if (a.m_type >= ValueType::REFERENCE_VALUE)
-    {
-        switch (a.m_type)
-        {
-            case ValueType::STRING: return String::compare(a.m_string, b.m_string) == 0;
-            case ValueType::BUFFER: return Buffer::compare(a.m_buffer, b.m_buffer) == 0;
-            default: break;
-        }
-    }    
+    // Calculate the length of sub string
+    if (len > length() - offset)
+        len = length() - offset;
 
-    return a.m_intptr == b.m_intptr;
+    return StringImpl::alloc_string(m_buf + offset, len);
+}
+
+ArrayPtr::ArrayPtr(size_t size_hint) :
+    TypedValue<ArrayImpl>(Value::new_array(Thread::get_current_thread_domain(), size_hint))
+{
+}
+
+MapPtr::MapPtr(size_t size_hint) :
+    TypedValue<MapImpl>(Value::new_map(Thread::get_current_thread_domain(), size_hint))
+{
 }
 
 } // End of namespace: cmm

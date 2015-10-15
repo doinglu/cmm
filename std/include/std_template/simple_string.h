@@ -31,15 +31,19 @@ public:
         *data_ptr() = 0;
     }
 
-    string(const char_t *c_str = "")
+    string(const char *c_str = "", size_t len = SIZE_MAX)
     {
-        m_len = (string_size_t) strlen(c_str);
+        size_t str_length = strlen(c_str);
+        if (len > str_length)
+            len = str_length;
+        m_len = (string_size_t)len;
 
         // Allocate memory for long string
         if (is_dynamic_allocated())
             m_alloc = XNEWN(char_t, m_len + 1);
 
-        memcpy(data_ptr(), c_str, (m_len + 1) * sizeof(char_t));
+        memcpy(data_ptr(), c_str, m_len * sizeof(char_t));
+        data_ptr()[m_len] = 0; // Append terminator
     }
 
 	string(const string& s)
@@ -153,7 +157,7 @@ public:
     }
 
     // Generate by format string
-    string& snprintf(const char_t *fmt, size_t n, ...);
+    string& snprintf(const char *fmt, size_t n, ...);
 
 public:
     // Hash a c_str

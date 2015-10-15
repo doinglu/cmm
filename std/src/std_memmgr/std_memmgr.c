@@ -18,10 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "std_port/std_port.h"
 #include "std_memmgr/std_memmgr.h"
-
-/* Inline routine */
-#define STD_SIZE_N(su)          (sizeof(su) / sizeof(su[0]))
 
 typedef enum std_block_size
 {
@@ -187,7 +185,7 @@ static void std_delete_tiny_block_page(std_tiny_page_header_t *page);
 #if STD_STAT_ALLOC
 /* Internal statistics routines */
 static mem_code_node_stat_t *std_find_or_insert_code_node(const char *file, int line);
-static mem_code_node_stat_t *std_insert_code_node(mem_code_node_t *comp, int index);
+static mem_code_node_stat_t *std_insert_code_node(mem_code_node_t *comp, size_t index);
 static void                  std_add_code_node_stat_counter(const char *file, int line, int delta, size_t size);
 
 /* Find the node, if not found, insert one, return NULL
@@ -207,7 +205,7 @@ static mem_code_node_stat_t *std_find_or_insert_code_node(const char *file, int 
         /* Search the node */
         int b, e;
         b = 0;
-        e = _alloc_nodes_count - 1;
+        e = (int)_alloc_nodes_count - 1;
         for (;;)
         {
             m = (b + e) / 2;
@@ -498,7 +496,7 @@ int std_shutdown_mem_mgr(void)
         do
         {
             mem_code_node_stat_t *p_code_nodes;
-            int counts, i;
+            size_t counts, i;
 
             std_release_spin_lock(&_code_node_stat_spin_lock);
             std_get_code_node_stat(&p_code_nodes, &counts);

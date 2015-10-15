@@ -17,13 +17,14 @@ public:
     ~StringPool();
 
 public:
-    String *find_or_insert(const StringPtr& string_ptr);
-    String *find(const StringPtr& string_ptr);
+    StringImpl *find_or_insert(const StringPtr& string_ptr);
+    StringImpl *find(const StringPtr& string_ptr);
 
 private:
     std_spin_lock_t m_lock;
 
-    typedef simple::hash_set<StringPtr, hash_string_ptr_func> Container;
+    // Use StringImpl::hash_func to compare content of StringImpl *
+    typedef simple::hash_set<StringPtr, StringPtr::hash_func> Container;
     Container m_pool;
 };
 

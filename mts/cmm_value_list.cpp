@@ -7,7 +7,7 @@ namespace cmm
 {
 
 // Append a new value to list
-void ValueList::append_value(ReferenceValue *value)
+void ValueList::append_value(ReferenceImpl *value)
 {
 #ifdef _DEBUG
     STD_ASSERT(("The value was already owned by a list.", !value->owner));
@@ -25,7 +25,6 @@ void ValueList::concat_list(ValueList *list)
         // Target list is empry
         return;
 
-#ifdef _DEBUG
     // Update owner of the values in list
     auto *p = list->m_list;
     while (p)
@@ -34,7 +33,6 @@ void ValueList::concat_list(ValueList *list)
         p->owner = this;
         p = p->next;
     }
-#endif
 
     *m_pp_last = list->m_list;
     m_pp_last = list->m_pp_last;

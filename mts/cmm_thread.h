@@ -184,7 +184,7 @@ public:
 
 public:
     // Bind value to local memory list
-    void bind_value(ReferenceValue *value)
+    void bind_value(ReferenceImpl *value)
     {
         m_value_list.append_value(value);
     }

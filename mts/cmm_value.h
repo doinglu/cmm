@@ -20,15 +20,15 @@ class Thread;
 class Value;
 class ValueList;
 
-struct Array;
-struct Buffer;
-struct FunctionPtr;
-struct Map;
-struct String;
+struct ArrayImpl;
+struct BufferImpl;
+struct FunctionPtrImpl;
+struct MapImpl;
+struct StringImpl;
 struct MarkValueState;
 
 // Base type of VM referenced  value
-struct ReferenceValue
+struct ReferenceImpl
 {
 friend Value;
 
@@ -40,16 +40,15 @@ public:
     } Attrib;
 
 public:
-	ReferenceValue() :
-#ifdef _DEBUG
+	ReferenceImpl() :
+        attrib(0),
+        hash_cache(0),
         owner(0),
-#endif
-		attrib(0),
         next(0)
 	{
 	}
 
-    virtual ~ReferenceValue()
+    virtual ~ReferenceImpl()
     {
         // Let derived class do destroy work
     }
@@ -63,30 +62,41 @@ public:
 
 public:
     // Append this reference value @ tail of the list
-    void append(ReferenceValue **pp_list_tail)
+    void append(ReferenceImpl **pp_list_tail)
     {
         *pp_list_tail = this;
     }
 
+    // Bind the reference value to a domain
+    void bind_to_current_domain();
+
+    // Return hash value of me
+    size_t hash_value() const
+    {
+        if (!hash_cache)
+            hash_cache = (Uint) hash_this() + 1;
+
+        return hash_cache;
+    }
+
+public:
+    // Copy to local value list
+    virtual ReferenceImpl *copy_to_local(Thread *thread) = 0;
+
     // Return type of this referneced value
     virtual ValueType get_type() = 0;
 
-    // Copy to local value list
-    virtual ReferenceValue *copy_to_local(Thread *thread) = 0;
+    // Hash this value (hash this pointer)
+    virtual size_t hash_this() const { return ((size_t)this) / sizeof(void *); }
 
     // Mark-sweep
     virtual void mark(MarkValueState& value_map) { }
 
-private:
-    // Bind the reference value to a domain
-    inline void bind_to_current_domain();
-
 public:
     Uint attrib;
-    ReferenceValue *next;
-#ifdef _DEBUG
-    ValueList *owner;   // Owned by domain or thread
-#endif
+    mutable Uint hash_cache; // Cache of hash value
+    ValueList *owner;        // Owned by domain or thread
+    ReferenceImpl *next;     // Next value in list
 };
 
 // VM value
@@ -96,6 +106,16 @@ public:
 // correctly manually)
 class Value
 {
+public:
+    // Instantiated hash routine for simple::string
+    struct hash_func
+    {
+        size_t operator()(const Value& value) const
+        {
+            return value.hash_value();
+        }
+    };
+
 public:
     Value()
     {
@@ -157,45 +177,45 @@ public:
     Value(Object *ob);
 
     // Contruct from reference values
-    Value(ValueType type, ReferenceValue *v)
+    Value(ValueType type, ReferenceImpl *v)
     {
         STD_ASSERT(("Construct reference value with incorrect type.", type == v->get_type()));
         m_type = type;
-        m_reference_value = v;
+        m_reference = v;
     }
 
-    Value(String *v)
+    Value(const StringImpl *v)
     {
         m_type = STRING;
-        m_string = v;
+        m_string = (StringImpl *)v; // Remove "const"
     }
 
-    Value(Buffer *v)
+    Value(BufferImpl *v)
     {
         m_type = BUFFER;
         m_buffer = v;
     }
 
-    Value(FunctionPtr *v)
+    Value(FunctionPtrImpl *v)
     {
         m_type = FUNCTION;
         m_function = v;
     }
 
-    Value(Array *v)
+    Value(ArrayImpl *v)
     {
         m_type = ARRAY;
         m_array = v;
     }
 
-    Value(Map *v)
+    Value(MapImpl *v)
     {
         m_type = MAPPING;
         m_map = v;
     }
 
     // Construct for string
-    Value(const simple::char_t *c_str);
+    Value(const char *c_str, size_t len = SIZE_MAX);
 	Value(const simple::string& str);
 
     // Safe get values (check type)
@@ -225,17 +245,21 @@ public:
     Real         gets_real() const { return as_real().m_real; }
     ObjectId     get_object() const { return as_object().m_oid; }
 
-    const String      *get_string() const { return as_string().m_string; }
-    const Buffer      *get_buffer() const { return as_buffer().m_buffer; }
-    const FunctionPtr *get_function() const { return as_function().m_function; }
-    const Array       *get_array() const { return as_array().m_array; }
-    const Map         *get_map() const { return as_map().m_map; }
+    const StringImpl      *get_string() const { return as_string().m_string; }
+    const BufferImpl      *get_buffer() const { return as_buffer().m_buffer; }
+    const FunctionPtrImpl *get_function() const { return as_function().m_function; }
+    const ArrayImpl       *get_array() const { return as_array().m_array; }
+    const MapImpl         *get_map() const { return as_map().m_map; }
 
-    String      *get_string() { return as_string().m_string; }
-    Buffer      *get_buffer() { return as_buffer().m_buffer; }
-    FunctionPtr *get_function() { return as_function().m_function; }
-    Array       *get_array() { return as_array().m_array; }
-    Map         *get_map() { return as_map().m_map; }
+    StringImpl      *get_string() { return as_string().m_string; }
+    BufferImpl      *get_buffer() { return as_buffer().m_buffer; }
+    FunctionPtrImpl *get_function() { return as_function().m_function; }
+    ArrayImpl       *get_array() { return as_array().m_array; }
+    MapImpl         *get_map() { return as_map().m_map; }
+
+public:
+    bool operator <(const Value& b) const;
+    bool operator ==(const Value& b) const;
 
 public:
     // Return name of this value
@@ -302,12 +326,13 @@ public:
             return *this;
 
         // Copy reference value
-        m_reference_value = m_reference_value->copy_to_local(thread);
+        m_reference = m_reference->copy_to_local(thread);
         return *this;
     }
 
     // New values & bind to current domain
-    static Value new_string(Domain *domain, const char_t *c_str);
+    static Value new_string(Domain *domain, const char *c_str, size_t len = SIZE_MAX);
+    static Value new_array(Domain *domain, size_t size_hint = 8);
     static Value new_map(Domain *domain, size_t size_hint = 8);
 
 public:
@@ -332,92 +357,105 @@ public:
         Real             m_real;
         IntPtr           m_intptr;
         ObjectId         m_oid;
-        ReferenceValue  *m_reference_value;
-        String          *m_string;
-        Buffer          *m_buffer;
-        FunctionPtr     *m_function;
-        Array           *m_array;
-        Map             *m_map;
+        ReferenceImpl   *m_reference;
+        StringImpl      *m_string;
+        BufferImpl      *m_buffer;
+        FunctionPtrImpl *m_function;
+        ArrayImpl       *m_array;
+        MapImpl         *m_map;
     };
 };
 
 // VM value: string
-struct String : ReferenceValue
+struct StringImpl : ReferenceImpl
 {
 public:
     typedef simple::string::string_hash_t string_hash_t;
     typedef simple::string::string_size_t string_size_t;
+    static const ValueType this_type = ValueType::STRING;
 
 private:
-    // The string can be constructed by String::new_string() only,
+    // The string can be constructed by StringImpl::new_string() only,
     // since the string data should be allocated at same time. That
-    // means the operation: new String(), String xxx is invalid. We
-    // must use String * to access it.
-    String(size_t size) :
-        m_hash_value(0)
+    // means the operation: new StringImpl(), StringImpl xxx is invalid. We
+    // must use StringImpl * to access it.
+    StringImpl(size_t size)
     {
         m_len = (string_size_t)size;
     }
 
 public:
-    virtual ValueType get_type() { return ValueType::STRING; }
-    virtual ReferenceValue *copy_to_local(Thread *thread);
+    virtual ReferenceImpl *copy_to_local(Thread *thread);
+    virtual ValueType get_type() { return this_type; }
+    virtual size_t hash_this() const { return simple::string::hash_string(m_buf); }
 
 public:
     size_t length() const { return m_len; }
     const char_t *c_str() const { return m_buf; }
 
-    // Calculate hash value
-    size_t hash_value() const
-    {
-        if (!m_hash_value)
-            m_hash_value = simple::string::hash_string(m_buf) + 1;
-        
-        return (size_t) m_hash_value;
-    }
-
 public:
-    static String *new_string(size_t size)
+    static StringImpl *alloc_string(size_t size = 0)
     {
-        String *string;
-        size_t total_size = sizeof(String) + sizeof(char_t) * size; // '\x0' is included
-        string = (String *)STD_MEM_ALLOC(total_size);
+        StringImpl *string;
+        size_t total_size = sizeof(StringImpl) + sizeof(char_t) * size; // '\x0' is included
+        string = (StringImpl *)STD_MEM_ALLOC(total_size);
         // ATTENTION:
         // We can use XDELETE to free the string
-        new (string)String(size);
+        new (string)StringImpl(size);
         return string;
     }
 
-    static String *new_string(const char_t *c_str)
+    static StringImpl *alloc_string(const char *c_str, size_t len = SIZE_MAX)
     {
-        size_t len = strlen(c_str);
-        auto *string = new_string(len);
-        memcpy(string->m_buf, c_str, (len + 1) * sizeof(char_t));
+        size_t str_length = strlen(c_str);
+        if (len > str_length)
+            len = str_length;
+        auto *string = alloc_string(len);
+        memcpy(string->m_buf, c_str, len * sizeof(char_t));
+        string->m_buf[len] = 0; // Add terminator
         return string;
     }
 
-    static String *new_string(const simple::string str)
+    static StringImpl *alloc_string(const simple::string& str)
     {
         size_t len = str.length();
-        auto *string = new_string(len);
+        auto *string = alloc_string(len);
         memcpy(string->m_buf, str.c_str(), (len + 1) * sizeof(char_t));
         return string;
     }
 
-    static String *new_string(const String *other_string)
+    static StringImpl *alloc_string(const StringImpl *other_string)
     {
         size_t len = other_string->length();
-        auto *string = new_string(len);
+        auto *string = alloc_string(len);
         memcpy(string->m_buf, other_string->m_buf, (len + 1) * sizeof(char_t));
         return string;
     }
 
-    static void delete_string(String *string)
+    static void free_string(StringImpl *string)
     {
         XDELETE(string);
     }
 
-    static int compare(const String *a, const String *b);
+    static int compare(const StringImpl *a, const StringImpl *b);
+
+public:
+    // Concat with other string
+    StringImpl *concat_string(const StringImpl *other);
+
+    // Get sub string
+    StringImpl *sub_string(size_t offset, size_t len = SIZE_MAX);
+
+public:
+    inline bool operator <(const StringImpl& b)
+    {
+        return StringImpl::compare(this, &b) < 0;
+    }
+
+    inline bool operator ==(const StringImpl& b)
+    {
+        return StringImpl::compare(this, &b) == 0;
+    }
 
 private:
     mutable string_hash_t m_hash_value = 0;
@@ -426,10 +464,13 @@ private:
 };
 
 // VM value: buffer
-struct Buffer : ReferenceValue
+struct BufferImpl : ReferenceImpl
 {
 public:
-    Buffer(const void *bytes, size_t len)
+    static const ValueType this_type = ValueType::BUFFER;
+
+public:
+    BufferImpl(const void *bytes, size_t len)
     {
         this->hash = 0;
         this->data = XNEWN(Uint8, len);
@@ -437,21 +478,19 @@ public:
         memcpy(this->data, bytes, len);
     }
 
-    virtual ~Buffer()
+    virtual ~BufferImpl()
     {
         if (data)
             XDELETE(data);
     }
 
 public:
-    size_t hash_value() const;
+    virtual ReferenceImpl *copy_to_local(Thread *thread);
+    virtual ValueType get_type() { return this_type; }
+    virtual size_t hash_this() const;
 
 public:
-    virtual ValueType get_type() { return ValueType::BUFFER; }
-    virtual ReferenceValue *copy_to_local(Thread *thread);
-
-public:
-    static int compare(const Buffer *a, const Buffer *b);
+    static int compare(const BufferImpl *a, const BufferImpl *b);
 
 public:
     mutable size_t hash;
@@ -460,34 +499,48 @@ public:
 };
 
 // VM value: function
-struct FunctionPtr : ReferenceValue
+struct FunctionPtrImpl : ReferenceImpl
 {
 public:
-    FunctionPtr()
+    static const ValueType this_type = ValueType::FUNCTION;
+
+public:
+    FunctionPtrImpl()
     {
     }
 
 public:
-    virtual ValueType get_type() { return ValueType::FUNCTION; }
-    virtual ReferenceValue *copy_to_local(Thread *thread);
+    virtual ReferenceImpl *copy_to_local(Thread *thread);
+    virtual ValueType get_type() { return this_type; }
     virtual void mark(MarkValueState& value_map);
 };
 
 // VM value: array
-struct Array : ReferenceValue
+struct ArrayImpl : ReferenceImpl
 {
 public:
     typedef simple::unsafe_vector<Value> DataType;
+    static const ValueType this_type = ValueType::ARRAY;
 
 public:
-    Array(size_t size_hint = 8) :
+    ArrayImpl(size_t size_hint = 8) :
         a(size_hint)
     {
     }
 
+    ArrayImpl(const DataType& data)
+    {
+        a = data;
+    }
+
+    ArrayImpl(DataType&& data)
+    {
+        a = data;
+    }
+
 public:
-    virtual ValueType get_type() { return ValueType::ARRAY; }
-    virtual ReferenceValue *copy_to_local(Thread *thread);
+    virtual ReferenceImpl *copy_to_local(Thread *thread);
+    virtual ValueType get_type() { return this_type; }
     virtual void mark(MarkValueState& value_map);
 
 public:
@@ -501,37 +554,58 @@ public:
             throw simple::string().snprintf("Index out of range to array, got %lld.", 128,
                                             (Int64)index.m_int);
 
-        return a[index.m_int];
+        if (sizeof(index.m_int) > sizeof(size_t))
+        {
+            // m_int is longer than size_t
+            if (index.m_int > SIZE_MAX)
+                throw simple::string().snprintf("Index out of range to array, got %lld.", 128,
+                                                (Int64)index.m_int);
+        }
+
+        return a[(size_t)index.m_int];
     }
+
+    // Append an element
+    void append(const Value& value)
+    {
+        a.push_back(value);
+    }
+
+    // Get size
+    size_t size() { return a.size(); }
 
 public:
     DataType a;
 };
 
 // VM value: map
-struct Map : ReferenceValue
+struct MapImpl : ReferenceImpl
 {
-    // Instantiated hash routine for simple::string
-    struct hash_value
-    {
-        size_t operator()(const Value& value) const
-        {
-            return value.hash_value();
-        }
-    };
+public:
+    static const ValueType this_type = ValueType::MAPPING;
 
 public:
-    typedef simple::hash_map<Value, Value, hash_value> DataType;
+    typedef simple::hash_map<Value, Value, Value::hash_func> DataType;
 
 public:
-    Map(size_t size_hint = 4) :
+    MapImpl(size_t size_hint = 4) :
         m(size_hint)
     {
     }
 
+    MapImpl(const DataType& data)
+    {
+        m = data;
+    }
+
+    MapImpl(DataType&& data)
+    {
+        m = data;
+    }
+
 public:
-    virtual ValueType get_type() { return ValueType::MAPPING; }
-    virtual ReferenceValue *copy_to_local(Thread *thread);
+    virtual ReferenceImpl *copy_to_local(Thread *thread);
+    virtual ValueType get_type() { return this_type; }
     virtual void mark(MarkValueState& value_map);
 
 public:
@@ -547,21 +621,177 @@ public:
         return value;
     }
 
+    // Contains key?
+    bool contains_key(const Value& key)
+    {
+        return m.contains_key(key);
+    }
+
+    // Get keys
+    Value keys()
+    {
+        auto vec = m.keys();
+        return XNEW(ArrayImpl, (ArrayImpl::DataType &&)simple::move(vec));
+    }
+
+    // Get size
+    size_t size() { return m.size(); }
+
+    // Get values
+    Value values()
+    {
+        auto vec = m.values();
+        return XNEW(ArrayImpl, (ArrayImpl::DataType &&)simple::move(vec));
+    }
+
 public:
     DataType m;
 };
 
-inline bool operator <(const String&a, const String& b)
+template <typename T>
+class TypedValue : public Value
 {
-    return String::compare(&a, &b) < 0;
-}
+public:
+    // Other constructor
+    template <typename... Types>
+    TypedValue(Types&&... args) :
+        Value()
+    {
+        Value value(simple::forward<Types>(args)...);
+        m_type = T::this_type;
+        *this = value;
+    }
 
-inline bool operator ==(const String&a, const String& b)
+    TypedValue& operator =(const Value& other)
+    {
+        if (other.m_type != T::this_type)
+            // Bad type
+            throw simple::string().snprintf("Expect %s for value type, got %s.",
+                                            128,
+                                            Value::get_type_name(T::this_type),
+                                            Value::get_type_name(other.m_type));
+        m_reference = other.m_reference;
+        m_reference->bind_to_current_domain();
+        return *this;
+    }
+
+    TypedValue& operator =(const TypedValue& other)
+    {
+        m_reference = other.m_reference;
+        // The value should be already binded
+        return *this;
+    }
+
+    TypedValue& operator =(const T *other_impl)
+    {
+        m_reference = (T *)other_impl;
+        m_reference->bind_to_current_domain();
+        return *this;
+    }
+
+    bool operator ==(const TypedValue& other) const
+    {
+        return *(T *)m_reference == *(const T *)other.m_reference;
+    }
+
+    bool operator <(const TypedValue& other) const
+    {
+        return *(T *)m_reference < *(const T *)other.m_reference;
+    }
+
+    operator T *()
+    {
+        return (T *)m_reference;
+    }
+
+    operator T *const() const
+    {
+        return (T *)m_reference;
+    }
+
+public:
+    T &impl()
+    {
+        return *(T *)m_reference;
+    }
+
+    const T &impl() const
+    {
+        return *(T *)m_reference;
+    }
+};
+
+class StringPtr : public TypedValue<StringImpl>
 {
-    return String::compare(&a, &b) == 0;
-}
+public:
+    StringPtr() :
+        TypedValue("")
+    {
+    }
 
-bool operator <(const Value& a, const Value& b);
-bool operator ==(const Value& a, const Value& b);
+    template <typename... Types>
+    StringPtr(Types&&... args) :
+        TypedValue(simple::forward<Types>(args)...)
+    {
+    }
+
+    // Redirect function to impl()
+    // ATTENTION:
+    // Why not override -> or * (return T *) for redirection call?
+    // Because the override may cause confusing, I would rather to write
+    // more codes to make them easy to understand.
+public:
+    StringPtr operator +(const StringPtr& other)
+        { return impl().concat_string(&other.impl()); }
+
+    const char *c_str()
+        { return impl().c_str(); }
+
+    size_t length()
+        { return impl().length(); }
+
+    StringPtr sub_string(size_t offset, size_t len = SIZE_MAX)
+        { return impl().sub_string(offset, len); }
+};
+
+class ArrayPtr : public TypedValue<ArrayImpl>
+{
+public:
+    ArrayPtr(size_t size_hint = 8);
+
+public:
+    Value& operator [](const Value& index)
+        { return impl()[index]; }
+
+    Value operator [](const Value& index) const
+        { return ((ArrayImpl &)impl())[index]; }
+
+    void append(const Value& value)
+        { impl().append(value); }
+
+    size_t size() { return impl().size(); }
+};
+
+class MapPtr : public TypedValue<MapImpl>
+{
+public:
+    MapPtr(size_t size_hint = 8);
+
+public:
+    Value& operator [](const Value& index)
+        { return impl()[index]; }
+
+    Value operator [](const Value& index) const
+        { return impl()[index]; }
+
+    Value keys()
+        { return impl().keys(); }
+
+    size_t size()
+        { return impl().size(); }
+
+    Value values()
+        { return impl().values(); }
+};
 
 } // End namespace: cmm

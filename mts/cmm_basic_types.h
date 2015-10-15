@@ -15,14 +15,14 @@ typedef Uint16 ArgNo;               // Argument count/no
 typedef Uint32 MemberOffset;        // Offset of member in class object
 typedef Uint16 ComponentNo;         // Number of component in a program
 typedef Uint32 ComponentOffset;     // Offset of component in class Object
-typedef Uint32 MapOffset;           // Map offset for component no map
+typedef Uint32 MapOffset;           // MapImpl offset for component no map
 typedef Uint32 FunctionNo;          // Number of function in a program
 #else
 typedef size_t ArgNo;               // Argument count/no
 typedef size_t MemberOffset;        // Offset of member in class object
 typedef size_t ComponentNo;         // Number of component in a program
 typedef size_t ComponentOffset;     // Offset of component in class Object
-typedef size_t MapOffset;           // Map offset for component no map
+typedef size_t MapOffset;           // MapImpl offset for component no map
 typedef size_t FunctionNo;          // Number of function in a program
 #endif
 
@@ -32,11 +32,11 @@ typedef enum
     INTEGER = 1,        // Integer (int64)
     REAL = 2,           // Float (double)
     OBJECT = 3,         // Object
-    REFERENCE_VALUE = 9,// Type >= ReferenceValue is a ReferenceValue type
-    STRING = 9,         // String
+    REFERENCE_VALUE = 9,// Type >= ReferenceImpl is a ReferenceImpl type
+    STRING = 9,         // StringImpl
     BUFFER = 10,        // Binary data
     FUNCTION = 11,      // Function pointer
-    ARRAY = 12,         // Array
+    ARRAY = 12,         // ArrayImpl
     MAPPING = 13,       // Mapping
 }  ValueType;
 

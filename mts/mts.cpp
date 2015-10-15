@@ -16,6 +16,7 @@
 #include "std_memmgr/std_memmgr.h"
 #include "cmm_memory.h"
 #include "cmm_domain.h"
+#include "cmm_efun.h"
 #include "cmm_object.h"
 #include "cmm_thread.h"
 #include "cmm_value.h"
@@ -174,11 +175,11 @@ int main(int argn, char *argv[])
 
     Domain::init();
     Object::init();
-    Program::init();
     Thread::init();
+    Program::init();
+    Efun::init();
 
-    Thread thread;
-    thread.start();
+    auto *thread = Thread::get_current_thread();
 
     __clone_entity_ob::create_program();
     __feature_desc_ob::create_program();
@@ -191,17 +192,17 @@ int main(int argn, char *argv[])
     auto *ob = program->new_instance(domain);
     auto *domain2 = XNEW(Domain);
     auto *ob2 = program->new_instance(domain2);
-    call_other(&thread, ob->get_oid(), "create");
-    call_other(&thread, ob2->get_oid(), "create");
-    Value ret = call_other(&thread, ob->get_oid(), "test_call", ob2->get_oid());
+    call_other(thread, ob->get_oid(), "create");
+    call_other(thread, ob2->get_oid(), "create");
+    Value ret = call_other(thread, ob->get_oid(), "test_call", ob2->get_oid());
     printf("ret = %d.\n", (int) ret.m_int);
     XDELETE(ob);
-    thread.stop();
 
+    Efun::shutdown();
+    Program::shutdown();
     Thread::shutdown();
     Domain::shutdown();
     Object::shutdown();
-    Program::shutdown();
     return 0;
 
 #if 0

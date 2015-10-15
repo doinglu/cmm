@@ -58,7 +58,7 @@ public:
     }
 
     // Is this hash map contains the key?
-    bool contains(const K& key) const
+    bool contains_key(const K& key) const
     {
         index_t index;
         return try_get_index(key, &index);
@@ -271,7 +271,7 @@ private:
     // Insert new value into map
     index_t insert(const K& key, const V& value)
     {
-        STD_ASSERT(! contains(key));
+        STD_ASSERT(! contains_key(key));
 
         // Add the pair into table list
         index_t index;

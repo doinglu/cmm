@@ -37,7 +37,7 @@ Member::Member(Program *program, const Value& name_value)
     m_offset = 0;
 }
 
-// String pool of all programs
+// StringImpl pool of all programs
 StringPool *Program::m_string_pool = 0;
 
 // Program name -> program map
@@ -92,10 +92,10 @@ Program::~Program()
 }
 
 // COnver
-String *Program::convert_to_shared(String **pp_string)
+StringImpl *Program::convert_to_shared(StringImpl **pp_string)
 {
-    String *string = *pp_string;
-    if (!(string->attrib & ReferenceValue::SHARED))
+    StringImpl *string = *pp_string;
+    if (!(string->attrib & ReferenceImpl::SHARED))
     {
         // Not shared? Lookup in pool
         string = find_string(string);
@@ -108,20 +108,20 @@ String *Program::convert_to_shared(String **pp_string)
 }
 
 // Find or add a string into pool
-String *Program::find_or_add_string(const String *string)
+StringImpl *Program::find_or_add_string(const StringImpl *string)
 {
     // Not found, create new string
     return m_string_pool->find_or_insert(string);
 }
 
 // Find string in pool (return 0 if not found)
-String *Program::find_string(const String *string)
+StringImpl *Program::find_string(const StringImpl *string)
 {
     return m_string_pool->find(string);
 }
 
 // Find a program by name (shared string)
-Program *Program::find_program_by_name(String *program_name)
+Program *Program::find_program_by_name(StringImpl *program_name)
 {
     Program *program;
 
@@ -182,7 +182,7 @@ void Program::add_callee(ComponentNo component_no, Function *function)
         m_public_callees.put(function->m_name, info);
 
         // Put in private callees if not existed
-        if (!m_self_callees.contains(function->m_name))
+        if (!m_self_callees.contains_key(function->m_name))
             m_self_callees.put(function->m_name, info);
     }
 
@@ -343,7 +343,7 @@ Remap component no for /clone/entity (component 0) : [
 ]
 Remap component no for /feature/name (component 1) : [  // <--- The above sample
     0 -> 1 (/feature/name, offset XX2)
-    1 -> 2 (/feature/dbase, offset XX3)                 // <--- Map "1" to "2"
+    1 -> 2 (/feature/dbase, offset XX3)                 // <--- MapImpl "1" to "2"
 ]
 Remap component no for /feature/dbase (component 2) : [
     0 -> 2 (/feature/dbase, offset XX3)
@@ -354,7 +354,7 @@ Remap component no for /extend/feature/name (component 3) : [
 We put all mapped no in COMPONENT NO MAP ARRAY, it looks like following for the sample
 /clone/entity:
 Index:   0  1  2  3  4  5  6  7
-Map to: [0, 1, 2, 3; 1, 2; 2; 3;]
+MapImpl to: [0, 1, 2, 3; 1, 2; 2; 3;]
 The ; means another MAP OFFSET ARRAY for components in /clone/entity, the array is:
 Index:   0  1  2  3
 Offset: [0, 4, 6, 7]
@@ -388,7 +388,7 @@ void Program::add_component(const Value& program_name_value, ComponentOffset off
 // Update all callees after all components added
 void Program::update_callees()
 {
-    simple::hash_map<String *, ComponentNo> component_no_map;
+    simple::hash_map<StringImpl *, ComponentNo> component_no_map;
 
     // Update "program" in Component info & build map: program->offset
     // Also calculate size of ComponentsNoMap
@@ -477,7 +477,7 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name_v
         // Bad type of function name
         return Value();
 
-    if (!get_public_callee_by_name((String **)&function_name_value.m_string, &callee))
+    if (!get_public_callee_by_name((StringImpl **)&function_name_value.m_string, &callee))
         // No such function
         return Value();
 
@@ -513,7 +513,7 @@ Value Program::invoke_self(Thread *thread, const Value& function_name_value, Val
     auto component_no = thread->get_this_component_no();
     auto *to_program = m_components[component_no].program;
 
-    if (!to_program->get_self_callee_by_name((String **)&function_name_value.m_string, &callee))
+    if (!to_program->get_self_callee_by_name((StringImpl **)&function_name_value.m_string, &callee))
         // No such function
         return Value();
 
