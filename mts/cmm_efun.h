@@ -39,10 +39,10 @@ public:
     static void parse_efun_prototype(Function *function, const Value& prototype);
 
     // Parse string text to words
-    static ArrayPtr parse_words(StringPtr& text);
+    static Array parse_words(String& text);
 
 private:
-    typedef simple::hash_map<StringPtr, Function *> EfunMap;
+    typedef simple::hash_map<String, Function *> EfunMap;
     static EfunMap *m_efun_map;
 };
 

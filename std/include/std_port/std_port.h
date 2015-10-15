@@ -110,9 +110,9 @@ typedef void *              std_tls_t; /* Not implemented yet */
 #define STD_NO_WAIT         NO_WAIT
 
 /* Macro routines under VXWORKS */
-#define std_getOSTick()     (std_tick_t) tickGet()
-#define std_getOSTick64()   ((std_freq_t) time(NULL) * 1000000 + (tickGet() % 1000) * 1000)
-#define std_tickPerSecond() (std_tick_t) sysClkRateGet()
+#define std_get_os_tick()     (std_tick_t) tickGet()
+#define std_get_os_tick64()   ((std_freq_t) time(NULL) * 1000000 + (tickGet() % 1000) * 1000)
+#define std_tick_per_second() (std_tick_t) sysClkRateGet()
 
 #else   /* NO _VXWORKS */
 
@@ -145,10 +145,10 @@ typedef unsigned            std_tls_t;
 #define STD_NO_SHRD_MEM     (std_shrd_mem_id_t) 0
 
 /* Macro routines under WIN32 */
-#define std_tickPerSecond()     (std_tick_t) 1000
-extern std_time_t std_getOSTime();
-extern std_tick_t std_getOSTick();
-extern std_freq_t std_getOSUsCounter();
+#define std_tick_per_second()     (std_tick_t) 1000
+extern std_time_t std_get_os_time();
+extern std_tick_t std_get_os_tick();
+extern std_freq_t std_get_os_us_counter();
 
 #else   /* NOT WINDOWS */
 
@@ -217,10 +217,10 @@ typedef unsigned            std_tls_t;
 #define STD_NO_WAIT         0
 
 /* Macro routines under normal UNIX OS */
-#define std_tickPerSecond() (std_tick_t) 1000
-extern std_time_t std_getOSTime();
-extern std_tick_t std_getOSTick();
-extern std_freq_t std_getOSUsCounter();
+#define std_tick_per_second() (std_tick_t) 1000
+extern std_time_t std_get_os_time();
+extern std_tick_t std_get_os_tick();
+extern std_freq_t std_get_os_us_counter();
 
 #endif  /* End of WIN32 */
 
@@ -269,7 +269,7 @@ extern int           std_give_semaphore(std_semaphore_id_t semId);
 extern int           std_create_event(std_event_id_t *pEventId);
 extern int           std_delete_event(std_event_id_t eventId);
 extern int           std_wait_event(std_event_id_t eventId);
-extern int           std_waitEventByTime(std_event_id_t eventId, int timeout);
+extern int           std_wait_event_by_time(std_event_id_t eventId, int timeout);
 extern int           std_raise_event(std_event_id_t eventId);
 
 /* Semaphore may be accessed in processes */

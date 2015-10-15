@@ -23,6 +23,9 @@
 #define std_cpu_lock_add(ptr, val)                  __sync_fetch_and_add(ptr, val)
 #define std_cpu_pause()                             __asm("pause")
 #define std_cpu_mfence()                            __asm("mfence")
+
+#define STD_BEGIN_ALIGNED_STRUCT(n)
+#define STD_END_ALIGNED_STRUCT(n)                   __attribute__ ((aligned(n)))
 #endif
 
 #ifdef _MSC_VER
@@ -40,6 +43,14 @@
 #endif /* En of _M_X64 */
 #define std_cpu_pause()                             _mm_pause()
 #define std_cpu_mfence()                            _mm_mfence()
+
+#define STD_BEGIN_ALIGNED_STRUCT(n)                 __declspec(align(n))
+#define STD_END_ALIGNED_STRUCT(n)
 #endif /* End of _MSC_VER */
+
+#ifndef STD_BEGIN_ALIGNED_STRUCT
+#define STD_BEGIN_ALIGNED_STRUCT(n)
+#define STD_END_ALIGNED_STRUCT(n)
+#endif
 
 #endif /* end of __STD_PORT_COMPILER_H__ */

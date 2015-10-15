@@ -34,18 +34,19 @@ public:
     // Return the head of list
     ReferenceImpl *get_list() { return m_list; }
 
+    // Remove a value
+    void remove(ReferenceImpl *value);
+
     // Reset the list (don't free linked values)
     void reset()
     {
         m_list = 0;
-        m_pp_last = &m_list;
         m_count = 0;
     }
 
 private:
     // List of all reference values
     ReferenceImpl *m_list;
-    ReferenceImpl **m_pp_last;
     size_t m_count;
 };
 

@@ -447,7 +447,7 @@ extern int std_wait_event(std_event_id_t eventId)
     return rc == 0;
 }
 
-extern int std_waitEventByTime(std_event_id_t eventId, int timeout)
+extern int std_wait_event_by_time(std_event_id_t eventId, int timeout)
 {
     struct timespec tm;
     struct timeval  tv;

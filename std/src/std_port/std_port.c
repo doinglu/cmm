@@ -21,35 +21,35 @@
 #include "std_port/std_port_cs.h"
 #include "std_port/std_port_internal.h"
 
-#define DEFAULT_tASK_STACK_SIZE         (256 * 1024)
+#define DEFAULT_TASK_STACK_SIZE         (256 * 1024)
 
-static size_t _defaultTaskStack_size = DEFAULT_tASK_STACK_SIZE;
+static size_t _default_task_stack_size = DEFAULT_TASK_STACK_SIZE;
 
 /* For task name */
-std_tls_t std_taskNameTlsId = STD_NO_TLS_ID;
+std_tls_t std_task_name_tls_id = STD_NO_TLS_ID;
 
 /* Get the tick  */
 extern std_tick_t std_get_current_tick()
 {
-    return std_getOSTick();
+    return std_get_os_tick();
 }
 
 /* Get the high resolution system freqency-counter */
 extern std_freq_t std_get_current_us_counter()
 {
-    return std_getOSUsCounter();
+    return std_get_os_us_counter();
 }
 
 /* Set the stack size of task(thread) */
 extern void std_set_default_task_stack_size(size_t size)
 {
-    _defaultTaskStack_size = size;
+    _default_task_stack_size = size;
 }
 
 /* Get the stack size of task(thread) */
 extern size_t std_get_default_task_stack_size()
 {
-    return _defaultTaskStack_size;
+    return _default_task_stack_size;
 }
 
 /* Return name of specified task name */

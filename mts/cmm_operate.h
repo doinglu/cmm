@@ -100,36 +100,36 @@ protected:
     T *m_ptr;
 };
 
-class StringPtr : public ValuePtr<StringImpl>
+class String : public ValuePtr<StringImpl>
 {
 public:
-    StringPtr() :
+    String() :
         ValuePtr("")
     {
     }
 
     template <typename... Types>
-    StringPtr(Types&&... args) :
+    String(Types&&... args) :
         ValuePtr(simple::forward<Types>(args)...)
     {
     }
         
     // Get sub string
-    StringPtr sub_string(size_t offset, size_t len = SIZE_MAX)
+    String sub_string(size_t offset, size_t len = SIZE_MAX)
     {
         if (offset >= m_ptr->length())
-            return StringPtr();
+            return String();
 
         // Calculate the length of sub string
         if (len > m_ptr->length() - offset)
             len = m_ptr->length() - offset;
 
-        return StringPtr(m_ptr->c_str() + offset, len);
+        return String(m_ptr->c_str() + offset, len);
     }
 
 public:
     // Concat with another string
-    StringPtr operator +(const StringPtr& other)
+    String operator +(const String& other)
     {
         size_t len1 = m_ptr->length();
         size_t len2 = other.m_ptr->length();
@@ -142,23 +142,23 @@ public:
         data[len] = 0;
 
         // Replace with new string
-        return StringPtr(string);
+        return String(string);
     }
 };
 
-class ArrayPtr : public ValuePtr<ArrayImpl>
+class Array : public ValuePtr<ArrayImpl>
 {
 public:
-    ArrayPtr(size_t size_hint = 8) :
+    Array(size_t size_hint = 8) :
         ValuePtr(Value::new_array(Thread::get_current_thread_domain(), size_hint))
     {
     }
 };
 
-class MapPtr : public ValuePtr<MapImpl>
+class Map : public ValuePtr<MapImpl>
 {
 public:
-    MapPtr(size_t size_hint = 8) :
+    Map(size_t size_hint = 8) :
         ValuePtr(Value::new_map(Thread::get_current_thread_domain(), size_hint))
     {
     }

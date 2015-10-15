@@ -14,14 +14,14 @@ StringPool::StringPool()
 StringPool::~StringPool()
 {
     for (auto it = m_pool.begin(); it != m_pool.end(); ++it)
-        StringImpl::free_string(*it);
+        STRING_FREE(*it);
     std_destroy_spin_lock(&m_lock);
 }
     
 // Find string in pool, create new one if not found
 // Once a string put in pool, it should be never deleted, so it should be
 // a CONSTANT one
-StringImpl *StringPool::find_or_insert(const StringPtr& string_ptr)
+StringImpl *StringPool::find_or_insert(const String& string_ptr)
 {
     StringImpl *string_in_pool;
 
@@ -30,10 +30,10 @@ StringImpl *StringPool::find_or_insert(const StringPtr& string_ptr)
     if (it == m_pool.end())
     {
         // Not found in pool, create new "CONSTANT" string
-        string_in_pool = StringImpl::alloc_string(string_ptr);
+        string_in_pool = STRING_ALLOC(string_ptr);
         string_in_pool->attrib |= (ReferenceImpl::CONSTANT | ReferenceImpl::SHARED);
-        // Attention: The key (StringPtr) must use the same StringImpl * as value
-        m_pool.put(StringPtr(string_in_pool));
+        // Attention: The key (String) must use the same StringImpl * as value
+        m_pool.put(String(string_in_pool));
     } else
         string_in_pool = (StringImpl *)*it;
     std_release_spin_lock(&m_lock);
@@ -42,7 +42,7 @@ StringImpl *StringPool::find_or_insert(const StringPtr& string_ptr)
 }
 
 // Find only
-StringImpl *StringPool::find(const StringPtr& string_ptr)
+StringImpl *StringPool::find(const String& string_ptr)
 {
     StringImpl *string_in_pool;
 

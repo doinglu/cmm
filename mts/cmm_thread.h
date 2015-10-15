@@ -105,11 +105,15 @@ public:
     Thread(simple::string name = "");
     ~Thread();
 
+public:
     // Thread is started
     void start();
 
     // Thread will be stopped
     void stop();
+
+    // Update stack information of start context
+    void update_start_sp_of_start_context(void *start_sp);
 
 public:
     // Return argument, n in [0..arg_count-1]

@@ -59,7 +59,6 @@ public:
     {
         STD_ASSERT(("Value is already binded to domain.", !value->next));
         STD_ASSERT(("Value is already binded to domain.", !value->owner));
-        value->owner = &m_value_list;
         m_value_list.append_value(value);
 
         // Should I need do a GC?
@@ -130,6 +129,10 @@ private:
 
     // Critical Section to operate m_all_domains
     static struct std_critical_section *m_domain_cs;
+
+    // Function routine to get stack pointer for GC
+    typedef void *(*GetStackPointerFunc)();
+    static GetStackPointerFunc m_get_stack_pointer_func;
 };
 
 } // End of namespace: cmm

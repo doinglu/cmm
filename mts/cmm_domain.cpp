@@ -19,6 +19,7 @@ Domain::DomainIdManager *Domain::m_id_manager = 0;
 Domain::DomainIdMap *Domain::m_all_domains = 0;
 Domain *Domain::m_domain_0 = 0;
 struct std_critical_section *Domain::m_domain_cs = 0;
+Domain::GetStackPointerFunc Domain::m_get_stack_pointer_func = 0;
 
 // Initialize this module
 int Domain::init()
@@ -31,6 +32,9 @@ int Domain::init()
     // Create the domain 0
     m_all_domains = XNEW(DomainIdMap);
     m_domain_0 = XNEW(Domain);
+
+    // Set handler - This is only to prevent optimization
+    m_get_stack_pointer_func = (GetStackPointerFunc) ([]() { void *p = (void *)&p; return p; });
     return 0;
 }
 
@@ -138,8 +142,11 @@ void Domain::gc()
     auto *thread = Thread::get_current_thread();
     auto *context = thread ? thread->get_this_context() : 0;
     if (context)
+    {
         // Update end_sp of current context
-        context->value.update_end_sp(&context);
+        void *stack_pointer = m_get_stack_pointer_func();
+        context->value.update_end_sp(stack_pointer);
+    }
 
     MarkValueState state(&m_value_list);
     ReferenceImpl *low, *high;
@@ -226,9 +233,7 @@ void Domain::mark_value(MarkValueState& state, ReferenceImpl *ptr_value)
         return;
 
     // Put back to list
-#ifdef _DEBUG
     ptr_value->owner = 0;
-#endif
     state.list->append_value(ptr_value);
 
     ptr_value->mark(state);

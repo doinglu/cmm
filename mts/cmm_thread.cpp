@@ -186,6 +186,14 @@ void Thread::stop()
     std_set_tls_data(m_thread_tls_id, 0);
 }
 
+// Update stack information of start context
+void Thread::update_start_sp_of_start_context(void *start_sp)
+{
+    // Alignment to 4K
+    start_sp = (void *)(((size_t)start_sp | 0xFFF) + 1);
+    m_start_context->value.m_start_sp = start_sp;
+}
+
 // Enter function call
 void Thread::enter_function_call(CallContextNode *context)
 {
@@ -263,7 +271,6 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
         // Copy arguments to thread local value list & pass to target
         for (ArgNo i = 0; i < n; i++)
             args[i].copy_to_local(thread);
-        thread->transfer_values_to_current_domain();
 
         // OK, Switch the domain first
         if (m_current_domain)
@@ -273,6 +280,8 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
         if (to_domain)
             // Enter new domain
             to_domain->enter();
+
+        thread->transfer_values_to_current_domain();
     }
 
     // ATTENTION:

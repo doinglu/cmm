@@ -14,9 +14,10 @@
 #include "std_port/std_port.h"
 #include "std_port/std_port_type.h"
 #include "std_memmgr/std_memmgr.h"
-#include "cmm_memory.h"
+#include "cmm_buffer_new.h"
 #include "cmm_domain.h"
 #include "cmm_efun.h"
+#include "cmm_memory.h"
 #include "cmm_object.h"
 #include "cmm_thread.h"
 #include "cmm_value.h"
@@ -125,6 +126,28 @@ namespace cmm
 int conflict = 0;
 }
 
+class AAA
+{
+public:
+    AAA(int _n)
+    {
+        printf("AAA constructor: n = %d\n", _n);
+        n = _n;
+    }
+
+    AAA() :
+        AAA(0)
+    {
+    }
+
+    ~AAA()
+    {
+        printf("AAA destructor: n = %d\n", n);
+    }
+
+    int n;
+};
+
 int main(int argn, char *argv[])
 {
     static bool flag = 1;
@@ -180,13 +203,38 @@ int main(int argn, char *argv[])
     Efun::init();
 
     auto *thread = Thread::get_current_thread();
+    thread->update_start_sp_of_start_context(&argn);
 
+#if 1
     __clone_entity_ob::create_program();
     __feature_desc_ob::create_program();
     __feature_name_ob::create_program();
 
     Program::update_all_callees();
+#endif
 
+    auto *a1 = BUFFER_NEW(AAA, 888);
+#if 1
+    auto *a2 = BUFFER_NEWN(AAA, 3);
+    auto *a11 = BUFFER_ALLOC(a1);
+    auto *a21 = BUFFER_ALLOC(a2);
+    BUFFER_DELETE(a1);
+    BUFFER_DELETEN(a2);
+    a11->bind_to_current_domain();
+    a21->bind_to_current_domain();
+    a11 = 0;
+#endif
+    printf("Start GC...\n");
+    Thread::get_current_thread_domain()->gc();
+    printf("End GC...\n");
+    //printf("a1 = %p, a2 = %p, a11 = %p, a21 = %p\n", a1, a2, a11, a21);
+    printf("&argn = %p\n", (Uint8*) &argn - 0x20);
+    printf("thread start = %p, end = %p\n",
+           thread->get_this_context()->value.m_start_sp,
+           thread->get_this_context()->value.m_end_sp);
+    printf("&a1 = %p\n", &a1);
+
+#if 0
     auto *domain = XNEW(Domain);
     auto *program = Program::find_program_by_name(Value("/clone/entity").m_string);
     auto *ob = program->new_instance(domain);
@@ -197,6 +245,7 @@ int main(int argn, char *argv[])
     Value ret = call_other(thread, ob->get_oid(), "test_call", ob2->get_oid());
     printf("ret = %d.\n", (int) ret.m_int);
     XDELETE(ob);
+#endif
 
     Efun::shutdown();
     Program::shutdown();

@@ -60,7 +60,7 @@ static void std_sigAlrmHandler(int sig);
 #endif
 
 /* Like time() */
-extern std_time_t std_getOSTime()
+extern std_time_t std_get_os_time()
 {
     DO_PREPARE
 
@@ -80,7 +80,7 @@ extern std_time_t std_getOSTime()
 }
 
 /* Return ms counter */
-extern std_tick_t std_getOSTick()
+extern std_tick_t std_get_os_tick()
 {
     DO_PREPARE
 
@@ -102,7 +102,7 @@ extern std_tick_t std_getOSTick()
 }
 
 /* Return us counter */
-extern std_freq_t std_getOSUsCounter()
+extern std_freq_t std_get_os_us_counter()
 {
 #ifdef IA_RDTSC
     /* Use RDTSC */
@@ -120,9 +120,9 @@ extern std_freq_t std_getOSUsCounter()
         std_tick_t c_now, c_prev;
 
         /* Wait clock changed */
-        c_prev = std_getOSTick();
-        while (c_prev == std_getOSTick());
-        c_prev = std_getOSTick();
+        c_prev = std_get_os_tick();
+        while (c_prev == std_get_os_tick());
+        c_prev = std_get_os_tick();
 
         /* RDTSC - save time stamp counter */
         DO_RDTSC;
@@ -132,7 +132,7 @@ extern std_freq_t std_getOSUsCounter()
         u_prev.r_eax_edx[1] = r_edx;
 
         /* At least 1 tick passed */
-        while (c_prev + 10 > (c_now = std_getOSTick()));
+        while (c_prev + 10 > (c_now = std_get_os_tick()));
 
         /* RDTSC - get new time stamp counter after sleep */
         DO_RDTSC;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "std_port/std_port.h"
+#include "std_port/std_port_compiler.h"
 #include "std_template/simple_string.h"
 #include "std_template/simple_vector.h"
 #include "std_template/simple_hash_map.h"
@@ -78,6 +80,9 @@ public:
 
         return hash_cache;
     }
+
+    // This value will be freed manually, unbind it if necessary
+    void unbind_when_free();
 
 public:
     // Copy to local value list
@@ -366,8 +371,12 @@ public:
     };
 };
 
+// Macro as functions
+#define STRING_ALLOC(...)   StringImpl::alloc(__FILE__, __LINE__, ##__VA_ARGS__)
+#define STRING_FREE(string) StringImpl::free(__FILE__, __LINE__, string)
+
 // VM value: string
-struct StringImpl : ReferenceImpl
+struct StringImpl : public ReferenceImpl
 {
 public:
     typedef simple::string::string_hash_t string_hash_t;
@@ -394,49 +403,18 @@ public:
     const char_t *c_str() const { return m_buf; }
 
 public:
-    static StringImpl *alloc_string(size_t size = 0)
-    {
-        StringImpl *string;
-        size_t total_size = sizeof(StringImpl) + sizeof(char_t) * size; // '\x0' is included
-        string = (StringImpl *)STD_MEM_ALLOC(total_size);
-        // ATTENTION:
-        // We can use XDELETE to free the string
-        new (string)StringImpl(size);
-        return string;
-    }
+    // Allocate a string with reserved size
+    static StringImpl *alloc(const char *file, int line, size_t size = 0);
 
-    static StringImpl *alloc_string(const char *c_str, size_t len = SIZE_MAX)
-    {
-        size_t str_length = strlen(c_str);
-        if (len > str_length)
-            len = str_length;
-        auto *string = alloc_string(len);
-        memcpy(string->m_buf, c_str, len * sizeof(char_t));
-        string->m_buf[len] = 0; // Add terminator
-        return string;
-    }
+    // Allocate a string & construct it
+    static StringImpl *alloc(const char *file, int line, const char *c_str, size_t len = SIZE_MAX);
+    static StringImpl *alloc(const char *file, int line, const simple::string& str);
+    static StringImpl *alloc(const char *file, int line, const StringImpl *other);
 
-    static StringImpl *alloc_string(const simple::string& str)
-    {
-        size_t len = str.length();
-        auto *string = alloc_string(len);
-        memcpy(string->m_buf, str.c_str(), (len + 1) * sizeof(char_t));
-        return string;
-    }
+    // Free a string
+    static void free(const char *file, int line, StringImpl *string);
 
-    static StringImpl *alloc_string(const StringImpl *other_string)
-    {
-        size_t len = other_string->length();
-        auto *string = alloc_string(len);
-        memcpy(string->m_buf, other_string->m_buf, (len + 1) * sizeof(char_t));
-        return string;
-    }
-
-    static void free_string(StringImpl *string)
-    {
-        XDELETE(string);
-    }
-
+    // Compare two strings
     static int compare(const StringImpl *a, const StringImpl *b);
 
 public:
@@ -458,31 +436,57 @@ public:
     }
 
 private:
-    mutable string_hash_t m_hash_value = 0;
     string_size_t m_len;
     char_t m_buf[1]; // For count size of terminator '\x0'
 };
 
+// Macro as functions
+#define BUFFER_ALLOC(...)   BufferImpl::alloc(__FILE__, __LINE__, ##__VA_ARGS__)
+#define BUFFER_FREE(string) BufferImpl::free(__FILE__, __LINE__, string)
+
 // VM value: buffer
-struct BufferImpl : ReferenceImpl
+STD_BEGIN_ALIGNED_STRUCT(STD_BEST_ALIGN_SIZE)
+struct BufferImpl : public ReferenceImpl
 {
 public:
     static const ValueType this_type = ValueType::BUFFER;
-
-public:
-    BufferImpl(const void *bytes, size_t len)
+    typedef enum
     {
-        this->hash = 0;
-        this->data = XNEWN(Uint8, len);
-        this->len = len;
-        memcpy(this->data, bytes, len);
+        // The buffer contains 1 or N class
+        CONTAIN_1_CLASS = 0x0001,
+        CONTAIN_N_CLASS = 0x0002,
+        CONTAIN_CLASS = CONTAIN_1_CLASS | CONTAIN_N_CLASS,
+    } Attrib;
+
+    enum { CLASS_ARR_STAMP = 0x19801126 };
+
+    // Head structure for buffer to store class[] 
+    STD_BEGIN_ALIGNED_STRUCT(STD_BEST_ALIGN_SIZE)
+    struct ArrInfo
+    {
+        Uint32 n;
+        Uint32 size;
+        Uint32 stamp;
+    }
+    STD_END_ALIGNED_STRUCT(STD_BEST_ALIGN_SIZE);
+    static const int RESERVE_FOR_CLASS_ARR = sizeof(ArrInfo);
+
+    // Constructor (copy) function entry
+    typedef void (*ConstructFunc)(void *ptr_class, const void *from_class);
+
+    // Destructor function entry
+    typedef void (*DestructFunc)(void *ptr_class);
+
+private:
+    BufferImpl(size_t _len)
+    {
+        attrib = (Attrib)0;
+        constructor = 0;
+        destructor = 0;
+        len = _len;
     }
 
-    virtual ~BufferImpl()
-    {
-        if (data)
-            XDELETE(data);
-    }
+    virtual ~BufferImpl();
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
@@ -490,16 +494,44 @@ public:
     virtual size_t hash_this() const;
 
 public:
+    // Get raw data pointer
+    Uint8 *data() const { return (Uint8*) (this + 1); }
+
+    // Get single or class array pointer
+    void *class_ptr() const
+    {
+        if (attrib & CONTAIN_1_CLASS)
+            return data();
+        if (attrib & CONTAIN_N_CLASS)
+            return data() + RESERVE_FOR_CLASS_ARR;
+        throw "This buffer doesn't not contain any class.";
+    }
+
+public:
+    // Allocate a string with reserved size
+    static BufferImpl *alloc(const char *file, int line, size_t size);
+
+    // Allocate a string & construct it
+    static BufferImpl *alloc(const char *file, int line, const void *p, size_t len);
+    static BufferImpl *alloc(const char *file, int line, const BufferImpl *other);
+
+    // Free a buffer
+    static void free(const char *file, int line, BufferImpl *buffer);
+
+public:
+    // Compare two buffers
     static int compare(const BufferImpl *a, const BufferImpl *b);
 
 public:
-    mutable size_t hash;
+    Attrib attrib;
+    ConstructFunc constructor;
+    DestructFunc destructor;
     size_t len;
-    Uint8 *data;
-};
+}
+STD_END_ALIGNED_STRUCT(STD_BEST_ALIGN_SIZE);
 
 // VM value: function
-struct FunctionPtrImpl : ReferenceImpl
+struct FunctionPtrImpl : public ReferenceImpl
 {
 public:
     static const ValueType this_type = ValueType::FUNCTION;
@@ -516,7 +548,7 @@ public:
 };
 
 // VM value: array
-struct ArrayImpl : ReferenceImpl
+struct ArrayImpl : public ReferenceImpl
 {
 public:
     typedef simple::unsafe_vector<Value> DataType;
@@ -579,7 +611,7 @@ public:
 };
 
 // VM value: map
-struct MapImpl : ReferenceImpl
+struct MapImpl : public ReferenceImpl
 {
 public:
     static const ValueType this_type = ValueType::MAPPING;
@@ -721,16 +753,16 @@ public:
     }
 };
 
-class StringPtr : public TypedValue<StringImpl>
+class String : public TypedValue<StringImpl>
 {
 public:
-    StringPtr() :
+    String() :
         TypedValue("")
     {
     }
 
     template <typename... Types>
-    StringPtr(Types&&... args) :
+    String(Types&&... args) :
         TypedValue(simple::forward<Types>(args)...)
     {
     }
@@ -741,7 +773,7 @@ public:
     // Because the override may cause confusing, I would rather to write
     // more codes to make them easy to understand.
 public:
-    StringPtr operator +(const StringPtr& other)
+    String operator +(const String& other)
         { return impl().concat_string(&other.impl()); }
 
     const char *c_str()
@@ -750,14 +782,14 @@ public:
     size_t length()
         { return impl().length(); }
 
-    StringPtr sub_string(size_t offset, size_t len = SIZE_MAX)
+    String sub_string(size_t offset, size_t len = SIZE_MAX)
         { return impl().sub_string(offset, len); }
 };
 
-class ArrayPtr : public TypedValue<ArrayImpl>
+class Array : public TypedValue<ArrayImpl>
 {
 public:
-    ArrayPtr(size_t size_hint = 8);
+    Array(size_t size_hint = 8);
 
 public:
     Value& operator [](const Value& index)
@@ -772,10 +804,10 @@ public:
     size_t size() { return impl().size(); }
 };
 
-class MapPtr : public TypedValue<MapImpl>
+class Map : public TypedValue<MapImpl>
 {
 public:
-    MapPtr(size_t size_hint = 8);
+    Map(size_t size_hint = 8);
 
 public:
     Value& operator [](const Value& index)

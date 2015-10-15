@@ -27,17 +27,17 @@ void Efun::add_efuns(const Value& package_name_value, EfunDef *efun_def_array)
     // Is package_name_value lead by "system."?
     STD_ASSERT(("Bad type of package_name_value, expected STRING.",
                 package_name_value.m_type == STRING));
-    StringPtr prefix = StringPtr(package_name_value) + ".";
+    String prefix = String(package_name_value) + ".";
     bool is_system_package = (prefix.sub_string(0, 7) == "system.");
 
     for (size_t i = 0; efun_def_array[i].entry; ++i)
     {
         auto &def = efun_def_array[i];
-        StringPtr fun_name(def.name);
+        String fun_name(def.name);
         fun_name = Program::find_or_add_string(fun_name);
         auto *function = new Function(0, fun_name);
         parse_efun_prototype(function, def.prototype);
-        StringPtr fun_name_with_prefix = prefix + function->get_name();
+        String fun_name_with_prefix = prefix + function->get_name();
         fun_name_with_prefix = Program::find_or_add_string(fun_name_with_prefix);
         m_efun_map->put(fun_name, function);
         m_efun_map->put(fun_name_with_prefix, function);
@@ -65,10 +65,10 @@ void Efun::parse_efun_prototype(Function *function, const Value& prototype)
 
 // Parse string text to words
 // Seperator by punctuation, space
-ArrayPtr Efun::parse_words(StringPtr& text)
+Array Efun::parse_words(String& text)
 {
     const unsigned char *p = (const unsigned char *) text.c_str();
-    ArrayPtr arr(text.length() / 4);
+    Array arr(text.length() / 4);
     size_t i = 0;
     while (i < text.length())
     {
@@ -86,11 +86,11 @@ ArrayPtr Efun::parse_words(StringPtr& text)
             size_t b = i;
             while (p[i] && (isalnum(p[i]) || p[i] == '_'))
                 i++;
-            arr.append(StringPtr((const char *)p + b, i - b));
+            arr.append(String((const char *)p + b, i - b));
         }
         i++;
     }
-    return ArrayPtr();
+    return Array();
 }
 
 }

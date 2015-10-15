@@ -9,12 +9,10 @@ namespace cmm
 // Append a new value to list
 void ValueList::append_value(ReferenceImpl *value)
 {
-#ifdef _DEBUG
     STD_ASSERT(("The value was already owned by a list.", !value->owner));
     value->owner = this;
-#endif
-    *m_pp_last = value;
-    m_pp_last = &value->next;
+    value->next = m_list;
+    m_list = value;
     ++m_count;
 }
 
@@ -26,20 +24,33 @@ void ValueList::concat_list(ValueList *list)
         return;
 
     // Update owner of the values in list
-    auto *p = list->m_list;
-    while (p)
+    auto *pp = &list->m_list;
+    while (*pp)
     {
-        STD_ASSERT(("Bad owner of value in list when concating.", p->owner == list));
-        p->owner = this;
-        p = p->next;
+        STD_ASSERT(("Bad owner of value in list when concating.", (*pp)->owner == list));
+        (*pp)->owner = this;
+        pp = &(*pp)->next;
     }
 
-    *m_pp_last = list->m_list;
-    m_pp_last = list->m_pp_last;
+    *pp = m_list;
+    m_list = list->m_list;
     m_count += list->m_count;
 
     // Clear target list
     list->reset();
+}
+
+// Remove a value from list
+void ValueList::remove(ReferenceImpl *value)
+{
+    STD_ASSERT(("Value is not in this list.", value->owner == this));
+    auto *pp = &m_list;
+    while (*pp != value)
+        pp = &(*pp)->next;
+
+    // Take off me from list
+    (*pp)->owner = 0;
+    *pp = value->next;
 }
 
 // Free all linked values in list

@@ -212,7 +212,7 @@ extern int std_wait_event(std_event_id_t eventId)
     return WaitForSingleObject((HANDLE) eventId, INFINITE) == WAIT_OBJECT_0 ? 1 : 0;
 }
 
-extern int std_waitEventByTime(std_event_id_t eventId, int timeout)
+extern int std_wait_event_by_time(std_event_id_t eventId, int timeout)
 {
     if (eventId == STD_NO_EVENT)
         /* Return failed for operating empty object */
@@ -490,19 +490,19 @@ extern int std_is_process_alive(std_pid_t pid)
 #endif /* End of STD_MULTI_tHREAD */
 
 /* Like time */
-extern std_time_t std_getOSTime()
+extern std_time_t std_get_os_time()
 {
     return (std_time_t) time(NULL);
 }
 
 /* Return ticks */
-extern std_tick_t std_getOSTick()
+extern std_tick_t std_get_os_tick()
 {
     return GetTickCount();
 }
 
 /* Return us counter */
-extern std_freq_t std_getOSUsCounter()
+extern std_freq_t std_get_os_us_counter()
 {
     static LARGE_INTEGER freq;
     static int flag = 0;
@@ -526,7 +526,7 @@ extern std_freq_t std_getOSUsCounter()
 
     /* Init, try to get performance frequency */
     flag = QueryPerformanceFrequency(&freq) ? 1 : -1;
-    return std_getOSUsCounter();
+    return std_get_os_us_counter();
 }
 
 /* Sleep nms */

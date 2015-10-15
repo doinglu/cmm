@@ -31,6 +31,16 @@ void ReferenceImpl::bind_to_current_domain()
     domain->bind_value(this);
 }
 
+// Unbind me if already binded
+void ReferenceImpl::unbind_when_free()
+{
+    if (owner == 0)
+        // Not binded yet, do nothing
+        return;
+
+    owner->remove(this);
+}
+
 // Hash this buffer
 size_t BufferImpl::hash_this() const
 {
@@ -39,7 +49,7 @@ size_t BufferImpl::hash_this() const
     size_t maxn = 64;
     if (maxn > this->len)
         maxn = this->len;
-    Uint8 *p = this->data;
+    Uint8 *p = this->data();
 
     while (maxn--)
         h = h * seed + (*p++);
@@ -69,7 +79,7 @@ int BufferImpl::compare(const BufferImpl *a, const BufferImpl *b)
     if (a->len > b->len)
         return 1;
 
-    return memcmp(a->data, b->data, a->len);
+    return memcmp(a->data(), b->data(), a->len);
 }
 
 // Duplicate string to local
@@ -79,7 +89,7 @@ ReferenceImpl *StringImpl::copy_to_local(Thread *thread)
         // Don't copy
         return this;
 
-    auto *v = StringImpl::alloc_string(this);
+    auto *v = STRING_ALLOC(this);
     thread->bind_value(v);
     return v;
 }
@@ -91,7 +101,7 @@ ReferenceImpl *BufferImpl::copy_to_local(Thread *thread)
         // Don't copy
         return this;
 
-    auto *v = XNEW(BufferImpl, this->data, this->len);
+    auto *v = BufferImpl::alloc(__FILE__, __LINE__, this);
     thread->bind_value(v);
     return v;
 }
@@ -170,6 +180,164 @@ void MapImpl::mark(MarkValueState& state)
     }
 }
 
+// Allocate a string with reserved size
+StringImpl *StringImpl::alloc(const char *file, int line, size_t size)
+{
+    StringImpl *string;
+    size_t total_size = sizeof(StringImpl) + sizeof(char_t) * size; // '\x0' is included
+    string = (StringImpl *)std_allocate_memory(total_size, "cpp", file, line);
+    // ATTENTION:
+    // We can use XDELETE to free the string
+    new (string)StringImpl(size);
+    return string;
+}
+
+// Allocate a string & construct it
+StringImpl *StringImpl::alloc(const char *file, int line, const char *c_str, size_t len)
+{
+    size_t str_length = strlen(c_str);
+    if (len > str_length)
+        len = str_length;
+    auto *string = alloc(file, line, len);
+    memcpy(string->m_buf, c_str, len * sizeof(char_t));
+    string->m_buf[len] = 0; // Add terminator
+    return string;
+}
+
+// Allocate a string & construct it
+StringImpl *StringImpl::alloc(const char *file, int line, const simple::string& str)
+{
+    size_t len = str.length();
+    auto *string = alloc(file, line, len);
+    memcpy(string->m_buf, str.c_str(), (len + 1) * sizeof(char_t));
+    return string;
+}
+
+// Allocate a string & construct it
+StringImpl *StringImpl::alloc(const char *file, int line, const StringImpl *other)
+{
+    size_t len = other->length();
+    auto *string = alloc(file, line, len);
+    memcpy(string->m_buf, other->m_buf, (len + 1) * sizeof(char_t));
+    return string;
+}
+
+// Free a string
+void StringImpl::free(const char *file, int line, StringImpl *string)
+{
+    string->unbind_when_free();
+    std_free_memory(string, "cpp", file, line);
+}
+
+// Destruct buffer
+BufferImpl::~BufferImpl()
+{
+    // Destruct the class
+    if (attrib & CONTAIN_1_CLASS)
+    {
+        // Destruct the single class
+        STD_ASSERT(("Not found destructor for buffer class.", destructor != 0));
+        destructor(data());
+    } else
+    if (attrib & CONTAIN_N_CLASS)
+    {
+        // Destruct the n class
+        STD_ASSERT(("Not found destructor for buffer class.", destructor != 0));
+        auto *info = (ArrInfo *)data();
+        size_t n = info->n;
+        size_t size = info->size;
+        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_ARR_STAMP));
+        STD_ASSERT(("Bad n or size of buffer to contain class[].", size * n + RESERVE_FOR_CLASS_ARR == len));
+        Uint8 *ptr_class = data() + RESERVE_FOR_CLASS_ARR;
+        for (size_t i = 0; i < n; i++, ptr_class += size)
+            destructor(ptr_class);
+    }
+}
+
+// Allocate a buffer & construct it
+BufferImpl *BufferImpl::alloc(const char *file, int line, size_t size)
+{
+    BufferImpl *buffer;
+    size_t total_size = sizeof(BufferImpl) + size; // '\x0' is included
+    buffer = (BufferImpl *)std_allocate_memory(total_size, "cpp", file, line);
+    // ATTENTION:
+    // We can use XDELETE to free the buffer
+    new (buffer)BufferImpl(size);
+    return buffer;
+}
+
+// Allocate a buffer & construct it
+BufferImpl *BufferImpl::alloc(const char *file, int line, const void *p, size_t _len)
+{
+    auto *buffer = alloc(file, line, _len);
+    memcpy(buffer->data(), p, _len);
+    return buffer;
+}
+
+// Allocate a buffer & construct it
+BufferImpl *BufferImpl::alloc(const char *file, int line, const BufferImpl *other)
+{
+    auto *buffer = alloc(file, line, other->len);
+    buffer->attrib = other->attrib;
+    buffer->constructor = other->constructor;
+    buffer->destructor = other->destructor;
+    if (buffer->attrib & CONTAIN_1_CLASS)
+    {
+        // Contruct the class
+        STD_ASSERT(("Not found constructor for buffer class.", buffer->constructor != 0));
+        buffer->constructor(buffer->data(), other->data());
+    } else
+    if (buffer->attrib & CONTAIN_N_CLASS)
+    {
+        // Copy reserved part
+        memcpy(buffer->data(), other->data(), RESERVE_FOR_CLASS_ARR);
+        STD_ASSERT(("Not found constructor for buffer class.", buffer->constructor != 0));
+        auto *info = (ArrInfo *)buffer->data();
+        size_t n = info->n;
+        size_t size = info->size;
+        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_ARR_STAMP));
+        STD_ASSERT(("Bad n or size of buffer to contain class[].",
+                   size * n + RESERVE_FOR_CLASS_ARR == buffer->len));
+        Uint8 *ptr_class = buffer->data() + RESERVE_FOR_CLASS_ARR;
+        Uint8 *ptr_from = other->data() + RESERVE_FOR_CLASS_ARR;
+        for (size_t i = 0; i < n; i++, ptr_class += size, ptr_from += size)
+            buffer->constructor(ptr_class, ptr_from);
+    } else
+        // No contain class, just do copy
+        memcpy(buffer->data(), other->data(), buffer->len);
+
+    return buffer;
+}
+
+// Free a buffer
+void BufferImpl::free(const char *file, int line, BufferImpl *buffer)
+{
+    buffer->unbind_when_free();
+
+    if (buffer->attrib & CONTAIN_1_CLASS)
+    {
+        // Contruct the class
+        STD_ASSERT(("Not found constructor for buffer class.", buffer->destructor != 0));
+        buffer->destructor(buffer->data());
+    } else
+    if (buffer->attrib & CONTAIN_N_CLASS)
+    {
+        // Copy reserved part
+        STD_ASSERT(("Not found constructor for buffer class.", buffer->destructor != 0));
+        auto *info = (ArrInfo *)buffer->data();
+        size_t n = info->n;
+        size_t size = info->size;
+        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_ARR_STAMP));
+        STD_ASSERT(("Bad n or size of buffer to contain class[].",
+                   size * n + RESERVE_FOR_CLASS_ARR == buffer->len));
+        Uint8 *ptr_class = buffer->data() + RESERVE_FOR_CLASS_ARR;
+        for (size_t i = 0; i < n; i++, ptr_class += size)
+            buffer->destructor(ptr_class);
+    }
+
+    std_free_memory(buffer, "cpp", file, line);
+}
+
 Value::Value(Object *ob) :
     Value(ob->get_oid())
 {
@@ -177,7 +345,7 @@ Value::Value(Object *ob) :
 
 Value::Value(const char *c_str, size_t len)
 {
-    auto *v = StringImpl::alloc_string(c_str, len);
+    auto *v = STRING_ALLOC(c_str, len);
     v->bind_to_current_domain();
     m_type = STRING;
     m_string = v;
@@ -185,7 +353,7 @@ Value::Value(const char *c_str, size_t len)
 
 Value::Value(const simple::string& str)
 {
-    auto *v = StringImpl::alloc_string(str);
+    auto *v = STRING_ALLOC(str);
     v->bind_to_current_domain();
     m_type = STRING;
     m_string = v;
@@ -254,7 +422,7 @@ size_t Value::hash_value() const
 // Create a reference value belonged to this domain
 Value Value::new_string(Domain *domain, const char *c_str, size_t len)
 {
-    auto *v = StringImpl::alloc_string(c_str, len);
+    auto *v = STRING_ALLOC(c_str, len);
     STD_ASSERT(domain == Thread::get_current_thread_domain());
     domain->bind_value(v);
     return Value(v);
@@ -305,7 +473,7 @@ StringImpl *StringImpl::concat_string(const StringImpl *other)
     size_t len1 = length();
     size_t len2 = other->length();
     size_t len = len1 + len2;
-    auto *string = StringImpl::alloc_string(len);
+    auto *string = STRING_ALLOC(len);
     char_t *data = (char_t *)string->m_buf;
     memcpy(data, m_buf, len1 * sizeof(char_t));
     memcpy(data + len1, other->m_buf, len2 * sizeof(char_t));
@@ -319,21 +487,21 @@ StringImpl *StringImpl::concat_string(const StringImpl *other)
 StringImpl *StringImpl::sub_string(size_t offset, size_t len)
 {
     if (offset >= length())
-        return StringImpl::alloc_string();
+        return StringImpl::alloc(__FILE__, __LINE__);
 
     // Calculate the length of sub string
     if (len > length() - offset)
         len = length() - offset;
 
-    return StringImpl::alloc_string(m_buf + offset, len);
+    return STRING_ALLOC(m_buf + offset, len);
 }
 
-ArrayPtr::ArrayPtr(size_t size_hint) :
+Array::Array(size_t size_hint) :
     TypedValue<ArrayImpl>(Value::new_array(Thread::get_current_thread_domain(), size_hint))
 {
 }
 
-MapPtr::MapPtr(size_t size_hint) :
+Map::Map(size_t size_hint) :
     TypedValue<MapImpl>(Value::new_map(Thread::get_current_thread_domain(), size_hint))
 {
 }

@@ -12,6 +12,8 @@
 namespace simple
 {
 
+#define REQUIRE_LOCATION
+
 // new
 template <typename T, typename... Types>
 inline T *xnew(const char *file, int line, Types&&... args)
@@ -29,13 +31,14 @@ inline void xdelete(const char *file, int line, T *p)
     std_free_memory(p, "x", file, line);
 }
 
-enum { RESERVE_FOR_ARRAY = 16 };
+enum { RESERVE_FOR_ARRAY = STD_BEST_ALIGN_SIZE };
 enum { RESERVE_STAMP = 0x19770531 };
 
 // new[]
 template <typename T>
 T *xnew_arr(const char *file, int line, size_t n)
 {
+    STD_ASSERT(("Invalid RESERVE_FOR_ARRAY, too small.", RESERVE_FOR_ARRAY >= sizeof(size_t) * 2));
     char *b = (char *)std_allocate_memory(RESERVE_FOR_ARRAY + n * sizeof(T), "simple", file, line);
     ((size_t *) b)[0] = n;
     ((size_t *) b)[1] = RESERVE_STAMP;
@@ -57,7 +60,7 @@ void xdelete_arr(const char *file, int line, T *p)
     std_free_memory(b, "simple", file, line);
 }
 
-// Macro as operator
+// Macro as operators
 #define XNEW(T, ...)    simple::xnew<T>(__FILE__, __LINE__, ##__VA_ARGS__)
 #define XDELETE(p)      { simple::xdelete(__FILE__, __LINE__, p); (p) = 0; }
 #define XNEWN(T, n)     simple::xnew_arr<T>(__FILE__, __LINE__, n)

@@ -60,4 +60,7 @@
 #error "Unknow compiler"
 #endif
 
+// Align size for all types
+#define STD_BEST_ALIGN_SIZE     16
+
 #endif  /* end of __STD_PORT_tYPE_H__ */
