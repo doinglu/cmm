@@ -206,6 +206,38 @@ int main(int argn, char *argv[])
     thread->update_start_sp_of_start_context(&argn);
 
 #if 1
+    Value _v1;
+    Value _v2(88);
+    Value _v3(99.77);
+    ObjectId oid;
+    oid.i64 = 0x99887766;
+    Value _v4(oid);
+    Value _v5("abc");
+    Value _v6(BUFFER_ALLOC(&maxThreadCount, 8));
+    Value _v7(new ArrayImpl(3));
+    _v7.m_array->a.push_back("a1");
+    _v7.m_array->a.push_back("b3");
+    _v7.m_array->a.push_back("c7");
+    Value _v8(new MapImpl(5));
+    _v8["name"] = "doing";
+    _v8["age"] = 38;
+    _v8["gender"] = "male";
+    Value vs[] = { _v1, _v2, _v3, _v4, _v5, _v6, _v7, _v8 };
+
+    simple::hash_set<simple::string> set;
+    set.put("a");
+    set.put("bb");
+    set.put("ccc");
+
+    std::string std_str = "std::string";
+    auto *buffer1 = BUFFER_NEW(simple::string, "buffer string");
+    auto *buffers = BUFFER_NEWN(simple::string, 5);
+    simple::list<simple::string> list;
+    auto *buffer = BUFFER_ALLOC("abc", 3);
+    printf("!\n");
+#endif
+
+#if 1
     __clone_entity_ob::create_program();
     __feature_desc_ob::create_program();
     __feature_name_ob::create_program();

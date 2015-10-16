@@ -181,10 +181,11 @@
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_memory.h" />
     <ClInclude Include="cmm_operate.h" />
+    <ClInclude Include="cmm_prototype_grammar.h" />
     <ClInclude Include="cmm_reference_value.h" />
     <ClInclude Include="cmm_string_pool.h" />
     <ClInclude Include="cmm_basic_types.h" />
-    <ClInclude Include="cmm_string_ptr.h" />
+    <ClInclude Include="cmm_string_doc.h" />
     <ClInclude Include="cmm_util.h" />
     <ClInclude Include="cmm_value_list.h" />
     <ClInclude Include="cmm_object.h" />
@@ -242,6 +243,7 @@
     <ClCompile Include="cmm_efun_core.cpp" />
     <ClCompile Include="cmm_memory.cpp" />
     <ClCompile Include="cmm_operate.cpp" />
+    <ClCompile Include="cmm_prototype_grammar.cpp" />
     <ClCompile Include="cmm_string_pool.cpp" />
     <ClCompile Include="cmm_value_list.cpp" />
     <ClCompile Include="cmm_object.cpp" />
@@ -255,6 +257,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\std\include\std_template\simple.natvis" />
+    <Natvis Include="cmm.natvis" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -13,7 +13,7 @@
 // 5. Value (when type is ValueType::STRING)
 // 6. String
 // See following rules:
-// 1 - NEVER USE EXCEPT as function argument (will be constructed to other
+// 1 - NEVER USE IT UNLESS as function argument (will be constructed to other
 //     types)
 // 2 - Internal storage pointer type only.
 // 3 - DO NOT USE IN THIS PROJECT

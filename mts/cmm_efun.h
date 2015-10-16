@@ -5,7 +5,6 @@
 #include "std_template/simple_hash_map.h"
 #include "cmm_basic_types.h"
 #include "cmm_operate.h"
-#include "cmm_string_ptr.h"
 
 namespace cmm
 {
@@ -21,7 +20,6 @@ typedef Value (*EfunEntry)(Thread *_thread, Value *_args, ArgNo n);
 typedef struct
 {
     EfunEntry entry;
-    const char *name;
     const char *prototype;
 } EfunDef;
 
@@ -32,14 +30,14 @@ public:
     static void shutdown();
 
 public:
+    // Add an efun
+    static bool add_efun(const String& prefix, EfunEntry entry, const String& prototype_text);
+
     // Add multiple efuns (array end by 0)
-    static void add_efuns(const Value& package_name_value, EfunDef *efun_def_array);
+    static void add_efuns(const String& package_name, EfunDef *efun_def_array);
 
     // Parse prototype & generate function
-    static void parse_efun_prototype(Function *function, const Value& prototype);
-
-    // Parse string text to words
-    static Array parse_words(String& text);
+    static bool parse_efun_prototype(const String& text, Function **ptr_function);
 
 private:
     typedef simple::hash_map<String, Function *> EfunMap;

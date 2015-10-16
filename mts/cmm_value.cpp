@@ -1,6 +1,7 @@
 // cmm_value.cpp
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "cmm_domain.h"
 #include "cmm_thread.h"
@@ -63,11 +64,11 @@ int StringImpl::compare(const StringImpl *a, const StringImpl *b)
 {
     size_t len;
 
-    len = a->m_len;
-    if (len > b->m_len)
-        len = b->m_len;
+    len = a->len;
+    if (len > b->len)
+        len = b->len;
 
-    return memcmp(a->m_buf, b->m_buf, (len + 1) * sizeof(char_t));
+    return memcmp(a->buf, b->buf, (len + 1) * sizeof(char_t));
 }
 
 // Compare two buffers, return -1 means less, 1 means greater, 0 means equal
@@ -199,8 +200,8 @@ StringImpl *StringImpl::alloc(const char *file, int line, const char *c_str, siz
     if (len > str_length)
         len = str_length;
     auto *string = alloc(file, line, len);
-    memcpy(string->m_buf, c_str, len * sizeof(char_t));
-    string->m_buf[len] = 0; // Add terminator
+    memcpy(string->buf, c_str, len * sizeof(char_t));
+    string->buf[len] = 0; // Add terminator
     return string;
 }
 
@@ -209,7 +210,7 @@ StringImpl *StringImpl::alloc(const char *file, int line, const simple::string& 
 {
     size_t len = str.length();
     auto *string = alloc(file, line, len);
-    memcpy(string->m_buf, str.c_str(), (len + 1) * sizeof(char_t));
+    memcpy(string->buf, str.c_str(), (len + 1) * sizeof(char_t));
     return string;
 }
 
@@ -218,7 +219,7 @@ StringImpl *StringImpl::alloc(const char *file, int line, const StringImpl *othe
 {
     size_t len = other->length();
     auto *string = alloc(file, line, len);
-    memcpy(string->m_buf, other->m_buf, (len + 1) * sizeof(char_t));
+    memcpy(string->buf, other->buf, (len + 1) * sizeof(char_t));
     return string;
 }
 
@@ -468,15 +469,15 @@ Value Value::operator [](const Value& value) const
 }
 
 // Concat with other string
-StringImpl *StringImpl::concat_string(const StringImpl *other)
+StringImpl *StringImpl::concat_string(const StringImpl *other) const
 {
     size_t len1 = length();
     size_t len2 = other->length();
     size_t len = len1 + len2;
     auto *string = STRING_ALLOC(len);
-    char_t *data = (char_t *)string->m_buf;
-    memcpy(data, m_buf, len1 * sizeof(char_t));
-    memcpy(data + len1, other->m_buf, len2 * sizeof(char_t));
+    char_t *data = (char_t *)string->buf;
+    memcpy(data, buf, len1 * sizeof(char_t));
+    memcpy(data + len1, other->buf, len2 * sizeof(char_t));
     data[len] = 0;
 
     // Replace with new string
@@ -484,7 +485,7 @@ StringImpl *StringImpl::concat_string(const StringImpl *other)
 }
 
 // Get sub string
-StringImpl *StringImpl::sub_string(size_t offset, size_t len)
+StringImpl *StringImpl::sub_string(size_t offset, size_t len) const
 {
     if (offset >= length())
         return StringImpl::alloc(__FILE__, __LINE__);
@@ -493,7 +494,30 @@ StringImpl *StringImpl::sub_string(size_t offset, size_t len)
     if (len > length() - offset)
         len = length() - offset;
 
-    return STRING_ALLOC(m_buf + offset, len);
+    return STRING_ALLOC(buf + offset, len);
+}
+
+// Generate string by snprintf
+StringImpl *StringImpl::snprintf(const char *fmt, size_t n, ...)
+{
+    if (n == 0)
+        return STRING_ALLOC("");
+
+    if (n > 1024)
+        // Limit size to 1K
+        n = 1024;
+
+    char *buf = (char *)STD_ALLOCA(n);
+    if (!buf)
+        return STRING_ALLOC("");
+
+    va_list va;
+    va_start(va, n);
+    STD_VSNPRINTF(buf, n, fmt, va);
+    va_end(va);
+
+    buf[n - 1] = 0;
+    return STRING_ALLOC(buf);
 }
 
 Array::Array(size_t size_hint) :

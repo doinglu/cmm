@@ -10,6 +10,7 @@ namespace simple
 {
 
 typedef char char_t;
+typedef unsigned char uchar_t;
 
 class string
 {

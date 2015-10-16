@@ -38,8 +38,8 @@ public:
             // Bad type
             throw simple::string().snprintf("Expect %s for value type, got %s.",
                                             128,
-                                            Value::get_type_name(T::this_type),
-                                            Value::get_type_name(value.m_type));
+                                            Value::type_to_name(T::this_type),
+                                            Value::type_to_name(value.m_type));
         m_ptr = (T *)value.m_reference;
         m_ptr->bind_to_current_domain();
     }

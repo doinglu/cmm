@@ -4,7 +4,6 @@
 #include "cmm_domain.h"
 #include "cmm_object.h"
 #include "cmm_program.h"
-#include "cmm_string_ptr.h"
 #include "cmm_thread.h"
 #include "cmm_value.h"
 

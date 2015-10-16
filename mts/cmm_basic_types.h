@@ -9,6 +9,7 @@ namespace cmm
 {
 
 typedef simple::char_t char_t; // Character of string
+typedef simple::uchar_t uchar_t; // Unsigned character
 
 #if 1
 typedef Uint16 ArgNo;               // Argument count/no
@@ -32,12 +33,15 @@ typedef enum
     INTEGER = 1,        // Integer (int64)
     REAL = 2,           // Float (double)
     OBJECT = 3,         // Object
-    REFERENCE_VALUE = 9,// Type >= ReferenceImpl is a ReferenceImpl type
     STRING = 9,         // StringImpl
+    REFERENCE_VALUE = 9,// Type >= it is a ReferenceImpl type
     BUFFER = 10,        // Binary data
     FUNCTION = 11,      // Function pointer
     ARRAY = 12,         // ArrayImpl
     MAPPING = 13,       // Mapping
+    TVOID = 98,         // Void
+    MIXED = 99,         // Any type
+    BAD_TYPE = 255,     // Bad type
 }  ValueType;
 
 // Global Id is a 64bits, cross multi-process Id.

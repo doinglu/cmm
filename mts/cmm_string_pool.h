@@ -4,7 +4,6 @@
 
 #include "std_template/simple_string.h"
 #include "std_template/simple_hash_set.h"
-#include "cmm_string_ptr.h"
 #include "cmm_value.h"
 
 namespace cmm

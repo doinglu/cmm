@@ -1,6 +1,7 @@
 #pragma once
 
 #include "std_port/std_port.h"
+#include "std_port/std_port_type.h"
 #include "std_port/std_port_compiler.h"
 #include "std_template/simple_string.h"
 #include "std_template/simple_vector.h"
@@ -89,7 +90,7 @@ public:
     virtual ReferenceImpl *copy_to_local(Thread *thread) = 0;
 
     // Return type of this referneced value
-    virtual ValueType get_type() = 0;
+    virtual ValueType get_type() const = 0;
 
     // Hash this value (hash this pointer)
     virtual size_t hash_this() const { return ((size_t)this) / sizeof(void *); }
@@ -147,19 +148,13 @@ public:
         m_int = (Integer)v;
     }
 
-    Value(Uint v)
-    {
-        m_type = INTEGER;
-        m_int = (Integer)v;
-    }
-
     Value(Int64 v)
     {
         m_type = INTEGER;
         m_int = (Integer)v;
     }
 
-    Value(Uint64 v)
+    Value(size_t v)
     {
         m_type = INTEGER;
         m_int = (Integer)v;
@@ -267,8 +262,8 @@ public:
     bool operator ==(const Value& b) const;
 
 public:
-    // Return name of this value
-    static const char *get_type_name(ValueType type)
+    // Type to name
+    static const char *type_to_name(ValueType type)
     {
         switch (type)
         {
@@ -281,7 +276,28 @@ public:
         case ARRAY:    return "array";
         case MAPPING:  return "mapping";
         case FUNCTION: return "function";
+        case MIXED:    return "mixed";
         default:       return "bad type";
+        }
+    }
+
+    // Name to type
+    static ValueType name_to_type(const char *name)
+    {
+        switch (name[0])
+        {
+            case 'n': return (strcmp(name, "nil") == 0)      ? NIL      : BAD_TYPE;
+            case 'i': return (strcmp(name, "int") == 0)      ? INTEGER  : BAD_TYPE;
+            case 'r': return (strcmp(name, "real") == 0)     ? REAL     : BAD_TYPE;
+            case 'o': return (strcmp(name, "object") == 0)   ? OBJECT   : BAD_TYPE;
+            case 's': return (strcmp(name, "string") == 0)   ? STRING   : BAD_TYPE;
+            case 'b': return (strcmp(name, "buffer") == 0)   ? BUFFER   : BAD_TYPE;
+            case 'f': return (strcmp(name, "function") == 0) ? FUNCTION : BAD_TYPE;
+            case 'a': return (strcmp(name, "array") == 0)    ? ARRAY    : BAD_TYPE;
+            case 'm': return (strcmp(name, "mapping") == 0)  ? MAPPING  :
+                             (strcmp(name, "mixed") == 0)    ? MIXED    : BAD_TYPE;
+            case 'v': return (strcmp(name, "void") == 0)     ? TVOID    : BAD_TYPE;
+            default:  return BAD_TYPE;
         }
     }
 
@@ -311,14 +327,14 @@ private:
     const Value& expect_type(ValueType type) const
     {
         if (m_type != type)
-            throw simple::string().snprintf("Value type is not %s.", 128, get_type_name(type));
+            throw simple::string().snprintf("Value type is not %s.", 128, type_to_name(type));
         return *this;
     }
 
     Value& expect_type(ValueType type)
     {
         if (m_type != type)
-            throw simple::string().snprintf("Value type is not %s.", 128, get_type_name(type));
+            throw simple::string().snprintf("Value type is not %s.", 128, type_to_name(type));
         return (Value &)*this;
     }
 
@@ -390,17 +406,17 @@ private:
     // must use StringImpl * to access it.
     StringImpl(size_t size)
     {
-        m_len = (string_size_t)size;
+        len = (string_size_t)size;
     }
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() { return this_type; }
-    virtual size_t hash_this() const { return simple::string::hash_string(m_buf); }
+    virtual ValueType get_type() const { return this_type; }
+    virtual size_t hash_this() const { return simple::string::hash_string(buf); }
 
 public:
-    size_t length() const { return m_len; }
-    const char_t *c_str() const { return m_buf; }
+    size_t length() const { return len; }
+    const char_t *c_str() const { return buf; }
 
 public:
     // Allocate a string with reserved size
@@ -419,25 +435,35 @@ public:
 
 public:
     // Concat with other string
-    StringImpl *concat_string(const StringImpl *other);
+    StringImpl *concat_string(const StringImpl *other) const;
 
     // Get sub string
-    StringImpl *sub_string(size_t offset, size_t len = SIZE_MAX);
+    StringImpl *sub_string(size_t offset, size_t len = SIZE_MAX) const;
+
+    // Generate string by snprintf
+    static StringImpl *snprintf(const char *fmt, size_t n, ...);
 
 public:
-    inline bool operator <(const StringImpl& b)
+    inline int operator [](size_t index) const
+    {
+        if (index > length())
+            throw "Index of string is out of range.";
+        return (int)(uchar_t)buf[index];
+    }
+
+    inline bool operator <(const StringImpl& b) const
     {
         return StringImpl::compare(this, &b) < 0;
     }
 
-    inline bool operator ==(const StringImpl& b)
+    inline bool operator ==(const StringImpl& b) const
     {
         return StringImpl::compare(this, &b) == 0;
     }
 
 private:
-    string_size_t m_len;
-    char_t m_buf[1]; // For count size of terminator '\x0'
+    string_size_t len;
+    char_t buf[1]; // For count size of terminator '\x0'
 };
 
 // Macro as functions
@@ -490,20 +516,27 @@ private:
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() { return this_type; }
+    virtual ValueType get_type() const { return this_type; }
     virtual size_t hash_this() const;
 
 public:
     // Get raw data pointer
-    Uint8 *data() const { return (Uint8*) (this + 1); }
+    Uint8 *data() const { return (Uint8 *) (this + 1); }
 
     // Get single or class array pointer
-    void *class_ptr() const
+    void *class_ptr(size_t index = 0) const
     {
         if (attrib & CONTAIN_1_CLASS)
+        {
+            STD_ASSERT(("Index out of range of class_ptr.", index == 0));
             return data();
+        }
         if (attrib & CONTAIN_N_CLASS)
-            return data() + RESERVE_FOR_CLASS_ARR;
+        {
+            auto info = (ArrInfo *)(this + 1);
+            STD_ASSERT(("Index out of range of class_ptr.", index < info->n));
+            return data() + RESERVE_FOR_CLASS_ARR + index * info->size;
+        }
         throw "This buffer doesn't not contain any class.";
     }
 
@@ -543,7 +576,7 @@ public:
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() { return this_type; }
+    virtual ValueType get_type() const { return this_type; }
     virtual void mark(MarkValueState& value_map);
 };
 
@@ -572,7 +605,7 @@ public:
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() { return this_type; }
+    virtual ValueType get_type() const { return this_type; }
     virtual void mark(MarkValueState& value_map);
 
 public:
@@ -580,7 +613,7 @@ public:
     {
         if (index.m_type != ValueType::INTEGER)
             throw simple::string().snprintf("Bad index to array (expected integer got %s).", 128,
-                                            Value::get_type_name(index.m_type));
+                                            Value::type_to_name(index.m_type));
 
         if (index.m_int < 0 || index.m_int >= (Integer)a.size())
             throw simple::string().snprintf("Index out of range to array, got %lld.", 128,
@@ -595,6 +628,12 @@ public:
         }
 
         return a[(size_t)index.m_int];
+    }
+
+    // Get R-value
+    Value operator[](const Value& index) const
+    {
+        return ((ArrayImpl *)this)->operator[](index);
     }
 
     // Append an element
@@ -637,7 +676,7 @@ public:
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() { return this_type; }
+    virtual ValueType get_type() const { return this_type; }
     virtual void mark(MarkValueState& value_map);
 
 public:
@@ -700,8 +739,8 @@ public:
             // Bad type
             throw simple::string().snprintf("Expect %s for value type, got %s.",
                                             128,
-                                            Value::get_type_name(T::this_type),
-                                            Value::get_type_name(other.m_type));
+                                            Value::type_to_name(T::this_type),
+                                            Value::type_to_name(other.m_type));
         m_reference = other.m_reference;
         m_reference->bind_to_current_domain();
         return *this;
@@ -731,14 +770,24 @@ public:
         return *(T *)m_reference < *(const T *)other.m_reference;
     }
 
-    operator T *()
+    bool operator !=(const TypedValue& other) const
     {
-        return (T *)m_reference;
+        return !(*(T *)m_reference == *(const T *)other.m_reference);
     }
 
-    operator T *const() const
+    bool operator >(const TypedValue& other) const
     {
-        return (T *)m_reference;
+        return *(const T *)other.m_reference < *(T *)m_reference;
+    }
+
+    bool operator <=(const TypedValue& other) const
+    {
+        return !(*(T *)m_reference > *(const T *)other.m_reference);
+    }
+
+    bool operator >=(const TypedValue& other) const
+    {
+        return !(*(T *)m_reference < *(const T *)other.m_reference);
     }
 
 public:
@@ -751,6 +800,17 @@ public:
     {
         return *(T *)m_reference;
     }
+
+    T *ptr()
+    {
+        return (T *)m_reference;
+    }
+
+    T *const ptr() const
+    {
+        return (T *)m_reference;
+    }
+
 };
 
 class String : public TypedValue<StringImpl>
@@ -773,16 +833,27 @@ public:
     // Because the override may cause confusing, I would rather to write
     // more codes to make them easy to understand.
 public:
-    String operator +(const String& other)
+    String operator +(const String& other) const
         { return impl().concat_string(&other.impl()); }
 
-    const char *c_str()
+    String operator +=(const String& other)
+        { return (*this = impl().concat_string(&other.impl())); }
+
+    int operator[](size_t index) const
+        { return impl()[index]; }
+
+    const char *c_str() const
         { return impl().c_str(); }
 
-    size_t length()
+    size_t length() const
         { return impl().length(); }
 
-    String sub_string(size_t offset, size_t len = SIZE_MAX)
+    // Generate string by snprintf
+    template <typename... Types>
+    static String snprintf(const char *fmt, size_t n, Types&&... args)
+        { return StringImpl::snprintf(fmt, n, simple::forward<Types>(args)...); }
+
+    String sub_string(size_t offset, size_t len = SIZE_MAX) const
         { return impl().sub_string(offset, len); }
 };
 
@@ -796,10 +867,22 @@ public:
         { return impl()[index]; }
 
     Value operator [](const Value& index) const
-        { return ((ArrayImpl &)impl())[index]; }
+        { return impl()[index]; }
+
+    Value& operator [](size_t index)
+        { return impl()[Value(index)]; }
+
+    Value operator [](size_t index) const
+        { return impl()[Value(index)]; }
 
     void append(const Value& value)
         { impl().append(value); }
+
+    auto begin() -> decltype(impl().a.begin())
+        { return impl().a.begin(); }
+
+    auto end() -> decltype(impl().a.begin())
+        { return impl().a.end(); }
 
     size_t size() { return impl().size(); }
 };

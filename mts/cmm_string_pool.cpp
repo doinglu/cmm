@@ -14,7 +14,7 @@ StringPool::StringPool()
 StringPool::~StringPool()
 {
     for (auto it = m_pool.begin(); it != m_pool.end(); ++it)
-        STRING_FREE(*it);
+        STRING_FREE(it->ptr());
     std_destroy_spin_lock(&m_lock);
 }
     
@@ -30,12 +30,12 @@ StringImpl *StringPool::find_or_insert(const String& string_ptr)
     if (it == m_pool.end())
     {
         // Not found in pool, create new "CONSTANT" string
-        string_in_pool = STRING_ALLOC(string_ptr);
+        string_in_pool = STRING_ALLOC(string_ptr.ptr());
         string_in_pool->attrib |= (ReferenceImpl::CONSTANT | ReferenceImpl::SHARED);
         // Attention: The key (String) must use the same StringImpl * as value
         m_pool.put(String(string_in_pool));
     } else
-        string_in_pool = (StringImpl *)*it;
+        string_in_pool = it->ptr();
     std_release_spin_lock(&m_lock);
 
     return string_in_pool;
@@ -49,7 +49,7 @@ StringImpl *StringPool::find(const String& string_ptr)
     std_get_spin_lock(&m_lock);
     auto it = m_pool.find(string_ptr);
     if (it != m_pool.end())
-        string_in_pool = *it;
+        string_in_pool = it->ptr();
     else
         string_in_pool = 0;
     std_release_spin_lock(&m_lock);

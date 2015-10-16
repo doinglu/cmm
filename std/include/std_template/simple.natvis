@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+    <Type Name="simple::string">
+        <DisplayString>{{ {m_len &lt; sizeof(m_buf) ? m_buf : m_alloc,s} }}</DisplayString>
+    </Type>
+    <Type Name="simple::vector&lt;*&gt;" Inheritable="false">
+        <DisplayString>{{ size={m_size} }}</DisplayString>
+        <Expand HideRawView="true">
+            <Item Name="[capacity]" ExcludeView="simple">m_space</Item>
+            <Item Name="[size]" ExcludeView="simple">m_size</Item>
+            <ArrayItems>
+                <Size>m_size</Size>
+                <ValuePointer>m_array</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+    <Type Name="simple::hash_map&lt;*&gt;" Inheritable="false">
+        <DisplayString>{{ size={m_size} }}</DisplayString>
+        <Expand HideRawView="true">
+            <Item Name="[capacity]" ExcludeView="simple">m_pairs.m_space</Item>
+            <Item Name="[size]" ExcludeView="simple">m_size</Item>
+            <ArrayItems>
+                <Size>m_pairs.m_size</Size>
+                <ValuePointer>m_pairs.m_array</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+    <Type Name="simple::hash_set&lt;*&gt;" Inheritable="false">
+        <DisplayString>{{ size={m_size} }}</DisplayString>
+        <Expand HideRawView="true">
+            <Item Name="[capacity]" ExcludeView="simple">m_keys.m_space</Item>
+            <Item Name="[size]" ExcludeView="simple">m_size</Item>
+            <ArrayItems>
+                <Size>m_keys.m_size</Size>
+                <ValuePointer>m_keys.m_array</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+    <Type Name="simple::list&lt;*&gt;" Inheritable="false">
+        <DisplayString>{{ size={m_size} }}</DisplayString>
+        <Expand HideRawView="true">
+            <Item Name="[size]" ExcludeView="simple">m_size</Item>
+            <LinkedListItems>
+                <Size>m_size</Size>
+                <HeadPointer>m_head->next</HeadPointer>
+                <NextPointer>next</NextPointer>
+                <ValueNode>value</ValueNode>
+            </LinkedListItems>
+        </Expand>
+    </Type>
+    <Type Name="simple::pair&lt;*&gt;" Inheritable="false">
+        <DisplayString>{{ {first},{second} }}</DisplayString>
+        <Expand HideRawView="true">
+            <Item Name="[first]" ExcludeView="simple">first</Item>
+            <Item Name="[second]" ExcludeView="simple">second</Item>
+        </Expand>
+    </Type>
+</AutoVisualizer>

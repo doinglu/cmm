@@ -80,6 +80,9 @@ public:
         m_size = vec.m_size;
         m_array = vec.m_array;
 
+        // Rsh won't hold the array any longer
+        vec.m_array = 0;
+
         return *this;
     }
 

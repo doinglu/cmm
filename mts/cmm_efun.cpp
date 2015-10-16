@@ -1,9 +1,12 @@
 // cmm_efun.cpp
 
+#include <stdio.h>
 #include "std_template/simple_string.h"
 #include "cmm_efun.h"
+#include "cmm_efun_core.h"
 #include "cmm_operate.h"
 #include "cmm_program.h"
+#include "cmm_prototype_grammar.h"
 
 namespace cmm
 {
@@ -13,35 +16,50 @@ Efun::EfunMap *Efun::m_efun_map = 0;
 int Efun::init()
 {
     m_efun_map = new Efun::EfunMap();
+    
+    // Initialize all efun modules
+    init_efun_core();
     return 0;
 }
 
 void Efun::shutdown()
 {
+    // Shutdown all efun modules
+    shutdown_efun_core();
+
     delete m_efun_map;
 }
 
-// Add multiple efuns
-void Efun::add_efuns(const Value& package_name_value, EfunDef *efun_def_array)
+// Add an efun
+bool Efun::add_efun(const String& prefix, EfunEntry entry, const String& prototype_text)
 {
-    // Is package_name_value lead by "system."?
-    STD_ASSERT(("Bad type of package_name_value, expected STRING.",
-                package_name_value.m_type == STRING));
-    String prefix = String(package_name_value) + ".";
     bool is_system_package = (prefix.sub_string(0, 7) == "system.");
 
+    Function *function;
+    if (parse_efun_prototype(prototype_text, &function))
+        // Failed to add efun
+        return false;
+
+#if 0
+    String fun_name(function->get_name());
+    fun_name = Program::find_or_add_string(fun_name);
+    auto *function = new Function(0, fun_name);
+    String fun_name_with_prefix = prefix + function->get_name();
+    fun_name_with_prefix = Program::find_or_add_string(fun_name_with_prefix);
+    m_efun_map->put(fun_name, function);
+    m_efun_map->put(fun_name_with_prefix, function);
+#endif
+    return true;
+}
+
+// Add multiple efuns
+void Efun::add_efuns(const String& package_name, EfunDef *efun_def_array)
+{
+    // Is package_name lead by "system."?
+    String prefix = package_name + ".";
+
     for (size_t i = 0; efun_def_array[i].entry; ++i)
-    {
-        auto &def = efun_def_array[i];
-        String fun_name(def.name);
-        fun_name = Program::find_or_add_string(fun_name);
-        auto *function = new Function(0, fun_name);
-        parse_efun_prototype(function, def.prototype);
-        String fun_name_with_prefix = prefix + function->get_name();
-        fun_name_with_prefix = Program::find_or_add_string(fun_name_with_prefix);
-        m_efun_map->put(fun_name, function);
-        m_efun_map->put(fun_name_with_prefix, function);
-    }
+        add_efun(prefix, efun_def_array[i].entry, efun_def_array[i].prototype);
 }
 
 // Parse prototype & generate function
@@ -58,39 +76,21 @@ void Efun::add_efuns(const Value& package_name_value, EfunDef *efun_def_array)
 // argument_name = {word}
 // optional_assign = "=" constant
 // constant = {json}
-void Efun::parse_efun_prototype(Function *function, const Value& prototype)
+bool Efun::parse_efun_prototype(const String& text, Function **ptr_function)
 {
+    PrototypeGrammar::TokenState state(text);
+    PrototypeGrammar::Prototype prototype;
     
-}
-
-// Parse string text to words
-// Seperator by punctuation, space
-Array Efun::parse_words(String& text)
-{
-    const unsigned char *p = (const unsigned char *) text.c_str();
-    Array arr(text.length() / 4);
-    size_t i = 0;
-    while (i < text.length())
+    if (!PrototypeGrammar::match_prototype(state, &prototype))
     {
-        // Skip all spaces
-        while (p[i] && isspace(p[i]))
-            i++;
-
-        if (!p[i])
-            // End of parse
-            break;
-
-        // Lead by _ or alphabet
-        if (isalpha(p[i]) || p[i] == '_')
-        {
-            size_t b = i;
-            while (p[i] && (isalnum(p[i]) || p[i] == '_'))
-                i++;
-            arr.append(String((const char *)p + b, i - b));
-        }
-        i++;
+        // Failed to match
+        STD_TRACE("Failed to parse efun prototype: %s\n%s",
+                  text.c_str(), state.error_msg.c_str());
+        return false;
     }
-    return Array();
+
+    printf("Function name:%s\n", prototype.fun_name.c_str());////----
+    return true;
 }
 
-}
+} // End of namespace: cmm
