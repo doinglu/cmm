@@ -14,6 +14,7 @@ namespace cmm
 {
 
 class Domain;
+class Efun;
 class Function;
 class Object;
 class Program;
@@ -32,52 +33,112 @@ friend Function;
 public:
 	typedef enum
 	{
-		NULLABLE = 1,
+        NULLABLE = 0x0001,
+        DEFAULT = 0x0002
 	} Attrib;
 
 public:
-    // Only private constructor, it should be created by Function only
-    Parameter(Function *function, const Value& name_value);
+    Parameter(Function *function, const String& name);
+
+public:
+    // Return the attribute of parameter
+    Attrib get_attrib()
+    {
+        return m_attrib;
+    }
+
+    // Return the name of parameter
+    const String get_name()
+    {
+        return m_name;
+    }
+
+    // Return the type of parameter
+    ValueType get_type()
+    {
+        return m_type;
+    }
+
+    // Is this parameter has default value?
+    bool has_default()
+    {
+        return (m_attrib & DEFAULT) != 0;
+    }
+
+    // Is this parameter be nullable?
+    bool is_nullable()
+    {
+        return (m_attrib & NULLABLE) != 0;
+    }
 
 private:
-	StringImpl    *m_name;     // Point to string pools in Program
-	ValueType  m_type;     // Type of this argument
-	Attrib     m_attrib;   // Attrib of this parmeters
+	StringImpl *m_name;     // Point to string pools in Program
+	ValueType   m_type;     // Type of this argument
+	Attrib      m_attrib;   // Attrib of this parmeters
 };
 
 // Function
 class Function
 {
 friend Program;
+friend Efun;
 
 public:
 	typedef enum
 	{
-		RANDOM_ARG = 1,
-        PRIVATE = 0x8000,
+		RANDOM_ARG = 0x0001,        // Accept random arguments
+        RET_NULLABLE = 0x0002,      // Return nullable type
+        EXTERNAL = 0x2000,          // An external function
+        PRIVATE = 0x8000,           // A private function
 	} Attrib;
 
-    // Type of entry routine
-    // Value Entry(Thread *, Value *, size_t);
-    // Why use void *?
-    // Since Entry would be routine in a class (can't be decided now), so
-    // we use void * instead.
-    typedef Value(AbstractComponent::*Entry)(Thread *, Value *, ArgNo);
+    // Types of entry routine
+    // For script functions
+    typedef Value (AbstractComponent::*ScriptEntry)(Thread *, Value *, ArgNo);
+    // For external functions
+    typedef Value (*EfunEntry)(Thread *, Value *, ArgNo);
+    struct Entry
+    {
+        Entry() { script_entry = 0; }
+        Entry(ScriptEntry entry) { script_entry = entry; }
+        Entry(EfunEntry entry) { efun_entry = entry; }
+
+        union
+        {
+            ScriptEntry script_entry;
+            EfunEntry efun_entry;
+        };
+    };
 
 public:
-    // Only private constructor, it should be created by Program only
-    Function(Program *program, const Value& name_value);
+    Function(Program *program, const String& name);
+    ~Function();
 
 public:
-    // Create new parameter
-    Parameter *define_parameter(const Value& name_value);
+    // Create parameter definition in function
+    Parameter *define_parameter(const String& name, Parameter::Attrib attrib);
+
+    // Finish adding parameters
+    bool finish_adding_parameters();
 
 public:
-    // Get the entry pointer
-    Entry get_func_entry() { return m_func_entry; }
+    // Get the entry pointer for efun
+    EfunEntry get_efun_entry()
+    {
+        return m_entry.efun_entry;
+    }
+
+    // Get the entry pointer for script
+    ScriptEntry get_script_entry()
+    {
+        return m_entry.script_entry;
+    }
 
     // Get the function name
-    StringImpl *get_name() { return m_name; }
+    StringImpl *get_name()
+    {
+        return m_name;
+    }
         
     // Is this function public?
     bool is_public()
@@ -92,17 +153,18 @@ public:
     }
 
 private:
-    Program *m_program;
-    StringImpl  *m_name;
-	ArgNo    m_min_arg_no;
-	ArgNo    m_max_arg_no;
-	Attrib   m_attrib;
+    Program    *m_program;
+    StringImpl *m_name;
+	ArgNo       m_min_arg_no;
+	ArgNo       m_max_arg_no;
+	Attrib      m_attrib;
+    ValueType   m_ret_type;
 
 	// Parameters
 	simple::vector<Parameter *> m_parameters;
 
     // Entry
-    Entry    m_func_entry;
+    Entry       m_entry;
 };
 
 // Member of program
@@ -111,11 +173,11 @@ class Member
 friend Program;
 
 public:
-    Member(Program *program, const Value& name_value);
+    Member(Program *program, const String& name);
 
 private:
     Program     *m_program;
-    StringImpl      *m_name;
+    StringImpl  *m_name;
     ValueType    m_type;
     MemberOffset m_offset;
 };
@@ -151,22 +213,22 @@ public:
     static void shutdown();
 
 public:
-    Program(const Value& name_value);
+    Program(const String& name);
     ~Program();
 
 public:
     // Convert a normal StringImpl pointer to shared StringImpl pointer
-    // The *pp_string would be updated if found in pool
-    static StringImpl *convert_to_shared(StringImpl **pp_string);
+    // The string.m_string would be updated if found in pool
+    static bool convert_to_shared(String& string);
         
     // Find or add a string into pool
-    static StringImpl *find_or_add_string(const StringImpl *string);
+    static StringImpl *find_or_add_string(const String& string);
 
     // Find string in pool (return 0 if not found)
-    static StringImpl *find_string(const StringImpl *string);
+    static StringImpl *find_string(const String& string);
 
     // Find a program by name (shared string)
-    static Program *find_program_by_name(StringImpl *program_name);
+    static Program *find_program_by_name(String& program_name);
 
     // Update callees of all programs
     static void update_all_callees();
@@ -178,21 +240,21 @@ public:
         m_object_size = object_size;
     }
 
-    // Create function in this program
-    Function *define_function(const Value& name_value,
-                              Function::Entry func_entry,
-                              ArgNo min_arg_no, ArgNo max_arg_no,
+    // Create function definition in this program
+    Function *define_function(const String& name,
+                              Function::Entry entry,
+                              ArgNo min_arg_no = 0, ArgNo max_arg_no = 0,
                               Function::Attrib attrib = (Function::Attrib)0);
 
-    // Create member in this program
-    Member *define_member(const Value& name_value, ValueType type, MemberOffset offset);
+    // Create member definition in this program
+    Member *define_member(const String& name, ValueType type, MemberOffset offset);
 
 public:
     // Add a function to public callee map
     void add_callee(ComponentNo component_no, Function *function);
 
     // Add component in this program
-    void add_component(const Value& program_name_value, ComponentOffset offset);
+    void add_component(const String& program_name, ComponentOffset offset);
 
     // Set function handler: new_instance
     void set_new_instance_func(NewInstanceFunc func)
@@ -230,6 +292,12 @@ public:
         return mapped_component_no;
     }
 
+    // Get name
+    StringImpl *get_name()
+    {
+        return m_name;
+    }
+
     // Get object's size
     size_t get_object_size()
     {
@@ -238,34 +306,34 @@ public:
 
     // Get callee by name (access by public)
     // Update *pp_string to shared string if found
-    bool get_public_callee_by_name(StringImpl **pp_name, CalleeInfo *ptr_info)
+    bool get_public_callee_by_name(String& name, CalleeInfo *ptr_info)
     {
-        if (!Program::convert_to_shared(pp_name))
+        if (!Program::convert_to_shared(name))
             // This string is not in pool, not such callee
             return false;
-        return m_public_callees.try_get(*pp_name, ptr_info);
+        return m_public_callees.try_get(name.ptr(), ptr_info);
     }
 
     // Get callee by name (access by this component)
     // Update *pp_string to shared string if found
-    bool get_self_callee_by_name(StringImpl **pp_name, CalleeInfo *ptr_info)
+    bool get_self_callee_by_name(String& name, CalleeInfo *ptr_info)
     {
-        if (!Program::convert_to_shared(pp_name))
+        if (!Program::convert_to_shared(name))
             // This string is not in pool, not such callee
             return false;
-        return m_self_callees.try_get(*pp_name, ptr_info);
+        return m_self_callees.try_get(name.ptr(), ptr_info);
     }
 
     // Create a new instance
     Object *new_instance(Domain *domain);
 
     // Invoke routine
-    // function_name_value may be modified to shared string, IGNORE the const
-    Value invoke(Thread *thread, ObjectId oid, const Value& function_name_value, Value *args, ArgNo n);
+    // function_name may be modified to shared string, IGNORE the const
+    Value invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n);
 
     // Invoke routine can be accessed by self component
-    // function_name_value may be modified to shared string, IGNORE the const
-    Value invoke_self(Thread *thread, const Value& function_name_value, Value *args, ArgNo n);
+    // function_name may be modified to shared string, IGNORE the const
+    Value invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n);
 
 private:
     // All constant strings of programs

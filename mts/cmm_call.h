@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 #include "cmm_domain.h"
+#include "cmm_efun.h"
 #include "cmm_object.h"
 #include "cmm_program.h"
 #include "cmm_thread.h"
@@ -12,11 +13,23 @@
 namespace cmm
 {
 
-class Object;
-class Thread;
-
 // Get member offset of a class
 #define MEMBER_OFFSET(m)     ((MemberOffset)offsetof(Self, m))
+
+// Call external function
+inline Value call_efun(Thread *thread, const Value& function_name, Value *params, ArgNo n)
+{
+    Value ret = Efun::invoke(thread, (Value&)function_name, params, n);
+    return ret;
+}
+
+template<class... Types>
+inline Value call_efun(Thread *thread, const Value& function_name, Types&&... args)
+{
+    Value params[] = { args... };
+    ArgNo n = sizeof(params) / sizeof(params[0]);
+    return call_efun(thread, function_name, params, n);
+}
 
 // Call function in other component in this object (without parameter)
 inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo function_no, Value *params = 0, ArgNo n = 0)
@@ -29,7 +42,7 @@ inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo funct
     auto *function = call_component->get_function(function_no);
 
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
-    Function::Entry func = function->get_func_entry();
+    auto func = function->get_script_entry();
     auto *context = &thread->get_this_context()->value;
     auto prev_component_no = context->m_this_component;
     context->m_this_component = component_no;
@@ -53,7 +66,7 @@ inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Val
 {
     auto *object = thread->get_this_object();
     auto component_no = thread->get_this_component_no();
-    Function::Entry func = (Function::Entry) fptr;
+    auto func = (Function::ScriptEntry) fptr;
     Value ret = (component->*func)(thread, params, n);
     return ret;
 };
@@ -79,14 +92,14 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
 
         // In the same domain, just do normal call
         Program::CalleeInfo callee;
-        if (!program->get_public_callee_by_name((StringImpl **)&function_name.m_string, &callee))
+        if (!program->get_public_callee_by_name((String&)function_name.m_string, &callee))
             return Value();
 
         auto *object = entry->object;
         auto component_no = callee.component_no;
         auto offset = program->get_component_offset(component_no);
         auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
-        Function::Entry func = callee.function->get_func_entry();
+        auto func = callee.function->get_script_entry();
         auto *context = &thread->get_this_context()->value;
         auto *prev_object = context->m_this_object;
         auto prev_component_no = context->m_this_component;
@@ -101,7 +114,7 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
     // Call into other domain
     if (!program)
         return Value();
-    Value ret = program->invoke(thread, oid, function_name, params, n);
+    Value ret = program->invoke(thread, oid, (Value&)function_name, params, n);
     return ret;
 }
 

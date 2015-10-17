@@ -77,15 +77,15 @@ bool match_type(TokenState& state, Type *ptr_type)
         return false;
     }
 
-    bool may_null = false;
+    bool is_nullable = false;
     if (state.peek_token(&token) && token == "?")
     {
-        may_null = true;
+        is_nullable = true;
         state.skip();
     }
 
     ptr_type->basic_type = simple::move(basic_type);
-    ptr_type->may_null = simple::move(may_null);
+    ptr_type->is_nullable = simple::move(is_nullable);
     return true;
 }
 
@@ -179,6 +179,7 @@ bool match_argument(TokenState& state, Argument *ptr_argument)
         return false;
     }
 
+    bool has_default = false;
     String token;
     if (state.peek_token(&token) && token == "=")
     {
@@ -190,6 +191,7 @@ bool match_argument(TokenState& state, Argument *ptr_argument)
     }
 
     ptr_argument->type = type;
+    ptr_argument->has_default = has_default;
     ptr_argument->name = name;
     return true;
 }

@@ -58,19 +58,20 @@ struct Type
 {
     Type() :
         basic_type(NIL),
-        may_null(false)
+        is_nullable(false)
     {
     }
 
 public:
     ValueType basic_type;
-    bool may_null;
+    bool is_nullable;
 };
 
 // Type argument
 struct Argument
 {
     Type type;
+    bool has_default;
     String name;
 };
 

@@ -30,7 +30,7 @@ public:
         program->add_component("/feature/desc", MEMBER_OFFSET(m_desc));
         program->add_component("/feature/name", MEMBER_OFFSET(m_name));
 
-        program->define_function("print", (Function::Entry) &Impl::print, 0, 0);
+        program->define_function("print", (Function::ScriptEntry)&Impl::print, 0, 0);
 
         return program;
     }

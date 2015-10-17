@@ -26,6 +26,12 @@ public:
         *this = vec;
     }
 
+    vector(vector&& vec)
+    {
+        m_array = 0;
+        *this = simple::move(vec);
+    }
+
     // Construct from T[] with size
     vector(const T *arr, size_t count)
     {

@@ -19,7 +19,7 @@ void ReferenceImpl::bind_to_current_domain()
         return;
 
     Domain *domain = Thread::get_current_thread_domain();
-    STD_ASSERT(("No found domain when bind_to_current_domain.", domain));
+    STD_ASSERT(("Domain not found when bind_to_current_domain.", domain));
     if (this->owner)
     {
         // Already binded?
@@ -344,20 +344,14 @@ Value::Value(Object *ob) :
 {
 }
 
-Value::Value(const char *c_str, size_t len)
+Value::Value(const char *c_str, size_t len) :
+    Value(STRING_ALLOC(c_str, len))
 {
-    auto *v = STRING_ALLOC(c_str, len);
-    v->bind_to_current_domain();
-    m_type = STRING;
-    m_string = v;
 }
 
-Value::Value(const simple::string& str)
+Value::Value(const simple::string& str) :
+    Value(STRING_ALLOC(str))
 {
-    auto *v = STRING_ALLOC(str);
-    v->bind_to_current_domain();
-    m_type = STRING;
-    m_string = v;
 }
 
 // Compare with other value
@@ -420,31 +414,14 @@ size_t Value::hash_value() const
     }
 }
 
-// Create a reference value belonged to this domain
-Value Value::new_string(Domain *domain, const char *c_str, size_t len)
+// Bind this value to specified domain
+Value Value::bind_to(Domain *domain)
 {
-    auto *v = STRING_ALLOC(c_str, len);
-    STD_ASSERT(domain == Thread::get_current_thread_domain());
-    domain->bind_value(v);
-    return Value(v);
-}
+    if (m_type < REFERENCE_VALUE)
+        return *this;
 
-// Create a array value belonged to this domain
-Value Value::new_array(Domain *domain, size_t size_hint)
-{
-    auto *v = XNEW(ArrayImpl, size_hint);
-    STD_ASSERT(domain == Thread::get_current_thread_domain());
-    domain->bind_value(v);
-    return Value(v);
-}
-
-// Create a reference value belonged to this domain
-Value Value::new_map(Domain *domain, size_t size_hint)
-{
-    auto *v = XNEW(MapImpl, size_hint);
-    STD_ASSERT(domain == Thread::get_current_thread_domain());
-    domain->bind_value(v);
-    return Value(v);
+    domain->bind_value(m_reference);
+    return *this;
 }
 
 Value& Value::operator [](const Value& value)
@@ -521,12 +498,12 @@ StringImpl *StringImpl::snprintf(const char *fmt, size_t n, ...)
 }
 
 Array::Array(size_t size_hint) :
-    TypedValue<ArrayImpl>(Value::new_array(Thread::get_current_thread_domain(), size_hint))
+    TypedValue<ArrayImpl>(XNEW(ArrayImpl, size_hint))
 {
 }
 
 Map::Map(size_t size_hint) :
-    TypedValue<MapImpl>(Value::new_map(Thread::get_current_thread_domain(), size_hint))
+    TypedValue<MapImpl>(XNEW(MapImpl, size_hint))
 {
 }
 

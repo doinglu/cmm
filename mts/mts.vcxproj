@@ -178,11 +178,11 @@
     <ClInclude Include="cmm_call.h" />
     <ClInclude Include="cmm_domain.h" />
     <ClInclude Include="cmm_efun.h" />
+    <ClInclude Include="cmm_efun_core.h" />
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_memory.h" />
     <ClInclude Include="cmm_operate.h" />
     <ClInclude Include="cmm_prototype_grammar.h" />
-    <ClInclude Include="cmm_reference_value.h" />
     <ClInclude Include="cmm_string_pool.h" />
     <ClInclude Include="cmm_basic_types.h" />
     <ClInclude Include="cmm_string_doc.h" />

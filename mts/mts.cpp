@@ -19,12 +19,15 @@
 #include "cmm_efun.h"
 #include "cmm_memory.h"
 #include "cmm_object.h"
+#include "cmm_program.h"
 #include "cmm_thread.h"
 #include "cmm_value.h"
 
+#if 1
 #include "a_name_2.h"
 #include "a_desc_2.h"
 #include "a_entity_2.h"
+#endif
 
 long long GetUsCounter()
 {
@@ -214,11 +217,11 @@ int main(int argn, char *argv[])
     Value _v4(oid);
     Value _v5("abc");
     Value _v6(BUFFER_ALLOC(&maxThreadCount, 8));
-    Value _v7(new ArrayImpl(3));
+    Array _v7(XNEW(ArrayImpl, 3));
     _v7.m_array->a.push_back("a1");
     _v7.m_array->a.push_back("b3");
     _v7.m_array->a.push_back("c7");
-    Value _v8(new MapImpl(5));
+    Map _v8(XNEW(MapImpl, 5));
     _v8["name"] = "doing";
     _v8["age"] = 38;
     _v8["gender"] = "male";
@@ -233,7 +236,6 @@ int main(int argn, char *argv[])
     auto *buffer1 = BUFFER_NEW(simple::string, "buffer string");
     auto *buffers = BUFFER_NEWN(simple::string, 5);
     simple::list<simple::string> list;
-    auto *buffer = BUFFER_ALLOC("abc", 3);
     printf("!\n");
 #endif
 
@@ -245,8 +247,10 @@ int main(int argn, char *argv[])
     Program::update_all_callees();
 #endif
 
-    auto *a1 = BUFFER_NEW(AAA, 888);
+    call_efun(thread, "printf", "a=%d\n", 555);
+
 #if 1
+    auto *a1 = BUFFER_NEW(AAA, 888);
     auto *a2 = BUFFER_NEWN(AAA, 3);
     auto *a11 = BUFFER_ALLOC(a1);
     auto *a21 = BUFFER_ALLOC(a2);
@@ -264,7 +268,6 @@ int main(int argn, char *argv[])
     printf("thread start = %p, end = %p\n",
            thread->get_this_context()->value.m_start_sp,
            thread->get_this_context()->value.m_end_sp);
-    printf("&a1 = %p\n", &a1);
 
 #if 0
     auto *domain = XNEW(Domain);

@@ -209,6 +209,11 @@ public:
         *this = other;
     }
 
+    list(list&& other)
+    {
+        *this = simple::move(other);
+    }
+
     // Construct from T[] with size
     list(const T *arr, size_t count)
     {

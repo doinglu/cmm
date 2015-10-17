@@ -33,7 +33,7 @@ namespace cmm
             program->add_component("/feature/name", MEMBER_OFFSET(m_name));
             program->add_component("/feature/desc", MEMBER_OFFSET(m_desc));
 
-            program->define_function("create", (Function::Entry)&Impl::create, 0, 0);
+            program->define_function("create", (Function::ScriptEntry)&Impl::create, 0, 0);
 
             return program;
         }

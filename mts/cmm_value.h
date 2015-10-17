@@ -177,42 +177,29 @@ public:
     Value(Object *ob);
 
     // Contruct from reference values
-    Value(ValueType type, ReferenceImpl *v)
+    Value(ReferenceImpl *v, ValueType type = NIL)
     {
-        STD_ASSERT(("Construct reference value with incorrect type.", type == v->get_type()));
+        if (type == NIL)
+            type = v->get_type();
         m_type = type;
         m_reference = v;
+        m_reference->bind_to_current_domain();
     }
 
-    Value(const StringImpl *v)
-    {
-        m_type = STRING;
-        m_string = (StringImpl *)v; // Remove "const"
-    }
+    Value(const StringImpl *v) :
+        Value((ReferenceImpl *)v, STRING) {}
 
-    Value(BufferImpl *v)
-    {
-        m_type = BUFFER;
-        m_buffer = v;
-    }
+    Value(BufferImpl *v) :
+        Value((ReferenceImpl *)v, BUFFER) {}
 
-    Value(FunctionPtrImpl *v)
-    {
-        m_type = FUNCTION;
-        m_function = v;
-    }
+    Value(FunctionPtrImpl *v) :
+        Value((ReferenceImpl *)v, FUNCTION) {}
 
-    Value(ArrayImpl *v)
-    {
-        m_type = ARRAY;
-        m_array = v;
-    }
+    Value(ArrayImpl *v) :
+        Value((ReferenceImpl *)v, ARRAY) {}
 
-    Value(MapImpl *v)
-    {
-        m_type = MAPPING;
-        m_map = v;
-    }
+    Value(MapImpl *v) :
+        Value((ReferenceImpl *)v, MAPPING) {}
 
     // Construct for string
     Value(const char *c_str, size_t len = SIZE_MAX);
@@ -340,7 +327,12 @@ private:
 
     // Domain/local relative operations
 public:
+    // Bind this value to specified domain
+    Value bind_to(Domain *domain);
+
     // Copy this value to local value list if this is a reference type value
+    // After copy, caller should enter another domain & transfer these values
+    // to it
     Value copy_to_local(Thread *thread)
     {
         if (m_type < REFERENCE_VALUE)
@@ -350,11 +342,6 @@ public:
         m_reference = m_reference->copy_to_local(thread);
         return *this;
     }
-
-    // New values & bind to current domain
-    static Value new_string(Domain *domain, const char *c_str, size_t len = SIZE_MAX);
-    static Value new_array(Domain *domain, size_t size_hint = 8);
-    static Value new_map(Domain *domain, size_t size_hint = 8);
 
 public:
     Value& operator =(const Value& value)
@@ -742,21 +729,18 @@ public:
                                             Value::type_to_name(T::this_type),
                                             Value::type_to_name(other.m_type));
         m_reference = other.m_reference;
-        m_reference->bind_to_current_domain();
         return *this;
     }
 
     TypedValue& operator =(const TypedValue& other)
     {
         m_reference = other.m_reference;
-        // The value should be already binded
         return *this;
     }
 
     TypedValue& operator =(const T *other_impl)
     {
         m_reference = (T *)other_impl;
-        m_reference->bind_to_current_domain();
         return *this;
     }
 
@@ -857,9 +841,25 @@ public:
         { return impl().sub_string(offset, len); }
 };
 
+class Buffer : public TypedValue<BufferImpl>
+{
+public:
+    template <typename... Types>
+    Buffer(Types&&... args) :
+        TypedValue(simple::forward<Types>(args)...)
+    {
+    }
+};
+
 class Array : public TypedValue<ArrayImpl>
 {
 public:
+    template <typename... Types>
+    Array(Types&&... args) :
+        TypedValue(simple::forward<Types>(args)...)
+    {
+    }
+
     Array(size_t size_hint = 8);
 
 public:
@@ -890,6 +890,12 @@ public:
 class Map : public TypedValue<MapImpl>
 {
 public:
+    template <typename... Types>
+    Map(Types&&... args) :
+        TypedValue(simple::forward<Types>(args)...)
+    {
+    }
+
     Map(size_t size_hint = 8);
 
 public:

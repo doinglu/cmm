@@ -11,11 +11,13 @@
 namespace cmm
 {
 
+Efun::EfunPackage *Efun::m_efun_packages = 0;
 Efun::EfunMap *Efun::m_efun_map = 0;
 
 int Efun::init()
 {
-    m_efun_map = new Efun::EfunMap();
+    m_efun_packages = XNEW(Efun::EfunPackage);
+    m_efun_map = XNEW(Efun::EfunMap);
     
     // Initialize all efun modules
     init_efun_core();
@@ -27,28 +29,64 @@ void Efun::shutdown()
     // Shutdown all efun modules
     shutdown_efun_core();
 
-    delete m_efun_map;
+    // Cleanup all efuns packages & maps
+    XDELETE(m_efun_packages);
+    XDELETE(m_efun_map);
 }
 
 // Add an efun
-bool Efun::add_efun(const String& prefix, EfunEntry entry, const String& prototype_text)
+bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, const String& prototype_text)
 {
     bool is_system_package = (prefix.sub_string(0, 7) == "system.");
 
-    Function *function;
-    if (parse_efun_prototype(prototype_text, &function))
+    PrototypeGrammar::Prototype prototype;
+    if (!parse_efun_prototype(prototype_text, &prototype))
         // Failed to add efun
         return false;
 
-#if 0
-    String fun_name(function->get_name());
-    fun_name = Program::find_or_add_string(fun_name);
-    auto *function = new Function(0, fun_name);
-    String fun_name_with_prefix = prefix + function->get_name();
+    // Create the function
+    auto *function = program->define_function(prototype.fun_name, entry);
+
+    // Set attrib of function
+    function->m_attrib = Function::EXTERNAL;
+    if (prototype.arguments_list.is_va_arg)
+        // Accept random arguments
+        function->m_attrib = (Function::Attrib) (function->m_attrib | Function::RANDOM_ARG);
+    if (prototype.ret_type.is_nullable)
+        // Accept random arguments
+        function->m_attrib = (Function::Attrib) (function->m_attrib | Function::RET_NULLABLE);
+
+    // Set return type
+    function->m_ret_type = prototype.ret_type.basic_type;
+    if (function->m_ret_type == ValueType::TVOID)
+        // Use NIL instead of TVOID
+        // TVOID is only used for compiling stage
+        function->m_ret_type = ValueType::NIL;
+
+    // Add all arguments
+    for (auto it : prototype.arguments_list.args)
+    {
+        // The parameter's type
+        auto attrib = (Parameter::Attrib)0;
+        if (it.type.is_nullable)
+            attrib = (Parameter::Attrib)(attrib | Parameter::NULLABLE);
+        if (it.has_default)
+            attrib = (Parameter::Attrib)(attrib | Parameter::DEFAULT);
+
+        function->define_parameter(it.name, attrib);
+    }
+    function->finish_adding_parameters();
+
+    // Add name->function to efun map
+    // For system package, add two entries, one for short name (without package prefix)
+    auto *fun_name = function->get_name();
+    auto *fun_name_with_prefix = (prefix + fun_name).ptr();
     fun_name_with_prefix = Program::find_or_add_string(fun_name_with_prefix);
-    m_efun_map->put(fun_name, function);
     m_efun_map->put(fun_name_with_prefix, function);
-#endif
+
+    // Add short name for efun in system package
+    if (is_system_package)
+        m_efun_map->put(fun_name, function);
     return true;
 }
 
@@ -58,8 +96,13 @@ void Efun::add_efuns(const String& package_name, EfunDef *efun_def_array)
     // Is package_name lead by "system."?
     String prefix = package_name + ".";
 
+    // Create program for this package
+    auto *program = XNEW(Program, package_name);
+    m_efun_packages->put(program->get_name(), program);
+
+    // Add all efuns
     for (size_t i = 0; efun_def_array[i].entry; ++i)
-        add_efun(prefix, efun_def_array[i].entry, efun_def_array[i].prototype);
+        add_efun(program, prefix, efun_def_array[i].entry, efun_def_array[i].prototype);
 }
 
 // Parse prototype & generate function
@@ -76,11 +119,11 @@ void Efun::add_efuns(const String& package_name, EfunDef *efun_def_array)
 // argument_name = {word}
 // optional_assign = "=" constant
 // constant = {json}
-bool Efun::parse_efun_prototype(const String& text, Function **ptr_function)
+bool Efun::parse_efun_prototype(const String& text, PrototypeGrammar::Prototype *ptr_prototype)
 {
     PrototypeGrammar::TokenState state(text);
     PrototypeGrammar::Prototype prototype;
-    
+
     if (!PrototypeGrammar::match_prototype(state, &prototype))
     {
         // Failed to match
@@ -89,8 +132,32 @@ bool Efun::parse_efun_prototype(const String& text, Function **ptr_function)
         return false;
     }
 
-    printf("Function name:%s\n", prototype.fun_name.c_str());////----
+    *ptr_prototype = simple::move(prototype);
     return true;
+}
+
+// Invoke an efun by name
+Value Efun::invoke(Thread *thread, Value& function_name, Value *args, ArgNo n)
+{
+    if (function_name.m_type != ValueType::STRING)
+        // Bad type of function name
+        return Value();
+
+    if (!Program::convert_to_shared((String&)function_name))
+        // Not found name in shared string pool, no such efun
+        return Value();
+
+    Function *function;
+    if (!m_efun_map->try_get(function_name.m_string, &function))
+        // Function is not found
+        return Value();
+
+    auto func_entry = function->get_efun_entry();
+    Value ret = func_entry(thread, args, n);
+    STD_ASSERT(("Bad return type of efun function.",
+                (ret.m_type == function->m_ret_type) ||
+                (ret.m_type == ValueType::NIL && (function->m_attrib & Function::Attrib::RET_NULLABLE))));
+    return ret;
 }
 
 } // End of namespace: cmm

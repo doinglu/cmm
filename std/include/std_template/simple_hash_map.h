@@ -164,7 +164,7 @@ public:
         // Lookup entire table to add all keys
         for (size_t i = 0; i < m_size; i++)
             vec.push_back(m_pairs[i].second);
-        return vec;
+        return simple::move(vec);
     }
 
 private:

@@ -30,11 +30,11 @@ public:
         program->add_component("/feature/name", MEMBER_OFFSET(m_name));
         program->add_component("/feature/desc", MEMBER_OFFSET(m_desc));
 
-        program->define_function("set_name", (Function::Entry)&Impl::set_name, 1, 1);
-        program->define_function("get_name", (Function::Entry)&Impl::get_name, 0, 0);
-        program->define_function("test_call_private", (Function::Entry)&Impl::test_call_private, 0, 0, Function::Attrib::PRIVATE);
-        program->define_function("test_call", (Function::Entry)&Impl::test_call, 0, 0);
-        program->define_function("do_nothing", (Function::Entry)&Impl::do_nothing, 0, 0);
+        program->define_function("set_name", (Function::ScriptEntry)&Impl::set_name, 1, 1);
+        program->define_function("get_name", (Function::ScriptEntry)&Impl::get_name, 0, 0);
+        program->define_function("test_call_private", (Function::ScriptEntry)&Impl::test_call_private, 0, 0, Function::Attrib::PRIVATE);
+        program->define_function("test_call", (Function::ScriptEntry)&Impl::test_call, 0, 0);
+        program->define_function("do_nothing", (Function::ScriptEntry)&Impl::do_nothing, 0, 0);
 
         return program;
     }

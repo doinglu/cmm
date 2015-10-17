@@ -110,7 +110,7 @@ public:
         printf("Per domain call with parameter is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
 
         Value str_a = "a", str_b = "b";
-        Value m(Value::new_map(_thread->get_current_domain()));
+        Value m = Map(8).bind_to(_thread->get_current_domain());
         m["a"] = 1;
         m["b"] = 2;
         b = std_get_current_us_counter();
@@ -122,7 +122,7 @@ public:
         t *= 1000;
         printf("Per mapping read is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
 
-        m = Value::new_map(_thread->get_current_domain());
+        m = Map().bind_to(_thread->get_current_domain());
         m["a"] = 1;
         m["b"] = 2;
         b = std_get_current_us_counter();
