@@ -123,7 +123,7 @@ void Program::shutdown()
 Program::Program(const String& name)
 {
     m_name = Program::find_or_add_string(name);
-    STD_ASSERT(("Program has been defined.", !find_program_by_name(String(m_name))));
+    STD_ASSERT(("Program has been defined.", !find_program_by_name(m_name)));
 
     std_enter_critical_section(m_program_cs);
     m_all_programs->put(m_name, this);
@@ -144,17 +144,17 @@ Program::~Program()
 
 // Convert string to shared string in pool
 // The string.m_string may be updated if find in pool
-bool Program::convert_to_shared(String& string)
+bool Program::convert_to_shared(const String* string)
 {
-    if (!(string.m_string->attrib & ReferenceImpl::SHARED))
+    if (!(string->m_string->attrib & ReferenceImpl::SHARED))
     {
         // Not shared? Lookup in pool
-        auto *string_impl_in_pool = find_string(string);
+        auto *string_impl_in_pool = find_string(*string);
         if (!string_impl_in_pool)
             return false;
 
         // Modify previous string
-        string.m_string = string_impl_in_pool;
+        ((String *)string)->m_string = string_impl_in_pool;
     }
 
     return true;
@@ -175,11 +175,11 @@ StringImpl *Program::find_string(const String& string)
 
 // Find a program by name (shared string)
 // The program_name may be updated during operation
-Program *Program::find_program_by_name(String& program_name)
+Program *Program::find_program_by_name(const String& program_name)
 {
     Program *program;
 
-    if (!convert_to_shared(program_name))
+    if (!convert_to_shared(&program_name))
         // No such name in shared pool, program not found
         return 0;
 
@@ -433,7 +433,7 @@ void Program::add_component(const String& program_name, ComponentOffset offset)
 {
     // Lookup & add all new programs
     ComponentInfo component;
-    component.program_name = Program::find_or_add_string(program_name.get_string());
+    component.program_name = Program::find_or_add_string(program_name);
     component.program = 0; // Will be updated later in update_callees()
     component.offset = offset;
     m_components.push_back(component);
@@ -449,7 +449,7 @@ void Program::update_callees()
     size_t components_no_map_size = 0;
     for (auto it = m_components.begin(); it != m_components.end(); ++it)
     {
-        auto *program = Program::find_program_by_name(String(it->program_name));
+        auto *program = Program::find_program_by_name(it->program_name);
         STD_ASSERT(("Program is not found.", program));
         it->program = program;
         component_no_map.put(it->program_name, (ComponentNo)it.get_index());
@@ -463,7 +463,7 @@ void Program::update_callees()
     m_components_no_map.reserve(components_no_map_size);
     for (auto it = m_components.begin(); it != m_components.end(); ++it)
     {
-        auto *program = Program::find_program_by_name(String(it->program_name));
+        auto *program = Program::find_program_by_name(it->program_name);
         STD_ASSERT(("Program is not found.", program));
 
         // Start map this component
@@ -489,7 +489,7 @@ void Program::update_callees()
     // Lookup all functions & add to callees map
     for (auto it = m_components.begin(); it != m_components.end(); ++it)
     {
-        auto *program = Program::find_program_by_name(String(it->program_name));
+        auto *program = Program::find_program_by_name(it->program_name);
         ComponentNo component_no = (ComponentNo)it.get_index();
 
         auto end = program->m_functions.end();
@@ -531,7 +531,7 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
         // Bad type of function name
         return Value();
 
-    if (!get_public_callee_by_name((String&)function_name, &callee))
+    if (!get_public_callee_by_name((String *)&function_name, &callee))
         // No such function
         return Value();
 
@@ -567,7 +567,7 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
     auto component_no = thread->get_this_component_no();
     auto *to_program = m_components[component_no].program;
 
-    if (!to_program->get_self_callee_by_name((String&)function_name, &callee))
+    if (!to_program->get_self_callee_by_name((String *)&function_name, &callee))
         // No such function
         return Value();
 

@@ -23,7 +23,7 @@ public:
     // Function 0
     Value set_name(Thread *_thread, Value *__args, ArgNo __n)
     {
-        if (__n != 1)
+        if (__n < 1)
             throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
 
         if (__args[0].m_type != ValueType::STRING)
@@ -102,7 +102,7 @@ public:
         Value set_to = "Name was set";
         b = std_get_current_us_counter();
         for (i = 0; i < 10000; i++)
-            call_other(_thread, other_oid, fun_name, set_to);
+            call_other(_thread, other_oid, fun_name, set_to, set_to, set_to, set_to, set_to, set_to);////---
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
@@ -134,7 +134,7 @@ public:
         t *= 1000;
         printf("Per mapping write is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
 
-        Value ret = call_other(_thread, other_oid, "print");
+        Value ret = call_other(_thread, other_oid, String("print"));
         ret = Value(5);
         return ret;
     }

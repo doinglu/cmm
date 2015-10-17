@@ -219,7 +219,7 @@ public:
 public:
     // Convert a normal StringImpl pointer to shared StringImpl pointer
     // The string.m_string would be updated if found in pool
-    static bool convert_to_shared(String& string);
+    static bool convert_to_shared(const String* string);
         
     // Find or add a string into pool
     static StringImpl *find_or_add_string(const String& string);
@@ -228,7 +228,8 @@ public:
     static StringImpl *find_string(const String& string);
 
     // Find a program by name (shared string)
-    static Program *find_program_by_name(String& program_name);
+    // The string.m_string would be updated if found in pool
+    static Program *find_program_by_name(const String& program_name);
 
     // Update callees of all programs
     static void update_all_callees();
@@ -305,23 +306,23 @@ public:
     }
 
     // Get callee by name (access by public)
-    // Update *pp_string to shared string if found
-    bool get_public_callee_by_name(String& name, CalleeInfo *ptr_info)
+    // Update name to shared string if found
+    bool get_public_callee_by_name(const String *name, CalleeInfo *ptr_info)
     {
         if (!Program::convert_to_shared(name))
             // This string is not in pool, not such callee
             return false;
-        return m_public_callees.try_get(name.ptr(), ptr_info);
+        return m_public_callees.try_get(name->ptr(), ptr_info);
     }
 
     // Get callee by name (access by this component)
-    // Update *pp_string to shared string if found
-    bool get_self_callee_by_name(String& name, CalleeInfo *ptr_info)
+    // Update name to shared string if found
+    bool get_self_callee_by_name(const String *name, CalleeInfo *ptr_info)
     {
         if (!Program::convert_to_shared(name))
             // This string is not in pool, not such callee
             return false;
-        return m_self_callees.try_get(name.ptr(), ptr_info);
+        return m_self_callees.try_get(name->ptr(), ptr_info);
     }
 
     // Create a new instance
@@ -329,10 +330,12 @@ public:
 
     // Invoke routine
     // function_name may be modified to shared string, IGNORE the const
+    // ATTENTION: Must use Value for input parameter to avoid constructor String(),
+    // or the modification of function_name (to lookup shared) would be useless.
     Value invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n);
 
     // Invoke routine can be accessed by self component
-    // function_name may be modified to shared string, IGNORE the const
+    // See ATTENTION of invoke
     Value invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n);
 
 private:

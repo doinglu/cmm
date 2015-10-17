@@ -137,13 +137,14 @@ bool Efun::parse_efun_prototype(const String& text, PrototypeGrammar::Prototype 
 }
 
 // Invoke an efun by name
-Value Efun::invoke(Thread *thread, Value& function_name, Value *args, ArgNo n)
+// See ATTENTION of Program::invoke
+Value Efun::invoke(Thread *thread, const Value& function_name, Value *args, ArgNo n)
 {
     if (function_name.m_type != ValueType::STRING)
         // Bad type of function name
         return Value();
 
-    if (!Program::convert_to_shared((String&)function_name))
+    if (!Program::convert_to_shared((String*)&function_name))
         // Not found name in shared string pool, no such efun
         return Value();
 

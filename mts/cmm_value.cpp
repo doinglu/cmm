@@ -415,12 +415,12 @@ size_t Value::hash_value() const
 }
 
 // Bind this value to specified domain
-Value Value::bind_to(Domain *domain)
+Value& Value::bind_to(Domain *domain)
 {
     if (m_type < REFERENCE_VALUE)
         return *this;
 
-    domain->bind_value(m_reference);
+    m_reference->bind_to_current_domain();
     return *this;
 }
 

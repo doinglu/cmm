@@ -209,6 +209,8 @@ int main(int argn, char *argv[])
     thread->update_start_sp_of_start_context(&argn);
 
 #if 1
+
+#if 1
     Value _v1;
     Value _v2(88);
     Value _v3(99.77);
@@ -231,13 +233,17 @@ int main(int argn, char *argv[])
     set.put("a");
     set.put("bb");
     set.put("ccc");
+#endif
 
+#if 1
     std::string std_str = "std::string";
     auto *buffer1 = BUFFER_NEW(simple::string, "buffer string");
     auto *buffers = BUFFER_NEWN(simple::string, 5);
-    simple::list<simple::string> list;
-    printf("!\n");
 #endif
+//    simple::list<int> list;
+#endif
+
+#if 1
 
 #if 1
     __clone_entity_ob::create_program();
@@ -269,16 +275,18 @@ int main(int argn, char *argv[])
            thread->get_this_context()->value.m_start_sp,
            thread->get_this_context()->value.m_end_sp);
 
-#if 0
+#endif
+
     auto *domain = XNEW(Domain);
     auto *program = Program::find_program_by_name(Value("/clone/entity").m_string);
     auto *ob = program->new_instance(domain);
+#if 1
     auto *domain2 = XNEW(Domain);
     auto *ob2 = program->new_instance(domain2);
     call_other(thread, ob->get_oid(), "create");
     call_other(thread, ob2->get_oid(), "create");
     Value ret = call_other(thread, ob->get_oid(), "test_call", ob2->get_oid());
-    printf("ret = %d.\n", (int) ret.m_int);
+//    printf("ret = %d.\n", (int) ret.m_int);
     XDELETE(ob);
 #endif
 

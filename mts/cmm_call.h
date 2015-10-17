@@ -17,9 +17,9 @@ namespace cmm
 #define MEMBER_OFFSET(m)     ((MemberOffset)offsetof(Self, m))
 
 // Call external function
-inline Value call_efun(Thread *thread, const Value& function_name, Value *params, ArgNo n)
+inline Value call_efun(Thread *thread, const Value& function_name, Value *args, ArgNo n)
 {
-    Value ret = Efun::invoke(thread, (Value&)function_name, params, n);
+    Value ret = Efun::invoke(thread, function_name, args, n);
     return ret;
 }
 
@@ -32,7 +32,7 @@ inline Value call_efun(Thread *thread, const Value& function_name, Types&&... ar
 }
 
 // Call function in other component in this object (without parameter)
-inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo function_no, Value *params = 0, ArgNo n = 0)
+inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo function_no, Value *args = 0, ArgNo n = 0)
 {
     auto *object = thread->get_this_object();
     auto *program = object->get_program();
@@ -46,7 +46,7 @@ inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo funct
     auto *context = &thread->get_this_context()->value;
     auto prev_component_no = context->m_this_component;
     context->m_this_component = component_no;
-    Value ret = (component_impl->*func)(thread, params, n);
+    Value ret = (component_impl->*func)(thread, args, n);
     context->m_this_component = prev_component_no;
     return ret;
 }
@@ -62,12 +62,12 @@ inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo funct
 
 // Call function in same componenet (without parameter)
 template<typename F>
-inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Value *params = 0, ArgNo n = 0)
+inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Value *args = 0, ArgNo n = 0)
 {
     auto *object = thread->get_this_object();
     auto component_no = thread->get_this_component_no();
     auto func = (Function::ScriptEntry) fptr;
-    Value ret = (component->*func)(thread, params, n);
+    Value ret = (component->*func)(thread, args, n);
     return ret;
 };
 
@@ -81,7 +81,7 @@ inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Typ
 };
 
 // Call function in other object (without parameter)
-inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name, Value *params = 0, ArgNo n = 0)
+inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name, Value *args = 0, ArgNo n = 0)
 {
     STD_ASSERT(function_name.m_type == ValueType::STRING);
     auto *entry = Object::get_entry_by_id(oid);
@@ -92,7 +92,7 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
 
         // In the same domain, just do normal call
         Program::CalleeInfo callee;
-        if (!program->get_public_callee_by_name((String&)function_name.m_string, &callee))
+        if (!program->get_public_callee_by_name((String *)&function_name, &callee))
             return Value();
 
         auto *object = entry->object;
@@ -105,7 +105,7 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
         auto prev_component_no = context->m_this_component;
         context->m_this_object = object;
         context->m_this_component = component_no;
-        Value ret = (component_impl->*func)(thread, params, n);
+        Value ret = (component_impl->*func)(thread, args, n);
         context->m_this_component = prev_component_no;
         context->m_this_object = prev_object;
         return ret;
@@ -114,7 +114,8 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
     // Call into other domain
     if (!program)
         return Value();
-    Value ret = program->invoke(thread, oid, (Value&)function_name, params, n);
+
+    Value ret = program->invoke(thread, oid, function_name, args, n);
     return ret;
 }
 

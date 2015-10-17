@@ -34,7 +34,7 @@
         </Expand>
     </Type>
     <Type Name="cmm::GlobalId" Inheritable="true">
-        <DisplayString>{{ {index_page*cmm::GLOBAL_ID_PER_PAGE+index_offset}:{version}@{process_id} }}</DisplayString>
+        <DisplayString>{{ {index_page*cmm::GLOBAL_ID_PER_PAGE+index_offset}:v{version}@{process_id} }}</DisplayString>
         <Expand HideRawView="false">
         </Expand>
     </Type>
@@ -51,6 +51,7 @@
             <Item Name="[hash_cache]" ExcludeView="simple">hash_cache</Item>
             <Item Name="[owner]" ExcludeView="simple">owner</Item>
             <Item Name="[next]" ExcludeView="simple">next</Item>
+            <Item Name="[attrib]" ExcludeView="simple">attrib</Item>
             <Item Name="[len]" ExcludeView="simple">len</Item>
             <Item Name="[str]" ExcludeView="simple">buf</Item>
         </Expand>

@@ -232,17 +232,11 @@ public:
     Real         gets_real() const { return as_real().m_real; }
     ObjectId     get_object() const { return as_object().m_oid; }
 
-    const StringImpl      *get_string() const { return as_string().m_string; }
-    const BufferImpl      *get_buffer() const { return as_buffer().m_buffer; }
-    const FunctionPtrImpl *get_function() const { return as_function().m_function; }
-    const ArrayImpl       *get_array() const { return as_array().m_array; }
-    const MapImpl         *get_map() const { return as_map().m_map; }
-
-    StringImpl      *get_string() { return as_string().m_string; }
-    BufferImpl      *get_buffer() { return as_buffer().m_buffer; }
-    FunctionPtrImpl *get_function() { return as_function().m_function; }
-    ArrayImpl       *get_array() { return as_array().m_array; }
-    MapImpl         *get_map() { return as_map().m_map; }
+    StringImpl      *get_string() const { return as_string().m_string; }
+    BufferImpl      *get_buffer() const { return as_buffer().m_buffer; }
+    FunctionPtrImpl *get_function() const { return as_function().m_function; }
+    ArrayImpl       *get_array() const { return as_array().m_array; }
+    MapImpl         *get_map() const { return as_map().m_map; }
 
 public:
     bool operator <(const Value& b) const;
@@ -328,7 +322,7 @@ private:
     // Domain/local relative operations
 public:
     // Bind this value to specified domain
-    Value bind_to(Domain *domain);
+    Value& bind_to(Domain *domain);
 
     // Copy this value to local value list if this is a reference type value
     // After copy, caller should enter another domain & transfer these values
@@ -805,9 +799,23 @@ public:
     {
     }
 
-    template <typename... Types>
-    String(Types&&... args) :
-        TypedValue(simple::forward<Types>(args)...)
+    String(const Value& value) :
+        TypedValue(value)
+    {
+    }
+
+    String(StringImpl *const impl) :
+        TypedValue(impl)
+    {
+    }
+
+    String(const char *c_str, size_t len = SIZE_MAX) :
+        TypedValue(c_str, len)
+    {
+    }
+
+    String(const simple::string& str) :
+        TypedValue(str)
     {
     }
 
@@ -844,9 +852,13 @@ public:
 class Buffer : public TypedValue<BufferImpl>
 {
 public:
-    template <typename... Types>
-    Buffer(Types&&... args) :
-        TypedValue(simple::forward<Types>(args)...)
+    Buffer(const Value& value) :
+        TypedValue(value)
+    {
+    }
+
+    Buffer(BufferImpl *impl) :
+        TypedValue(impl)
     {
     }
 };
@@ -854,9 +866,13 @@ public:
 class Array : public TypedValue<ArrayImpl>
 {
 public:
-    template <typename... Types>
-    Array(Types&&... args) :
-        TypedValue(simple::forward<Types>(args)...)
+    Array(const Value& value) :
+        TypedValue(value)
+    {
+    }
+
+    Array(ArrayImpl *impl) :
+        TypedValue(impl)
     {
     }
 
@@ -890,9 +906,13 @@ public:
 class Map : public TypedValue<MapImpl>
 {
 public:
-    template <typename... Types>
-    Map(Types&&... args) :
-        TypedValue(simple::forward<Types>(args)...)
+    Map(const Value& value) :
+        TypedValue(value)
+    {
+    }
+
+    Map(MapImpl *impl) :
+        TypedValue(impl)
     {
     }
 

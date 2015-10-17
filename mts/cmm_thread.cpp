@@ -262,7 +262,6 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
     // HOW EVER, these valus may be changed by other thread during the following
     // operation
     auto *entry = Object::get_entry_by_id(to_oid);
-    auto *ob = entry->object;
     auto *to_domain = entry->domain;
 
     if (m_current_domain != to_domain)
@@ -280,17 +279,17 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
         if (to_domain)
             // Enter new domain
             to_domain->enter();
-
-        thread->transfer_values_to_current_domain();
     }
 
     // ATTENTION:
     // Now, after entered the "to_domain". I can verify the values since the those
     // won't be changed if they are belonged to "to_domain"
+    auto *ob = entry->object;
     if (ob && ob->get_oid() == to_oid && ob->get_domain() == to_domain)
     {
         // OK, switch to right domain
         m_current_domain = to_domain;
+        thread->transfer_values_to_current_domain();
         return true;
     }
 
@@ -306,6 +305,9 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
     if (m_current_domain)
         // Enter previous domain
         m_current_domain->enter();
+
+    // Transfer the value no matter the domain to avoid them left on thread
+    thread->transfer_values_to_current_domain();
     return false;
 }
 
