@@ -93,6 +93,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -107,6 +108,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -125,6 +127,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -138,12 +141,14 @@
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)std\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <OmitFramePointers>false</OmitFramePointers>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -174,18 +179,25 @@
     <ClInclude Include="..\std\include\std_template\simple_vector.h" />
     <ClInclude Include="a_desc.h" />
     <ClInclude Include="a_entity.h" />
+    <ClInclude Include="cmm.h" />
     <ClInclude Include="cmm_buffer_new.h" />
     <ClInclude Include="cmm_call.h" />
+    <ClInclude Include="cmm_common_util.h" />
     <ClInclude Include="cmm_domain.h" />
     <ClInclude Include="cmm_efun.h" />
     <ClInclude Include="cmm_efun_core.h" />
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_memory.h" />
     <ClInclude Include="cmm_operate.h" />
+    <ClInclude Include="std_os_socket.h" />
     <ClInclude Include="cmm_prototype_grammar.h" />
+    <ClInclude Include="std_socket_bsd_errno.h" />
+    <ClInclude Include="std_socket_port.h" />
+    <ClInclude Include="cmm_output.h" />
     <ClInclude Include="cmm_string_pool.h" />
     <ClInclude Include="cmm_basic_types.h" />
     <ClInclude Include="cmm_string_doc.h" />
+    <ClInclude Include="cmm_socket.h" />
     <ClInclude Include="cmm_util.h" />
     <ClInclude Include="cmm_value_list.h" />
     <ClInclude Include="cmm_object.h" />
@@ -238,13 +250,23 @@
     <ClCompile Include="a_entity_2.h" />
     <ClCompile Include="a_name.h" />
     <ClCompile Include="a_name_2.h" />
+    <ClCompile Include="cmm_basic_types.cpp" />
+    <ClCompile Include="cmm_common_util.cpp" />
     <ClCompile Include="cmm_domain.cpp" />
     <ClCompile Include="cmm_efun.cpp" />
     <ClCompile Include="cmm_efun_core.cpp" />
     <ClCompile Include="cmm_memory.cpp" />
     <ClCompile Include="cmm_operate.cpp" />
+    <ClCompile Include="std_os_epoll_linux.c" />
+    <ClCompile Include="std_os_epoll_sim.c" />
+    <ClCompile Include="std_os_socket_bsd.c" />
+    <ClCompile Include="std_os_socket_linux.c" />
+    <ClCompile Include="std_os_socket_win32.c" />
     <ClCompile Include="cmm_prototype_grammar.cpp" />
+    <ClCompile Include="std_socket_port.cpp" />
+    <ClCompile Include="cmm_output.cpp" />
     <ClCompile Include="cmm_string_pool.cpp" />
+    <ClCompile Include="cmm_socket.cpp" />
     <ClCompile Include="cmm_value_list.cpp" />
     <ClCompile Include="cmm_object.cpp" />
     <ClCompile Include="cmm_program.cpp" />

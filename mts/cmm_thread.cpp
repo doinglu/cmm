@@ -1,7 +1,8 @@
 // cmm_thread.cpp
 
-#include <stddef.h>
 #include <stdio.h>
+#include <stddef.h>
+#include <stdarg.h>
 #include "std_port/std_port_compiler.h"
 #include "std_port/std_port_os.h"
 #include "cmm_domain.h"
@@ -10,6 +11,8 @@
 
 namespace cmm
 {
+
+Thread::GetStackPointerFunc Thread::m_get_stack_pointer_func = 0;
 
 // Constructor for Thread start CallContext only
 CallContext::CallContext(Thread *thread) :
@@ -21,7 +24,7 @@ CallContext::CallContext(Thread *thread) :
     m_local_count(0),
     m_this_object(0),
     m_this_component(0),
-    m_start_sp((void *)&thread),
+    m_start_sp((void **)&thread + 4 /* Add 4 words */),
     m_end_sp((void *)&thread),
     m_thread(thread)
 {
@@ -82,6 +85,9 @@ int Thread::init()
 {
     std_allocate_tls(&m_thread_tls_id);
 
+    // Set handler - This is only to prevent optimization
+    m_get_stack_pointer_func = (GetStackPointerFunc)([]() { void *p = (void *)&p; return p; });
+
     // Start current thread
     Thread *thread = XNEW(Thread);
     thread->start();
@@ -137,13 +143,16 @@ void Thread::start()
 {
     auto existed = (Thread *) std_get_tls_data(m_thread_tls_id);
     if (existed)
-        throw "There was a structure binded to this thread.";
+        throw_error("There was a structure binded to this thread.\n");
 
     // Bind this
     std_set_tls_data(m_thread_tls_id, this);
 
     // Create a domain for this thread
-    m_start_domain = XNEW(Domain);
+    char buf[64];
+    snprintf(buf, sizeof(buf), "Thread%lld", (Int64)std_get_current_task_id());
+    buf[sizeof(buf) - 1] = 0;
+    m_start_domain = XNEW(Domain, buf);
     switch_domain(m_start_domain);
 
     // Create a context for this thread
@@ -160,7 +169,7 @@ void Thread::stop()
     // Verify
     auto existed = (Thread *)std_get_tls_data(m_thread_tls_id);
     if (existed != this)
-        throw "This structure isn't binded to this thread.";
+        throw_error("This structure isn't binded to this thread.\n");
 
     if (m_value_list.get_count())
     {
@@ -322,12 +331,67 @@ bool Thread::will_change_domain(Domain *to_domain)
     return true;
 }
 
+// Return context of this thread
+// ({
+//     ([
+//         "name" : <Domain_name>
+//         "id" : <Domain_id>
+//         ...
+//         "stack_top" : <Top address of stack frame>
+//         "stack_bottom" : <Bottom address of stack frame>
+//     ])
+//     ...
+// })
+Value Thread::get_context_list()
+{
+    // Get count of context list
+    size_t count = 0;
+    auto *p = m_context;
+    while (p)
+    {
+        count++;
+        p = p->prev;
+    }
+
+    // Update the end_sp
+    update_end_sp_of_current_context();
+
+    // Allocate array for return
+    Array arr(count);
+    p = m_context;
+    while (p)
+    {
+        Map map = p->value.m_domain->get_domain_detail();
+        map["stack_top"] = (size_t)p->value.m_start_sp;
+        map["stack_bottom"] = (size_t)p->value.m_end_sp;
+        arr.push_back(map);
+        p = p->prev;
+    }
+
+    return arr;    
+}
+
 // Transfer all values in local value list to current domain
 // This routine should be invoked after having switched to a domain
 void Thread::transfer_values_to_current_domain()
 {
     if (m_value_list.get_count() && m_current_domain)
         m_current_domain->concat_value_list(&m_value_list);
+}
+
+// Throw exception
+void throw_error(const char *msg, ...)
+{
+    // Create formatted string
+    va_list va;
+    va_start(va, msg);
+    char buf[1024];
+    STD_VSNPRINTF(buf, sizeof(buf), msg, va);
+    buf[sizeof(buf) - 1] = 0;
+    va_end(va);
+
+    // Throw the message
+    throw buf;
 }
 
 } // End of namespace: cmm

@@ -19,7 +19,6 @@ Domain::DomainIdManager *Domain::m_id_manager = 0;
 Domain::DomainIdMap *Domain::m_all_domains = 0;
 Domain *Domain::m_domain_0 = 0;
 struct std_critical_section *Domain::m_domain_cs = 0;
-Domain::GetStackPointerFunc Domain::m_get_stack_pointer_func = 0;
 
 // Initialize this module
 int Domain::init()
@@ -31,10 +30,7 @@ int Domain::init()
 
     // Create the domain 0
     m_all_domains = XNEW(DomainIdMap);
-    m_domain_0 = XNEW(Domain);
-
-    // Set handler - This is only to prevent optimization
-    m_get_stack_pointer_func = (GetStackPointerFunc) ([]() { void *p = (void *)&p; return p; });
+    m_domain_0 = XNEW(Domain, "Zero");
     return 0;
 }
 
@@ -55,7 +51,7 @@ void Domain::shutdown()
     std_delete_critical_section(m_domain_cs);
 }
 
-Domain::Domain()
+Domain::Domain(const char *name)
 {
     m_type = NORMAL;
     m_id.i64 = 0;
@@ -72,6 +68,17 @@ Domain::Domain()
     // Assign an id
     auto *entry = m_id_manager->allocate_id();
     m_id = entry->gid;
+
+    // Store the domain name
+    char buf[sizeof(m_name)];
+    if (name == NULL)
+    {
+        // Auto generate name by domain id
+        m_id.print(buf, sizeof(buf), "Domain");
+        name = buf;
+    }
+    strncpy(m_name, name, sizeof(m_name));
+    m_name[sizeof(m_name) - 1] = 0;
 
     // Register me
     std_enter_critical_section(m_domain_cs);
@@ -139,14 +146,10 @@ void Domain::gc()
         return;
 
     auto b = std_get_current_us_counter();////----
+
     auto *thread = Thread::get_current_thread();
-    auto *context = thread ? thread->get_this_context() : 0;
-    if (context)
-    {
-        // Update end_sp of current context
-        void *stack_pointer = m_get_stack_pointer_func();
-        context->value.update_end_sp(stack_pointer);
-    }
+    if (thread)
+        thread->update_end_sp_of_current_context();
 
     MarkValueState state(&m_value_list);
     ReferenceImpl *low, *high;
@@ -205,11 +208,10 @@ void Domain::gc()
     }
 
     // Free all non-refered values & regenerate value list
-    auto end = state.set.end();
-    for (auto it = state.set.begin(); it != end; ++it)
+    for (auto it: state.set)
     {
         // Value is not refered, free it
-        XDELETE(*it);
+        XDELETE(it);
     }
 
     // Reset gc counter
@@ -251,6 +253,19 @@ void Domain::object_was_destructed(Object *ob)
 {
     STD_ASSERT(m_objects.contains(ob));
     m_objects.erase(ob);
+}
+
+// Generate a map for detail information
+Map Domain::get_domain_detail()
+{
+    Map map(7);
+    map["type"] = m_type;
+    map["id"] = m_id;
+    map["name"] = m_name;
+    map["running"] = m_running;
+    map["wait_counter"] = m_wait_counter;
+    map["thread_holder_id"] = (size_t)m_thread_holder_id;
+    return map;
 }
 
 } // End of namespace: cmm

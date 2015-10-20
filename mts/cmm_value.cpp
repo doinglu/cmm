@@ -27,7 +27,7 @@ void ReferenceImpl::bind_to_current_domain()
             // Binded to current domain already, ignored
             return;
 
-        throw "Reference value was already binded to other owner.";
+        throw_error("Reference value was already binded to other owner.\n");
     }
     domain->bind_value(this);
 }
@@ -430,7 +430,7 @@ Value& Value::operator [](const Value& value)
     {
     case MAPPING: return (*m_map)[value];
     case ARRAY: return (*m_array)[value];
-    default: throw "Bad type of value to index.\n";
+    default: throw_error("Bad type of value to index.\n");
     }
 }
 
@@ -441,7 +441,7 @@ Value Value::operator [](const Value& value) const
     {
     case MAPPING: return (*m_map)[value];
     case ARRAY: return (*m_array)[value];
-    default: throw "Bad type of value to index.\n";
+    default: throw_error("Bad type of value to index.\n");
     }
 }
 

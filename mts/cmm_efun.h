@@ -3,7 +3,7 @@
 #pragma once
 
 #include "std_template/simple_hash_map.h"
-#include "cmm_basic_types.h"
+#include "cmm.h"
 #include "cmm_operate.h"
 
 namespace cmm

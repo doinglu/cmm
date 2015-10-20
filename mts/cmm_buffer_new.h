@@ -29,7 +29,7 @@
 #pragma once
 
 #include "std_template/simple.h"
-#include "cmm_basic_types.h"
+#include "cmm.h"
 #include "cmm_value.h"
 
 namespace cmm

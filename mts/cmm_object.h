@@ -7,7 +7,7 @@
 #include "std_port/std_port_spin_lock.h"
 #include "std_template/simple_vector.h"
 #include "std_template/simple_list.h"
-#include "cmm_basic_types.h"
+#include "cmm.h"
 #include "cmm_global_id.h"
 
 namespace cmm

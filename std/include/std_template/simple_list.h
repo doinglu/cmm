@@ -73,7 +73,7 @@ public:
     T& operator [](size_t index) const
     {
         if (index >= m_size)
-            throw "Index is out of range in manual_list.";
+            throw "Index is out of range in manual_list.\n";
 
         // Lookup element in manual_list by index
         node *p = m_head->next;
@@ -328,7 +328,7 @@ public:
     void remove_at(size_t index)
     {
         if (index >= base::m_size)
-            throw "Element is out of range when remove from list.";
+            throw "Element is out of range when remove from list.\n";
 
         remove(iterator(*this, index));
     }

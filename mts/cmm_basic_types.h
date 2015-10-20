@@ -44,6 +44,8 @@ typedef enum
     BAD_TYPE = 255,     // Bad type
 }  ValueType;
 
+enum { GLOBAL_ID_PER_PAGE = (1 << 8) };
+
 // Global Id is a 64bits, cross multi-process Id.
 // The Id.process_id indicates the process;
 // index_page:index_offset indicates the index;
@@ -54,28 +56,28 @@ struct GlobalId
     {
         struct
         {
-#if 1
             size_t  version : 32;
             size_t  index_page : 16;
             size_t  index_offset : 8;
             size_t  process_id : 8;
-#else
-            Uint32  version;
-            Uint16  index_page;
-            Uint8   index_offset;
-            Uint8   process_id;
-#endif
         };
         Uint64 i64;
     };
+
+    // Get index of the id
+    size_t index() const
+    {
+        return index_page * GLOBAL_ID_PER_PAGE + index_offset;
+    }
+
+    // Print id with prefix
+    void print(char *buf, size_t size, const char *prefix) const;
 };
 
 inline bool operator == (const GlobalId& left, const GlobalId& other)
 {
     return left.i64 == other.i64;
 }
-
-enum { GLOBAL_ID_PER_PAGE = (1 << 8) };
 
 struct global_id_hash_func
 {

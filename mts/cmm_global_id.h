@@ -3,7 +3,7 @@
 #pragma once
 
 #include "std_port/std_port.h"
-#include "cmm_basic_types.h"
+#include "cmm.h"
 
 // This file implements template for ID management.
 // Global ID is a 64 bits, cross multi-process Id.

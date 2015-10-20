@@ -23,7 +23,7 @@ public:
     Value print(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 0)
-            throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
+            throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
         printf("Name: %s.\n", call_far(_thread, 1 /* Component:Name */, 1 /* get_name() */).m_string->c_str());
 

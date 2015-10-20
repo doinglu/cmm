@@ -23,7 +23,7 @@ public:
     Value create(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 0)
-            throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
+            throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
         auto *__this_object = _thread->get_this_object();
         call_far(_thread, 1, 0, simple::string().snprintf("Entity(%llx)", 256, __this_object->get_oid().i64));

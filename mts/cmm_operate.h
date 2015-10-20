@@ -6,7 +6,7 @@
 #pragma once
 
 #include "std_template/simple.h"
-#include "cmm_basic_types.h"
+#include "cmm.h"
 #include "cmm_domain.h"
 #include "cmm_thread.h"
 #include "cmm_value.h"
@@ -36,10 +36,9 @@ public:
         Value value(simple::forward<Types>(args)...);
         if (value.m_type != T::this_type)
             // Bad type
-            throw simple::string().snprintf("Expect %s for value type, got %s.",
-                                            128,
-                                            Value::type_to_name(T::this_type),
-                                            Value::type_to_name(value.m_type));
+            throw_error("Expect %s for value type, got %s.\n",
+                          Value::type_to_name(T::this_type),
+                          Value::type_to_name(value.m_type));
         m_ptr = (T *)value.m_reference;
         m_ptr->bind_to_current_domain();
     }

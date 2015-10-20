@@ -128,7 +128,7 @@ public:
         return true;
     }
 
-    size_t size()
+    size_t size() const
     {
         return m_size;
     }
@@ -148,7 +148,7 @@ public:
 
 public:
     // Generate vector of keys
-    vector<K> keys()
+    vector<K> keys() const
     {
         vector<K> vec(m_size);
         // Lookup entire table to add all keys
@@ -158,7 +158,7 @@ public:
     }
 
     // Generate vector of values
-    vector<V> values()
+    vector<V> values() const
     {
         vector<V> vec(m_size);
         // Lookup entire table to add all keys

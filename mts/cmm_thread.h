@@ -5,7 +5,7 @@
 #include "std_port/std_port.h"
 #include "std_template/simple_list.h"
 
-#include "cmm_basic_types.h"
+#include "cmm.h"
 #include "cmm_object.h"
 #include "cmm_value.h"
 #include "cmm_value_list.h"
@@ -41,12 +41,6 @@ public:
 public:
     // Pop context & return to previous one
     void pop_context();
-
-    // Update end_sp of this context
-    void update_end_sp(void *end_sp)
-    {
-        m_end_sp = end_sp;
-    }
 
 private:
     // Linked to previous context in current thread
@@ -115,12 +109,22 @@ public:
     // Update stack information of start context
     void update_start_sp_of_start_context(void *start_sp);
 
+    // Update current context sp
+    void update_end_sp_of_current_context()
+    {
+        // Update end_sp of current context
+        if (!m_context)
+            return;
+        void *stack_pointer = m_get_stack_pointer_func();
+        m_context->value.m_end_sp = stack_pointer;
+    }
+
 public:
     // Return argument, n in [0..arg_count-1]
     Value& get_arg(ArgNo n)
     {
         if (n >= m_context->value.m_arg_count)
-            throw "No such argument.";
+            throw_error("No such argument (%lld).\n", (Int64)n);
 
         return get_arg_unsafe(n);
     }
@@ -193,6 +197,10 @@ public:
         m_value_list.append_value(value);
     }
 
+public:
+    // Return context of this thread
+    Value get_context_list();
+
 private:
     // Transfer all values in local value list to current domain
     void transfer_values_to_current_domain();
@@ -225,6 +233,10 @@ private:
 
 private:
     static std_tls_t m_thread_tls_id;
+
+    // Function routine to get current stack pointer
+    typedef void *(*GetStackPointerFunc)();
+    static GetStackPointerFunc m_get_stack_pointer_func;
 };
 
 } // End of namespace: cmm

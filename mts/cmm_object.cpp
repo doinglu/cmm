@@ -61,7 +61,7 @@ void Object::free_oid()
 void Object::set_domain(Domain *domain)
 {
     if (m_domain)
-        throw "Object was already in domain.";
+        throw_error("Object was already in domain.\n");
     m_domain = domain;
     domain->join_object(this);
 

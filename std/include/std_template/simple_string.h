@@ -124,7 +124,7 @@ public:
     char_t operator [](size_t index) const
     {
         if (index > m_len)
-            throw "Index is out of range in string.";
+            throw "Index is out of range in string.\n";
         return data_ptr()[index];
     }
 

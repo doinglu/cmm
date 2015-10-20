@@ -95,7 +95,7 @@ public:
     T& operator [](size_t index) const
     {
         if (index >= m_size)
-            throw "Index is out of range in vector.";
+            throw "Index is out of range in vector.\n";
 
         return m_array[index];
     }
@@ -195,7 +195,7 @@ public:
     void remove(size_t index)
     {
         if (index >= m_size)
-            throw "Element is out of range when remove from array.";
+            throw "Element is out of range when remove from array.\n";
         for (size_t i = index; i < m_size; i++)
             m_array[i] = simple::move(m_array[i + 1]);
     }

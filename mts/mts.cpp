@@ -277,11 +277,11 @@ int main(int argn, char *argv[])
 
 #endif
 
-    auto *domain = XNEW(Domain);
+    auto *domain = XNEW(Domain, "test1");
     auto *program = Program::find_program_by_name(Value("/clone/entity").m_string);
     auto *ob = program->new_instance(domain);
 #if 1
-    auto *domain2 = XNEW(Domain);
+    auto *domain2 = XNEW(Domain, "test2");
     auto *ob2 = program->new_instance(domain2);
     call_other(thread, ob->get_oid(), "create");
     call_other(thread, ob2->get_oid(), "create");

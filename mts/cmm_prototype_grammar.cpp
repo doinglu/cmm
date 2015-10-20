@@ -236,7 +236,7 @@ Array parse_words(const String& text)
         {
             while (p[i] && (isalnum(p[i]) || p[i] == '_'))
                 i++;
-            arr.append(String((const char *)p + b, i - b));
+            arr.push_back(String((const char *)p + b, i - b));
             continue;
         }
 
@@ -250,7 +250,7 @@ Array parse_words(const String& text)
                     has_dot = true;
                 i++;
             }
-            arr.append(String((const char *)p + b, i - b));
+            arr.push_back(String((const char *)p + b, i - b));
             continue;
         }
 
@@ -260,7 +260,7 @@ Array parse_words(const String& text)
             if (p[i + 1] == '.' && p[i + 2] == '.')
             {
                 // Got ...
-                arr.append("...");
+                arr.push_back("...");
                 i += 3;
                 continue;
             }
@@ -268,7 +268,7 @@ Array parse_words(const String& text)
             if (p[i + 1] == '.')
             {
                 // Got ..
-                arr.append("..");
+                arr.push_back("..");
                 i += 2;
                 continue;
             }
@@ -278,18 +278,18 @@ Array parse_words(const String& text)
                 // Got .number
                 while (isdigit(p[i]))
                     i++;
-                arr.append(String((const char *)p + b, i - b));
+                arr.push_back(String((const char *)p + b, i - b));
                 continue;
             }
 
             // Got .
-            arr.append(".");
+            arr.push_back(".");
             i++;
             continue;
         }
 
         // Got single char
-        arr.append(String((const char *)p + i, 1));
+        arr.push_back(String((const char *)p + i, 1));
         i++;
     }
     return arr;

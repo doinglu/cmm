@@ -4,6 +4,7 @@
 #include "std_port/std_port.h"
 #include "cmm_efun.h"
 #include "cmm_efun_core.h"
+#include "cmm_output.h"
 #include "cmm_value.h"
 
 namespace cmm
@@ -13,7 +14,9 @@ namespace cmm
 DEFINE_EFUN(void, printf, (string format, ...))
 {
     String& format = (String&)__args[0];
-    printf(format.c_str(), __args[1].get_int());
+    Output output;
+    String ret = output.format_output(format.c_str(), &__args[1], __n - 1);
+    printf("%s", ret.c_str());
     return Value();
 }
 

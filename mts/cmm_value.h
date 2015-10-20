@@ -6,7 +6,7 @@
 #include "std_template/simple_string.h"
 #include "std_template/simple_vector.h"
 #include "std_template/simple_hash_map.h"
-#include "cmm_basic_types.h"
+#include "cmm.h"
 
 namespace cmm
 {
@@ -308,14 +308,14 @@ private:
     const Value& expect_type(ValueType type) const
     {
         if (m_type != type)
-            throw simple::string().snprintf("Value type is not %s.", 128, type_to_name(type));
+            throw_error("Value type is not %s.\n", type_to_name(type));
         return *this;
     }
 
     Value& expect_type(ValueType type)
     {
         if (m_type != type)
-            throw simple::string().snprintf("Value type is not %s.", 128, type_to_name(type));
+            throw_error("Value type is not %s.\n", type_to_name(type));
         return (Value &)*this;
     }
 
@@ -397,7 +397,8 @@ public:
 
 public:
     size_t length() const { return len; }
-    const char_t *c_str() const { return buf; }
+    const char_t *ptr() const { return buf; }
+    const char *c_str() const { return (const char *)buf; }
 
 public:
     // Allocate a string with reserved size
@@ -428,7 +429,7 @@ public:
     inline int operator [](size_t index) const
     {
         if (index > length())
-            throw "Index of string is out of range.";
+            throw_error("Index of string is out of range.\n");
         return (int)(uchar_t)buf[index];
     }
 
@@ -518,7 +519,7 @@ public:
             STD_ASSERT(("Index out of range of class_ptr.", index < info->n));
             return data() + RESERVE_FOR_CLASS_ARR + index * info->size;
         }
-        throw "This buffer doesn't not contain any class.";
+        throw_error("This buffer doesn't not contain any class.\n");
     }
 
 public:
@@ -590,41 +591,34 @@ public:
     virtual void mark(MarkValueState& value_map);
 
 public:
-    Value& operator [](const Value& index)
+    Value& operator [](Integer index) const
     {
-        if (index.m_type != ValueType::INTEGER)
-            throw simple::string().snprintf("Bad index to array (expected integer got %s).", 128,
-                                            Value::type_to_name(index.m_type));
+        if (index < 0 || index >= (Integer)a.size())
+            throw_error("Index out of range to array, got %lld.\n", (Int64)index);
 
-        if (index.m_int < 0 || index.m_int >= (Integer)a.size())
-            throw simple::string().snprintf("Index out of range to array, got %lld.", 128,
-                                            (Int64)index.m_int);
-
-        if (sizeof(index.m_int) > sizeof(size_t))
+        if (sizeof(index) > sizeof(size_t))
         {
             // m_int is longer than size_t
-            if (index.m_int > SIZE_MAX)
-                throw simple::string().snprintf("Index out of range to array, got %lld.", 128,
-                                                (Int64)index.m_int);
+            if (index > SIZE_MAX)
+                throw_error("Index out of range to array, got %lld.", (Int64)index);
         }
 
-        return a[(size_t)index.m_int];
+        return a[(size_t)index];
     }
 
-    // Get R-value
-    Value operator[](const Value& index) const
+    Value& operator [](const Value& index) const
     {
-        return ((ArrayImpl *)this)->operator[](index);
+        return (operator[])(index.m_int);
     }
 
     // Append an element
-    void append(const Value& value)
+    void push_back(const Value& value)
     {
         a.push_back(value);
     }
 
     // Get size
-    size_t size() { return a.size(); }
+    size_t size() const { return a.size(); }
 
 public:
     DataType a;
@@ -674,23 +668,23 @@ public:
     }
 
     // Contains key?
-    bool contains_key(const Value& key)
+    bool contains_key(const Value& key) const
     {
         return m.contains_key(key);
     }
 
     // Get keys
-    Value keys()
+    Value keys() const
     {
         auto vec = m.keys();
         return XNEW(ArrayImpl, (ArrayImpl::DataType &&)simple::move(vec));
     }
 
     // Get size
-    size_t size() { return m.size(); }
+    size_t size() const { return m.size(); }
 
     // Get values
-    Value values()
+    Value values() const
     {
         auto vec = m.values();
         return XNEW(ArrayImpl, (ArrayImpl::DataType &&)simple::move(vec));
@@ -718,10 +712,9 @@ public:
     {
         if (other.m_type != T::this_type)
             // Bad type
-            throw simple::string().snprintf("Expect %s for value type, got %s.",
-                                            128,
-                                            Value::type_to_name(T::this_type),
-                                            Value::type_to_name(other.m_type));
+            throw_error("Expect %s for value type, got %s.\n",
+                          Value::type_to_name(T::this_type),
+                          Value::type_to_name(other.m_type));
         m_reference = other.m_reference;
         return *this;
     }
@@ -879,28 +872,22 @@ public:
     Array(size_t size_hint = 8);
 
 public:
-    Value& operator [](const Value& index)
+    Value& operator [](const Value& index) const
         { return impl()[index]; }
 
-    Value operator [](const Value& index) const
+    Value& operator [](Integer index) const
         { return impl()[index]; }
 
-    Value& operator [](size_t index)
-        { return impl()[Value(index)]; }
+    void push_back(const Value& value)
+        { impl().push_back(value); }
 
-    Value operator [](size_t index) const
-        { return impl()[Value(index)]; }
-
-    void append(const Value& value)
-        { impl().append(value); }
+    size_t size() const { return impl().size(); }
 
     auto begin() -> decltype(impl().a.begin())
         { return impl().a.begin(); }
 
     auto end() -> decltype(impl().a.begin())
         { return impl().a.end(); }
-
-    size_t size() { return impl().size(); }
 };
 
 class Map : public TypedValue<MapImpl>
@@ -925,14 +912,23 @@ public:
     Value operator [](const Value& index) const
         { return impl()[index]; }
 
-    Value keys()
+    Value put(const Value& key, const Value& value)
+        { impl()[key] = value; }
+
+    Value keys() const
         { return impl().keys(); }
 
-    size_t size()
+    size_t size() const
         { return impl().size(); }
 
-    Value values()
+    Value values() const
         { return impl().values(); }
+
+    auto begin() -> decltype(impl().m.begin())
+        { return impl().m.begin(); }
+
+    auto end() -> decltype(impl().m.begin())
+        { return impl().m.end(); }
 };
 
 } // End namespace: cmm

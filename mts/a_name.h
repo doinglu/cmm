@@ -24,10 +24,10 @@ public:
     Value set_name(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n < 1)
-            throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
+            throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
         if (__args[0].m_type != ValueType::STRING)
-            throw simple::string().snprintf("Parameter 1 'name' is not string.", 256);
+            throw_error("Parameter 1 'name' is not string.\n");
 
         // Enter function
 //        Value __local[] = { };
@@ -41,7 +41,7 @@ public:
     Value get_name(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 0)
-            throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
+            throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
         return this->name;
     }
@@ -50,7 +50,7 @@ public:
     Value test_call_private(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 1)
-            throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
+            throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
         ObjectId other_oid;
         other_oid.i64 = __args[0].m_int;
@@ -143,7 +143,7 @@ public:
     Value test_call(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 1)
-            throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 1, __n);
+            throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
         ObjectId other_oid;
         other_oid.i64 = __args[0].m_int;
@@ -158,7 +158,7 @@ public:
     Value do_nothing(Thread *_thread, Value *__args, ArgNo __n)
     {
         if (__n != 0)
-            throw simple::string().snprintf("Bad parameters, expected %d, got %d.", 0, __n);
+            throw_error("Bad parameters, expected %lld, got %lld.", (Integer)0, (Integer)__n);
         return Value();
     }
 

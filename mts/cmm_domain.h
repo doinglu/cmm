@@ -4,7 +4,8 @@
 
 #include "std_template/simple_list.h"
 
-#include "cmm_basic_types.h"
+#include "cmm.h"
+#include "cmm_value.h"
 #include "cmm_value_list.h"
 #include "cmm_thread.h"
 
@@ -43,7 +44,7 @@ public:
     static void shutdown();
 
 public:
-    Domain();
+    Domain(const char *name);
     ~Domain();
 
 public:
@@ -95,13 +96,36 @@ public:
     // Object was destructed, left domain
     void object_was_destructed(Object *ob);
 
+public:
+    // Get id of this domain
+    DomainId get_id() const { return m_id; }
+
+    // Get name of this domain
+    const char *get_name() const { return m_name; }
+
+    // Which thread hold this domain
+    Thread::Id get_thread_holder() const { return m_thread_holder_id; }
+
+    // Get type of this domain
+    Type get_type() const { return m_type; }
+
+    // How many threads in wait list
+    size_t get_wait_counter() const { return m_wait_counter; }
+
+    // Is this domain running?
+    bool is_running() const { return m_running ? true : false; }
+
+    // Return domain in a mapping value
+    Map get_domain_detail();
+
 private:
     // Get domain 0
     static Domain *get_domain_0() { return m_domain_0; }
 
 private:
-    Type        m_type;             // Type of this domain
-    DomainId    m_id;               // Id of this domain
+    Type        m_type;             // Type
+    DomainId    m_id;               // Id
+    char        m_name[32];         // Name
     AtomInt     m_running;          // Is this domain running?
     AtomInt     m_wait_counter;     // How many threads are waiting to take ownership
     Thread::Id  m_thread_holder_id; // Hold by which thread?
@@ -129,10 +153,6 @@ private:
 
     // Critical Section to operate m_all_domains
     static struct std_critical_section *m_domain_cs;
-
-    // Function routine to get stack pointer for GC
-    typedef void *(*GetStackPointerFunc)();
-    static GetStackPointerFunc m_get_stack_pointer_func;
 };
 
 } // End of namespace: cmm
