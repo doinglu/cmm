@@ -43,11 +43,9 @@ inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo funct
 
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     auto func = function->get_script_entry();
-    auto *context = &thread->get_this_context()->value;
-    auto prev_component_no = context->m_this_component;
-    context->m_this_component = component_no;
+    thread->push_call_context(object, *(void **)&func, args, mapped_component_no);
     Value ret = (component_impl->*func)(thread, args, n);
-    context->m_this_component = prev_component_no;
+    thread->pop_call_context();
     return ret;
 }
 
@@ -64,10 +62,11 @@ inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo funct
 template<typename F>
 inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Value *args = 0, ArgNo n = 0)
 {
-    auto *object = thread->get_this_object();
-    auto component_no = thread->get_this_component_no();
     auto func = (Function::ScriptEntry) fptr;
+    thread->push_call_context(thread->get_this_object(), *(void **)&func, args,
+                              thread->get_this_component_no());
     Value ret = (component->*func)(thread, args, n);
+    thread->pop_call_context();
     return ret;
 };
 
@@ -100,14 +99,9 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
         auto offset = program->get_component_offset(component_no);
         auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
         auto func = callee.function->get_script_entry();
-        auto *context = &thread->get_this_context()->value;
-        auto *prev_object = context->m_this_object;
-        auto prev_component_no = context->m_this_component;
-        context->m_this_object = object;
-        context->m_this_component = component_no;
+        thread->push_call_context(object, *(void **)&func, args, component_no);
         Value ret = (component_impl->*func)(thread, args, n);
-        context->m_this_component = prev_component_no;
-        context->m_this_object = prev_object;
+        thread->pop_call_context();
         return ret;
     }
 

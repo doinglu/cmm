@@ -141,7 +141,7 @@ private:
     size_t m_gc_counter;
 
     // List of all contexts in threads
-    simple::manual_list<CallContext> m_context_list;
+    simple::manual_list<DomainContext> m_context_list;
 
 private:
     typedef GlobalIdManager<Entry> DomainIdManager;

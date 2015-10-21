@@ -60,6 +60,17 @@
 #error "Unknow compiler"
 #endif
 
+ /* No return attribute */
+#if defined(__APPLE_CC__)
+#define ANALYZER_NO_RETURN [[noreturn]]
+#elif defined(_WIN32)
+#define ANALYZER_NO_RETURN __declspec(noreturn)
+#elif defined(__GNUC__)
+#define ANALYZER_NO_RETURN __attribute__ ((noreturn))
+#else
+#define ANALYZER_NO_RETURN
+#endif
+
 // Align size for all types
 #define STD_BEST_ALIGN_SIZE     16
 

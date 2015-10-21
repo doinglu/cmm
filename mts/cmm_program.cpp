@@ -546,10 +546,12 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
 
-    CallContextNode __context(thread, object, component_no, args, n, (Value*)0, 0);
-    thread->enter_function_call(&__context);
+    DomainContextNode __context(thread);
+    thread->enter_domain_call(&__context);
+    thread->push_call_context(object, *(void **)&func, args, component_no);
     auto ret = (component_impl->*func)(thread, args, n);
-    return thread->leave_function_call(&__context, ret);
+    thread->pop_call_context();
+    return thread->leave_domain_call(&__context, ret);
 }
 
 // Invoke self function
@@ -575,11 +577,9 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
     ComponentOffset offset = m_components[component_no].offset;
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
-    auto *context = &thread->get_this_context()->value;
-    auto prev_component_no = context->m_this_component;
-    context->m_this_component = component_no;
+    thread->push_call_context(object, *(void **)&func, args, component_no);
     Value ret = (component_impl->*func)(thread, args, n);
-    context->m_this_component = prev_component_no;
+    thread->pop_call_context();
     return ret;
 }
 

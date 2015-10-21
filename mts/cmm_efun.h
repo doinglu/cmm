@@ -4,7 +4,6 @@
 
 #include "std_template/simple_hash_map.h"
 #include "cmm.h"
-#include "cmm_operate.h"
 
 namespace cmm
 {
@@ -20,8 +19,12 @@ namespace cmm
     efun_##name, efun_##name##_prototype
 
 class Function;
+class Program;
+class String;
 class Thread;
 class Value;
+
+struct StringImpl;
 
 // External function entry
 typedef Value (*EfunEntry)(Thread *_thread, Value *_args, ArgNo n);

@@ -149,7 +149,7 @@ void Domain::gc()
 
     auto *thread = Thread::get_current_thread();
     if (thread)
-        thread->update_end_sp_of_current_context();
+        thread->update_end_sp_of_current_domain_context();
 
     MarkValueState state(&m_value_list);
     ReferenceImpl *low, *high;

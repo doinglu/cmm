@@ -151,7 +151,29 @@ public:
     int n;
 };
 
+int main_body(int argn, char *argv[]);
+
 int main(int argn, char *argv[])
+{
+    Domain::init();
+    Object::init();
+    Thread::init();
+    Program::init();
+    Efun::init();
+
+    ////----    auto *thread = Thread::get_current_thread();
+////----    thread->update_start_sp_of_start_domain_context(&argn);
+
+    auto ret = main_body(argn, argv);
+
+    Efun::shutdown();
+    Program::shutdown();
+    Thread::shutdown();
+    Domain::shutdown();
+    Object::shutdown();
+}
+
+int main_body(int argn, char *argv[])
 {
     static bool flag = 1;
 
@@ -199,15 +221,6 @@ int main(int argn, char *argv[])
 	    }
     }
 
-    Domain::init();
-    Object::init();
-    Thread::init();
-    Program::init();
-    Efun::init();
-
-    auto *thread = Thread::get_current_thread();
-    thread->update_start_sp_of_start_context(&argn);
-
 #if 1
 
 #if 1
@@ -243,19 +256,15 @@ int main(int argn, char *argv[])
 //    simple::list<int> list;
 #endif
 
-#if 1
-
-#if 1
     __clone_entity_ob::create_program();
     __feature_desc_ob::create_program();
     __feature_name_ob::create_program();
 
     Program::update_all_callees();
-#endif
 
+    auto *thread = Thread::get_current_thread();
     call_efun(thread, "printf", "a=%d\n", 555);
 
-#if 1
     auto *a1 = BUFFER_NEW(AAA, 888);
     auto *a2 = BUFFER_NEWN(AAA, 3);
     auto *a11 = BUFFER_ALLOC(a1);
@@ -265,22 +274,20 @@ int main(int argn, char *argv[])
     a11->bind_to_current_domain();
     a21->bind_to_current_domain();
     a11 = 0;
-#endif
+
     printf("Start GC...\n");
     Thread::get_current_thread_domain()->gc();
     printf("End GC...\n");
     //printf("a1 = %p, a2 = %p, a11 = %p, a21 = %p\n", a1, a2, a11, a21);
     printf("&argn = %p\n", (Uint8*) &argn - 0x20);
     printf("thread start = %p, end = %p\n",
-           thread->get_this_context()->value.m_start_sp,
-           thread->get_this_context()->value.m_end_sp);
-
-#endif
+           thread->get_this_domain_context()->value.m_start_sp,
+           thread->get_this_domain_context()->value.m_end_sp);
 
     auto *domain = XNEW(Domain, "test1");
     auto *program = Program::find_program_by_name(Value("/clone/entity").m_string);
     auto *ob = program->new_instance(domain);
-#if 1
+
     auto *domain2 = XNEW(Domain, "test2");
     auto *ob2 = program->new_instance(domain2);
     call_other(thread, ob->get_oid(), "create");
@@ -288,13 +295,7 @@ int main(int argn, char *argv[])
     Value ret = call_other(thread, ob->get_oid(), "test_call", ob2->get_oid());
 //    printf("ret = %d.\n", (int) ret.m_int);
     XDELETE(ob);
-#endif
 
-    Efun::shutdown();
-    Program::shutdown();
-    Thread::shutdown();
-    Domain::shutdown();
-    Object::shutdown();
     return 0;
 
 #if 0
@@ -337,10 +338,5 @@ int main(int argn, char *argv[])
         XDELETE(test_obs[i]);
     }
 #endif
-
-    Thread::shutdown();
-    Program::shutdown();
-    Object::shutdown();
-    Domain::shutdown();
     return 0;
 }

@@ -140,8 +140,6 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)std\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <OmitFramePointers>false</OmitFramePointers>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -188,7 +186,6 @@
     <ClInclude Include="cmm_efun_core.h" />
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_memory.h" />
-    <ClInclude Include="cmm_operate.h" />
     <ClInclude Include="std_os_socket.h" />
     <ClInclude Include="cmm_prototype_grammar.h" />
     <ClInclude Include="std_socket_bsd_errno.h" />
@@ -256,7 +253,6 @@
     <ClCompile Include="cmm_efun.cpp" />
     <ClCompile Include="cmm_efun_core.cpp" />
     <ClCompile Include="cmm_memory.cpp" />
-    <ClCompile Include="cmm_operate.cpp" />
     <ClCompile Include="std_os_epoll_linux.c" />
     <ClCompile Include="std_os_epoll_sim.c" />
     <ClCompile Include="std_os_socket_bsd.c" />

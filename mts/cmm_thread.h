@@ -14,55 +14,57 @@ namespace cmm
 {
 
 class Domain;
+class Function;
 class Object;
 class Thread;
 
-// VM function call context
-// This is not normal value in VM stack, it will store the function call
-// context
-// This class should be stored in OS stack by alloca(), it should never
-// be delete but by call pop_context()
-class CallContext
+// VM domain context
+// We save context when switching domain for tracing & GC (it needs to walk
+// through all domain contexts)
+class DomainContext
 {
 friend Thread;
-friend simple::list_node<CallContext>;
+friend simple::list_node<DomainContext>;
 
 private:
-    // Constructor for Thread start CallContext only
-    CallContext(Thread *thread);
+    // For Thread::start() only
+    DomainContext() { };
 
 public:
-    CallContext(Thread *thread, Object *this_object, ComponentNo this_component,
-                Value* arg, ArgNo arg_count,
-                Value* local, ArgNo local_count);
+    DomainContext(Thread *thread);
 
     // Don't define destructor since it should never be called
 
-public:
-    // Pop context & return to previous one
-    void pop_context();
-
 private:
-    // Linked to previous context in current thread
+    // Linked to previous domain context in current thread
     Domain* m_domain;
-    simple::list_node<CallContext> *m_prev_context;
+    simple::list_node<DomainContext> *m_prev_context;
 
 public:
-    Value*  m_arg;                 // Arguments
-    ArgNo   m_arg_count;           // Count of arguments
-    Value*  m_local;               // Local variables
-    ArgNo   m_local_count;         // Count of local variables
-	Value   m_ret;				   // Receive return value
-    Object *m_this_object;         // This object
-    ComponentNo m_this_component;  // This component no
-    Object *m_domain_object;       // Object which in domain
-    void   *m_start_sp;            // Start stack from pointer
-    void   *m_end_sp;              // End stack frame pointer
-    Thread *m_thread;              // In thread
+    size_t  m_call_context_level;   // Level of call context
+    void   *m_start_sp;             // Start stack from pointer
+    void   *m_end_sp;               // End stack frame pointer
+    Thread *m_thread;               // In which thread
 };
 
-// Define the node of CallContext
-typedef simple::list_node<CallContext> CallContextNode;
+// Tiny context of function call
+// ATTENTION: Why we don't save component_no?
+// We can derive the component_no from function entry
+// ATTENTION: Why we don't save Function *? instead of m_entry
+// We can derive the Function from entry. But for call_near, we can not
+// get the Function * quickly.
+class CallContext
+{
+public:
+    Value   *m_args;
+    Value   *m_locals;
+    void    *m_entry;       // Function entry
+    Object  *m_this_object;
+    ComponentNo m_component_no;
+};
+
+// Define the node of DomainContext
+typedef simple::list_node<DomainContext> DomainContextNode;
 
 // Thread context data
 // Stack:
@@ -71,7 +73,7 @@ typedef simple::list_node<CallContext> CallContextNode;
 //   m_stack[m_sp] is to store the next pushed value.
 class Thread
 {
-friend CallContext;
+friend DomainContext;
 
 public:
     typedef Uint32  Id;
@@ -106,46 +108,28 @@ public:
     // Thread will be stopped
     void stop();
 
-    // Update stack information of start context
-    void update_start_sp_of_start_context(void *start_sp);
-
     // Update current context sp
-    void update_end_sp_of_current_context()
+    void update_end_sp_of_current_domain_context()
     {
         // Update end_sp of current context
-        if (!m_context)
+        if (!m_domain_context)
             return;
         void *stack_pointer = m_get_stack_pointer_func();
-        m_context->value.m_end_sp = stack_pointer;
+        m_domain_context->value.m_end_sp = stack_pointer;
     }
 
 public:
-    // Return argument, n in [0..arg_count-1]
-    Value& get_arg(ArgNo n)
-    {
-        if (n >= m_context->value.m_arg_count)
-            throw_error("No such argument (%lld).\n", (Int64)n);
-
-        return get_arg_unsafe(n);
-    }
-
     // Return argument without safety check
     Value& get_arg_unsafe(ArgNo n)
     {
-        return m_context->value.m_arg[n];
+        return m_this_call_context->m_args[n];
     }
 
     // Get local variable without safety check, n in [0..local_count-1]
     Value& get_local_unsafe(ArgNo n)
     {
-        return m_context->value.m_local[n];
+        return m_this_call_context->m_locals[n];
     }
-
-	// Get address to strored the return value
-	Value& get_ret()
-	{
-		return m_context->value.m_ret;
-	}
 
     // Return current domain of this object
     inline Domain *get_current_domain()
@@ -156,27 +140,46 @@ public:
     // Return this component
     ComponentNo get_this_component_no()
     {
-        return m_context->value.m_this_component;
+        return m_this_call_context->m_component_no;
     }
 
     // Return this context
-    CallContextNode *get_this_context()
+    DomainContextNode *get_this_domain_context()
     {
-        return m_context;
+        return m_domain_context;
     }
 
     // Return this object
     Object *get_this_object()
     {
-        return m_context->value.m_this_object;
+        return m_this_call_context->m_this_object;
+    }
+
+    // Push new context of current function call
+    void push_call_context(Object *ob, void *entry, Value *args, ComponentNo component_no)
+    {
+        if (m_this_call_context >= m_end_call_context)
+            throw "Too depth call context.\n";
+        m_this_call_context++;
+        m_this_call_context->m_entry = entry;
+        m_this_call_context->m_args = args;
+        m_this_call_context->m_this_object = ob;
+        m_this_call_context->m_component_no = component_no;
+        // Don't init locals, it should be updated after entered function
+    }
+
+    // Restore previous function call context
+    void pop_call_context()
+    {
+        m_this_call_context--;
     }
 
 public:
     // Enter function call
-    void enter_function_call(CallContextNode *context);
+    void enter_domain_call(DomainContextNode *context);
 
     // Leave function call
-    Value leave_function_call(CallContextNode *context, Value& ret);
+    Value leave_domain_call(DomainContextNode *context, Value& ret);
 
     // Switch execution ownership to a new domain
     void switch_domain(Domain *to_domain);
@@ -198,8 +201,15 @@ public:
     }
 
 public:
-    // Return context of this thread
-    Value get_context_list();
+    // Return domain context of this thread
+    Value get_domain_context_list();
+
+public:
+    // Configurations
+    static void set_max_call_context_level(size_t level)
+    {
+        m_max_call_context_level = level;
+    }
 
 private:
     // Transfer all values in local value list to current domain
@@ -213,13 +223,21 @@ private:
     ValueList m_value_list;
 
     // Current function context frame
-    CallContextNode *m_context;
+    DomainContextNode *m_domain_context;
+
+    // Current component no
+    ComponentNo m_this_component_no;
+
+    // Current function context
+    CallContext *m_call_context;
+    CallContext *m_end_call_context;
+    CallContext *m_this_call_context;
 
     // Current domain
     // ATTENTION:
-    // Current domain doesn't same as m_context->value.domain, since
-    // m_context->value.domain is the domain that owned the function in context, but
-    // m_current_domain is "CURRENT" one.
+    // Current domain doesn't same as m_domain_context->value.domain, since
+    // m_domain_context->value.domain is the domain that owned the function in
+    // context, but m_current_domain is "CURRENT" one.
     // When a function trying to invoke another domain function, the m_current_domain
     // will be updated before enter the new domain.
     Domain *m_current_domain;
@@ -228,8 +246,8 @@ private:
     // Start domain for convenience
     Domain *m_start_domain;
 
-    // Start CallContextNode for convenience
-    CallContextNode *m_start_context;
+    // Start DomainContextNode for convenience
+    DomainContextNode *m_start_domain_context;
 
 private:
     static std_tls_t m_thread_tls_id;
@@ -237,6 +255,10 @@ private:
     // Function routine to get current stack pointer
     typedef void *(*GetStackPointerFunc)();
     static GetStackPointerFunc m_get_stack_pointer_func;
+
+private:
+    // Configurations
+    static size_t m_max_call_context_level;
 };
 
 } // End of namespace: cmm

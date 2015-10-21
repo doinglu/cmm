@@ -8,6 +8,7 @@ namespace cmm
 {
 
 // Throw error
+ANALYZER_NO_RETURN
 extern void throw_error(const char *msg, ...);
 
 }

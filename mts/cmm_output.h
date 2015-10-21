@@ -111,6 +111,7 @@ private:
     void    add_justified(const char_t *str, size_t slen, PadInfo *pad, int fs, int finfo, int trailing);
     char_t *reserve_space(size_t n);
     void    get_next_arg();
+    ANALYZER_NO_RETURN
     void    error_occurred(ErrorCode code);
     void    type_value_at(const Value *value, size_t ident);
 

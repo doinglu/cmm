@@ -1,17 +1,21 @@
 UNAME := $(shell uname)
 
 ifeq ($(UNAME),Linux)
-CPPFLAGS_MACRO = -Wno-invalid-offsetof
+CPPFLAGS_MACRO = -Wno-invalid-offsetof -fomit-frame-pointer -foptimize-register-move -finline-functions
 LINK_PLATFORM = -lrt -pthread
+CC = gcc
+CPPC = g++
 endif
 
 ifeq ($(UNAME),Darwin)
-CPPFLAGS_MACRO = -Wno-invalid-offsetof
+CPPFLAGS_MACRO = -Wno-invalid-offsetof -fomit-frame-pointer -finline-functions
 LINK_PLATFORM =
+CC = gcc
+CPPC = g++
 endif
 
 ARCH = -m64
-CFLAGS = -g -O3 $(ARCH) -I../std/include
+CFLAGS = -g -O2 -I../std/include
 CPPFLAGS = $(CFLAGS) -std=c++11 $(CPPFLAGS_MACRO)
 LFLAGS = $(ARCH) -lstdc++ $(LINK_PLATFORM)
 
@@ -38,9 +42,9 @@ clean :
 
 .c.o :
 	+@[ -d $(dir $@) ] || mkdir -p $(dir $@)
-	gcc $(CFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 
 .cpp.o :
 	+@[ -d $(dir $@) ] || mkdir -p $(dir $@)
-	g++ $(CPPFLAGS) -o $@ -c $<
+	$(CPPC) $(CPPFLAGS) -o $@ -c $<
 

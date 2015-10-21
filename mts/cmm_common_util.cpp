@@ -595,11 +595,11 @@ extern bool is_empty_string(const char *str)
 }
 
 /* inettoa */
-extern void inettoa(char *str, Uint32 ip)
+extern void inettoa(char *str, unsigned int ip)
 {
     STD_ASSERT(str);
 
-    sprintf(str, "%d.%d.%d.%d",
+    sprintf(str, "%u.%u.%u.%u",
             ip >> 24,
             (ip >> 16) & 0xFF,
             (ip >> 8) & 0xFF,
@@ -609,7 +609,7 @@ extern void inettoa(char *str, Uint32 ip)
 /* atoinet */
 extern Uint32 atoinet(const char *str)
 {
-    int c[4];
+    unsigned int c[4];
 
     STD_ASSERT(str);
 
@@ -617,26 +617,6 @@ extern Uint32 atoinet(const char *str)
         return 0;
 
     return (Uint32) ((c[0] << 24) | (c[1] << 16) | (c[2] << 8) | c[3]);
-}
-
-extern Uint32 htonl(Uint32 n)
-{
-    return ::htonl(n);
-}
-
-extern Uint32 ntohl(Uint32 n)
-{
-    return ::ntohl(n);
-}
-
-extern Uint16 htons(Uint16 n)
-{
-    return ::htons(n);
-}
-
-extern Uint16 ntohs(Uint16 n)
-{
-    return ::ntohs(n);
 }
 
 /* Read a line from content, return */
@@ -815,7 +795,7 @@ const double FIX32_SCALE = 1000;
 const double MAX_FLOAT_TO_FIX32 = 2000000;
 
 /* Util function: convert real to fix32 */
-extern Int32 realTo_fix32(double x)
+extern Int32 real_to_fix32(double x)
 {
     Int32 fix;
 

@@ -4,9 +4,9 @@
 #include "std_template/simple_string.h"
 #include "cmm_efun.h"
 #include "cmm_efun_core.h"
-#include "cmm_operate.h"
 #include "cmm_program.h"
 #include "cmm_prototype_grammar.h"
+#include "cmm_thread.h"
 
 namespace cmm
 {
@@ -16,8 +16,8 @@ Efun::EfunMap *Efun::m_efun_map = 0;
 
 int Efun::init()
 {
-    m_efun_packages = XNEW(Efun::EfunPackage);
-    m_efun_map = XNEW(Efun::EfunMap);
+    m_efun_packages = XNEW(EfunPackage);
+    m_efun_map = XNEW(EfunMap);
     
     // Initialize all efun modules
     init_efun_core();
@@ -154,7 +154,10 @@ Value Efun::invoke(Thread *thread, const Value& function_name, Value *args, ArgN
         return Value();
 
     auto func_entry = function->get_efun_entry();
+    thread->push_call_context(thread->get_this_object(), (void *)func_entry, args,
+                              thread->get_this_component_no());
     Value ret = func_entry(thread, args, n);
+    thread->pop_call_context();
     STD_ASSERT(("Bad return type of efun function.",
                 (ret.m_type == function->m_ret_type) ||
                 (ret.m_type == ValueType::NIL && (function->m_attrib & Function::Attrib::RET_NULLABLE))));

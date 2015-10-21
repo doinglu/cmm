@@ -912,7 +912,7 @@ public:
     Value operator [](const Value& index) const
         { return impl()[index]; }
 
-    Value put(const Value& key, const Value& value)
+    void put(const Value& key, const Value& value)
         { impl()[key] = value; }
 
     Value keys() const
