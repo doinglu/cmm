@@ -30,7 +30,13 @@ public:
         program->add_component("/feature/desc", MEMBER_OFFSET(m_desc));
         program->add_component("/feature/name", MEMBER_OFFSET(m_name));
 
+        Function *function;
         program->define_function("print", (Function::ScriptEntry)&Impl::print, 0, 0);
+        function = program->define_function("perror", (Function::ScriptEntry)&Impl::perror, 3, 0);
+        function->define_parameter("a1", ValueType::MIXED, (Parameter::Attrib)0);
+        function->define_parameter("a2", ValueType::MIXED, (Parameter::Attrib)0);
+        function->define_parameter("a3", ValueType::MIXED, (Parameter::Attrib)0);
+        function->finish_adding_parameters();
 
         return program;
     }

@@ -36,7 +36,13 @@
             </ArrayItems>
         </Expand>
     </Type>
-    <Type Name="simple::list&lt;*&gt;" Inheritable="false">
+    <Type Name="simple::list_node&lt;*&gt;" Inheritable="true">
+        <DisplayString>{value}</DisplayString>
+        <Expand HideRawView="true">
+            <Item Name="[value]" ExcludeView="simple">m_value</Item>
+        </Expand>
+    </Type>
+    <Type Name="simple::manual_list&lt;*&gt;" Inheritable="true">
         <DisplayString>{{ size={m_size} }}</DisplayString>
         <Expand HideRawView="true">
             <Item Name="[size]" ExcludeView="simple">m_size</Item>

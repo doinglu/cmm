@@ -55,6 +55,8 @@ public:
         ObjectId other_oid;
         other_oid.i64 = __args[0].m_int;
 
+        call_far(_thread, 0, 5, other_oid, "---Inject error---");
+
         auto *__this_object = _thread->get_this_object();
 
         std_freq_t b, e;
@@ -159,6 +161,19 @@ public:
     {
         if (__n != 0)
             throw_error("Bad parameters, expected %lld, got %lld.", (Integer)0, (Integer)__n);
+        return Value();
+    }
+
+    // Function 5
+    // (other_oid, msg)
+    Value test_error(Thread *_thread, Value *__args, ArgNo __n)
+    {
+        if (__n != 2)
+            throw_error("Bad parameters, expected %lld, got %lld.", (Integer)0, (Integer)__n);
+        
+        ObjectId other_oid;
+        other_oid.i64 = __args[0].m_int;
+        Value ret = call_other(_thread, other_oid, String("perror"), __args[1], "More", 1.5);
         return Value();
     }
 

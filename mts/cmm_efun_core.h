@@ -10,6 +10,7 @@ namespace cmm
 int init_efun_core();
 void shutdown_efun_core();
 
+DECLARE_EFUN(error);
 DECLARE_EFUN(printf);
 
 }

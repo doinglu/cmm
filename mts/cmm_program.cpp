@@ -12,8 +12,12 @@ namespace cmm
 {
 
 // Constructor of parameter
-Parameter::Parameter(Function *function, const String& name)
+Variable::Variable(Function *function, const String& name, ValueType type, Attrib attrib)
 {
+    m_function = function;
+    m_name = Program::find_or_add_string(name);
+    m_type = type;
+    m_attrib = attrib;
 }
 
 // Constructor of function
@@ -33,10 +37,27 @@ Function::~Function()
         XDELETE(*it);
 }
 
-// Create parameter definition in function
-Parameter *Function::define_parameter(const String& name, Parameter::Attrib attrib)
+// Create local variable definition in function
+LocalVariable *Function::define_local_variable(
+    const String& name,
+    ValueType type,
+    LocalVariable::Attrib attrib)
 {
-    auto *parameter = XNEW(Parameter, this, name);
+    auto *local_variable = XNEW(LocalVariable, this, name, type, attrib);
+    local_variable->m_type = type;
+    local_variable->m_attrib = attrib;
+    m_local_variables.push_back(local_variable);
+    return local_variable;
+}
+
+// Create parameter definition in function
+Parameter *Function::define_parameter(
+    const String& name,
+    ValueType type,
+    Parameter::Attrib attrib)
+{
+    auto *parameter = XNEW(Parameter, this, name, type, attrib);
+    parameter->m_type = type;
     parameter->m_attrib = attrib;
     m_parameters.push_back(parameter);
     return parameter;
@@ -92,13 +113,15 @@ Member::Member(Program *program, const String& name)
 StringPool *Program::m_string_pool = 0;
 
 // Program name -> program map
-Program::ProgramNameMap *Program::m_all_programs = 0;
+Program::ProgramNameMap *Program::m_name_programs = 0;
+Program::FunctionEntryMap *Program::m_entry_functions = 0;
 struct std_critical_section *Program::m_program_cs = 0;
 
 int Program::init()
 {
     m_string_pool = XNEW(StringPool);
-    m_all_programs = XNEW(ProgramNameMap);
+    m_entry_functions = XNEW(FunctionEntryMap);
+    m_name_programs = XNEW(ProgramNameMap);
 
     std_new_critical_section(&m_program_cs);
     return 0;
@@ -106,12 +129,15 @@ int Program::init()
 
 void Program::shutdown()
 {
+    // Drop the entry function map
+    XDELETE(m_entry_functions);
+
     // Clear all programs
-    auto programs = m_all_programs->values();
+    auto programs = m_name_programs->values();
     for (auto it: programs)
         XDELETE(it);
-    STD_ASSERT(("All programs should be freed", m_all_programs->size() == 0));
-    XDELETE(m_all_programs);
+    STD_ASSERT(("All programs should be freed", m_name_programs->size() == 0));
+    XDELETE(m_name_programs);
 
     std_delete_critical_section(m_program_cs);
 
@@ -126,7 +152,7 @@ Program::Program(const String& name)
     STD_ASSERT(("Program has been defined.", !find_program_by_name(m_name)));
 
     std_enter_critical_section(m_program_cs);
-    m_all_programs->put(m_name, this);
+    m_name_programs->put(m_name, this);
     std_leave_critical_section(m_program_cs);
 }
 
@@ -138,7 +164,7 @@ Program::~Program()
         XDELETE(it);
 
     std_enter_critical_section(m_program_cs);
-    m_all_programs->erase(m_name);
+    m_name_programs->erase(m_name);
     std_leave_critical_section(m_program_cs);
 }
 
@@ -183,7 +209,7 @@ Program *Program::find_program_by_name(const String& program_name)
         // No such name in shared pool, program not found
         return 0;
 
-    if (!m_all_programs->try_get(program_name.ptr(), &program))
+    if (!m_name_programs->try_get(program_name.ptr(), &program))
         // Program not found
         return 0;
 
@@ -193,7 +219,7 @@ Program *Program::find_program_by_name(const String& program_name)
 // Update callees of all programs
 void Program::update_all_callees()
 {
-    for (auto it = m_all_programs->begin(); it != m_all_programs->end(); ++it)
+    for (auto it = m_name_programs->begin(); it != m_name_programs->end(); ++it)
         it->second->update_callees();
 }
 
@@ -209,6 +235,9 @@ Function *Program::define_function(const String& name,
     function->m_max_arg_no = max_arg_no;
     function->m_attrib = attrib;
     m_functions.push_back(function);
+
+    // Add function to entry->function map
+    m_entry_functions->put(*(void **)&entry, function);
     return function;
 }
 
@@ -546,12 +575,13 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
 
+    thread->push_call_context(object, *(void **)&func, args, component_no);
     DomainContextNode __context(thread);
     thread->enter_domain_call(&__context);
-    thread->push_call_context(object, *(void **)&func, args, component_no);
     auto ret = (component_impl->*func)(thread, args, n);
+    ret = thread->leave_domain_call(&__context, ret);
     thread->pop_call_context();
-    return thread->leave_domain_call(&__context, ret);
+    return ret;
 }
 
 // Invoke self function
@@ -581,6 +611,22 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
     Value ret = (component_impl->*func)(thread, args, n);
     thread->pop_call_context();
     return ret;
+}
+
+// Get program by name
+Program *Program::get_program_by_name(const Value& program_name)
+{
+    if (program_name.m_type != ValueType::STRING)
+        // Bad type of function name
+        return NULL;
+
+    if (!convert_to_shared((String *)&program_name))
+        // Not found in shared string, not a program name
+        return NULL;
+
+    Program *program = 0;
+    m_name_programs->try_get(program_name.m_string, &program);
+    return program;
 }
 
 } // End of namespace: cmm

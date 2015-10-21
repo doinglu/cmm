@@ -73,7 +73,7 @@ bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, con
         if (it.has_default)
             attrib = (Parameter::Attrib)(attrib | Parameter::DEFAULT);
 
-        function->define_parameter(it.name, attrib);
+        function->define_parameter(it.name, it.type.basic_type, attrib);
     }
     function->finish_adding_parameters();
 

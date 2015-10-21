@@ -29,6 +29,15 @@ public:
 
         return Value();
     }
+
+    Value perror(Thread *_thread, Value *__args, ArgNo __n)
+    {
+        if (__n != 3)
+            throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
+
+        call_efun(_thread, "error", "perror(%O, %O, %O)!\n", __args[0], __args[1], __args[2]);
+        return Value();
+    }
 };
 
 }

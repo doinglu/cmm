@@ -123,9 +123,9 @@ private:
     static Domain *get_domain_0() { return m_domain_0; }
 
 private:
+    char        m_name[32];         // Name
     Type        m_type;             // Type
     DomainId    m_id;               // Id
-    char        m_name[32];         // Name
     AtomInt     m_running;          // Is this domain running?
     AtomInt     m_wait_counter;     // How many threads are waiting to take ownership
     Thread::Id  m_thread_holder_id; // Hold by which thread?

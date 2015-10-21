@@ -284,6 +284,10 @@ String Output::format_output(const char_t *format_str, Value *argv, ArgNo argc)
     m_argv = argv;
     m_argc = argc;
     m_current_arg_index = -1;
+    m_obuf.clear();
+
+    // For type value
+    Output sub;
 
     last = 0;
     for (fpos = 0; 1; fpos++)
@@ -475,7 +479,7 @@ String Output::format_output(const char_t *format_str, Value *argv, ArgNo argc)
             {
                 if ((finfo & INFO_T) == INFO_T_ANY)
                 {
-                    String str = type_value(m_current_arg);
+                    String str = sub.type_value(m_current_arg);
                     m_current_arg = &str;
                     finfo ^= INFO_T_ANY;
                     finfo |= INFO_T_STRING;
@@ -620,6 +624,7 @@ String Output::format_output(const char_t *format_str, Value *argv, ArgNo argc)
 // Output Value
 String Output::type_value(const Value *value)
 {
+    m_obuf.clear();
     type_value_at(value, 0);
     return String((char_t *)m_obuf.get_array_address(0), m_obuf.size());
 }

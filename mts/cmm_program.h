@@ -25,8 +25,8 @@ class AbstractComponent
 {
 };
 
-// Parameter of function
-class Parameter
+// Variable of function
+class Variable
 {
 friend Function;
 
@@ -38,7 +38,7 @@ public:
 	} Attrib;
 
 public:
-    Parameter(Function *function, const String& name);
+    Variable(Function *function, const String& name, ValueType type, Attrib attrib);
 
 public:
     // Return the attribute of parameter
@@ -73,9 +73,15 @@ public:
 
 private:
 	StringImpl *m_name;     // Point to string pools in Program
+    Function   *m_function; // Owner function
 	ValueType   m_type;     // Type of this argument
 	Attrib      m_attrib;   // Attrib of this parmeters
 };
+typedef simple::vector<Variable *> Variables;
+typedef Variable Parameter;
+typedef Variable LocalVariable;
+typedef Variables Parameters;
+typedef Variables LocalVariables;
 
 // Function
 class Function
@@ -115,53 +121,99 @@ public:
     ~Function();
 
 public:
+    // Create local variable definition in function
+    LocalVariable *define_local_variable(const String& name, ValueType type, LocalVariable::Attrib attrib);
+
     // Create parameter definition in function
-    Parameter *define_parameter(const String& name, Parameter::Attrib attrib);
+    Parameter *define_parameter(const String& name, ValueType type, Parameter::Attrib attrib);
 
     // Finish adding parameters
     bool finish_adding_parameters();
 
 public:
+    // Get attribute
+    Attrib get_attrib() const
+    {
+        return m_attrib;
+    }
+
     // Get the entry pointer for efun
-    EfunEntry get_efun_entry()
+    EfunEntry get_efun_entry() const
     {
         return m_entry.efun_entry;
     }
 
+    // Get max argument count
+    ArgNo get_max_arg_no() const
+    {
+        return m_max_arg_no;
+    }
+
+    // Get min argument count
+    ArgNo get_min_arg_no() const
+    {
+        return m_min_arg_no;
+    }
+
+    // Get local variables
+    const LocalVariables& get_local_variables() const
+    {
+        return m_local_variables;
+    }
+
+    // Get the function name
+    StringImpl *get_name() const
+    {
+        return m_name;
+    }
+
+    // Get parameters
+    const Parameters& get_parameters() const
+    {
+        return m_parameters;
+    }
+
+    // Get program
+    const Program *get_program() const
+    {
+        return m_program;
+    }
+
     // Get the entry pointer for script
-    ScriptEntry get_script_entry()
+    ScriptEntry get_script_entry() const
     {
         return m_entry.script_entry;
     }
 
-    // Get the function name
-    StringImpl *get_name()
+    // Get return type
+    ValueType get_ret_type() const
     {
-        return m_name;
-    }
-        
-    // Is this function public?
-    bool is_public()
-    {
-        return !is_private();
+        return m_ret_type;
     }
 
     // Is this function private?
-    bool is_private()
+    bool is_private() const
     {
         return (m_attrib & PRIVATE) ? true : false;
     }
 
+    // Is this function public?
+    bool is_public() const
+    {
+        return !is_private();
+    }
+
 private:
-    Program    *m_program;
     StringImpl *m_name;
-	ArgNo       m_min_arg_no;
+    Program    *m_program;
+    Attrib      m_attrib;
+    ArgNo       m_min_arg_no;
 	ArgNo       m_max_arg_no;
-	Attrib      m_attrib;
     ValueType   m_ret_type;
 
-	// Parameters
-	simple::vector<Parameter *> m_parameters;
+	// Parameters & local variables
+    Parameters m_parameters;
+    LocalVariables m_local_variables;
 
     // Entry
     Entry       m_entry;
@@ -176,8 +228,8 @@ public:
     Member(Program *program, const String& name);
 
 private:
-    Program     *m_program;
     StringImpl  *m_name;
+    Program     *m_program;
     ValueType    m_type;
     MemberOffset m_offset;
 };
@@ -268,25 +320,25 @@ public:
 
 public:
     // Get component by component no
-    Program *get_component(ComponentNo component_no)
+    Program *get_component(ComponentNo component_no) const
     {
         return m_components[component_no].program;
     }
 
     // Get component offset by component no
-    ComponentOffset get_component_offset(ComponentNo component_no)
+    ComponentOffset get_component_offset(ComponentNo component_no) const
     {
         return m_components[component_no].offset;
     }
 
     // Get function by function no
-    Function *get_function(FunctionNo function_no)
+    Function *get_function(FunctionNo function_no) const
     {
         return m_functions[function_no];
     }
 
     // Get mapped component no
-    ComponentNo get_mapped_component_no(ComponentNo this_component_no, ComponentNo call_component_no)
+    ComponentNo get_mapped_component_no(ComponentNo this_component_no, ComponentNo call_component_no) const
     {
         auto map_offset = m_components_map_offset[this_component_no];
         auto mapped_component_no = m_components_no_map[map_offset + call_component_no];
@@ -294,20 +346,20 @@ public:
     }
 
     // Get name
-    StringImpl *get_name()
+    StringImpl *get_name() const
     {
         return m_name;
     }
 
     // Get object's size
-    size_t get_object_size()
+    size_t get_object_size() const
     {
         return m_object_size;
     }
 
     // Get callee by name (access by public)
     // Update name to shared string if found
-    bool get_public_callee_by_name(const String *name, CalleeInfo *ptr_info)
+    bool get_public_callee_by_name(const String *name, CalleeInfo *ptr_info) const
     {
         if (!Program::convert_to_shared(name))
             // This string is not in pool, not such callee
@@ -317,7 +369,7 @@ public:
 
     // Get callee by name (access by this component)
     // Update name to shared string if found
-    bool get_self_callee_by_name(const String *name, CalleeInfo *ptr_info)
+    bool get_self_callee_by_name(const String *name, CalleeInfo *ptr_info) const
     {
         if (!Program::convert_to_shared(name))
             // This string is not in pool, not such callee
@@ -338,13 +390,31 @@ public:
     // See ATTENTION of invoke
     Value invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n);
 
+public:
+    // Get function by entry
+    static Function *get_function_by_entry(void *entry)
+    {
+        Function *function = 0;
+        m_entry_functions->try_get(entry, &function);
+        return function;
+    }
+
+    // Get program by name
+    static Program *get_program_by_name(const Value& program_name);
+
 private:
     // All constant strings of programs
     static StringPool *m_string_pool;
 
+    // Function entry -> function map
+    typedef simple::hash_map<void *, Function *> FunctionEntryMap;
+    static FunctionEntryMap *m_entry_functions;
+
     // Program name -> program map
     typedef simple::hash_map<StringImpl *, Program *> ProgramNameMap;
-    static ProgramNameMap *m_all_programs;
+    static ProgramNameMap *m_name_programs;
+
+    // Critical Section for access
     static struct std_critical_section *m_program_cs;
 
 private:

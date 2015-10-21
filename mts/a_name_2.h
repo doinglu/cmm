@@ -30,11 +30,16 @@ public:
         program->add_component("/feature/name", MEMBER_OFFSET(m_name));
         program->add_component("/feature/desc", MEMBER_OFFSET(m_desc));
 
+        Function *function;
         program->define_function("set_name", (Function::ScriptEntry)&Impl::set_name, 1, 1);
         program->define_function("get_name", (Function::ScriptEntry)&Impl::get_name, 0, 0);
         program->define_function("test_call_private", (Function::ScriptEntry)&Impl::test_call_private, 0, 0, Function::Attrib::PRIVATE);
         program->define_function("test_call", (Function::ScriptEntry)&Impl::test_call, 0, 0);
         program->define_function("do_nothing", (Function::ScriptEntry)&Impl::do_nothing, 0, 0);
+        function = program->define_function("test_error", (Function::ScriptEntry)&Impl::test_error, 2, 0);
+        function->define_parameter("other_oid", ValueType::OBJECT, (LocalVariable::Attrib)0);
+        function->define_parameter("msg", ValueType::STRING, (LocalVariable::Attrib)0);
+        function->finish_adding_parameters();
 
         return program;
     }

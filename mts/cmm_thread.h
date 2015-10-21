@@ -13,6 +13,7 @@
 namespace cmm
 {
 
+class CallContext;
 class Domain;
 class Function;
 class Object;
@@ -35,16 +36,14 @@ public:
 
     // Don't define destructor since it should never be called
 
-private:
-    // Linked to previous domain context in current thread
-    Domain* m_domain;
-    simple::list_node<DomainContext> *m_prev_context;
-
 public:
-    size_t  m_call_context_level;   // Level of call context
+    // Linked to previous domain context in current thread
+    simple::list_node<DomainContext> *m_prev_context;
+    Domain* m_domain;               // In which domain
+    Thread *m_thread;               // In which thread
     void   *m_start_sp;             // Start stack from pointer
     void   *m_end_sp;               // End stack frame pointer
-    Thread *m_thread;               // In which thread
+    CallContext *m_call_context;    // First call context of this domain context
 };
 
 // Tiny context of function call
@@ -56,11 +55,12 @@ public:
 class CallContext
 {
 public:
-    Value   *m_args;
-    Value   *m_locals;
-    void    *m_entry;       // Function entry
-    Object  *m_this_object;
-    ComponentNo m_component_no;
+    Value      *m_args;
+    Value      *m_locals;
+    void       *m_entry;        // Function entry
+    Object     *m_this_object;  // This object of context
+    ComponentNo m_component_no; // Component no in this object
+    ArgNo       m_arg_no;       // Real arguments (valid only for RANDOM_ARG)
 };
 
 // Define the node of DomainContext
@@ -98,7 +98,7 @@ public:
     }
 
 public:
-    Thread(simple::string name = "");
+    Thread(const char *name = 0);
     ~Thread();
 
 public:
@@ -153,6 +153,24 @@ public:
     Object *get_this_object()
     {
         return m_this_call_context->m_this_object;
+    }
+
+    // Get all context
+    CallContext *get_all_context()
+    {
+        return m_all_call_context;
+    }
+
+    // Get end context (the last one)
+    CallContext *get_end_context()
+    {
+        return m_end_call_context;
+    }
+
+    // Get this context
+    CallContext *get_this_context()
+    {
+        return m_this_call_context;
     }
 
     // Push new context of current function call
@@ -217,7 +235,7 @@ private:
 
 private:
     // Thread name
-    simple::string m_name;
+    char m_name[32];
 
     // Local memory list for this thread
     ValueList m_value_list;
@@ -225,11 +243,8 @@ private:
     // Current function context frame
     DomainContextNode *m_domain_context;
 
-    // Current component no
-    ComponentNo m_this_component_no;
-
     // Current function context
-    CallContext *m_call_context;
+    CallContext *m_all_call_context;
     CallContext *m_end_call_context;
     CallContext *m_this_call_context;
 
