@@ -77,7 +77,7 @@ private:
 	ValueType   m_type;     // Type of this argument
 	Attrib      m_attrib;   // Attrib of this parmeters
 };
-typedef simple::vector<Variable *> Variables;
+class Variables : public simple::vector<Variable *> { };
 typedef Variable Parameter;
 typedef Variable LocalVariable;
 typedef Variables Parameters;

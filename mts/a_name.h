@@ -170,10 +170,23 @@ public:
     {
         if (__n != 2)
             throw_error("Bad parameters, expected %lld, got %lld.", (Integer)0, (Integer)__n);
-        
-        ObjectId other_oid;
-        other_oid.i64 = __args[0].m_int;
-        Value ret = call_other(_thread, other_oid, String("perror"), __args[1], "More", 1.5);
+ 
+        auto *this_call_context = _thread->get_this_call_context();
+        try
+        {
+            ObjectId other_oid;
+            other_oid.i64 = __args[0].m_int;
+            Value ret = call_other(_thread, other_oid, String("perror"), __args[1], "More", 1.5);
+        }
+        catch (const char *str)
+        {
+            printf("Exception[%p]: %s\n", &str, str);
+            _thread->restore_call_stack_for_error(this_call_context);
+        }
+        catch (...)
+        {
+            _thread->restore_call_stack_for_error(this_call_context);
+        }
         return Value();
     }
 

@@ -184,6 +184,7 @@
     <ClInclude Include="cmm_domain.h" />
     <ClInclude Include="cmm_efun.h" />
     <ClInclude Include="cmm_efun_core.h" />
+    <ClInclude Include="cmm_error.h" />
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_memory.h" />
     <ClInclude Include="std_os_socket.h" />
@@ -252,6 +253,7 @@
     <ClCompile Include="cmm_domain.cpp" />
     <ClCompile Include="cmm_efun.cpp" />
     <ClCompile Include="cmm_efun_core.cpp" />
+    <ClCompile Include="cmm_error.cpp" />
     <ClCompile Include="cmm_memory.cpp" />
     <ClCompile Include="std_os_epoll_linux.c" />
     <ClCompile Include="std_os_epoll_sim.c" />
@@ -278,7 +280,9 @@
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="..\std\include\std_template\simple.natvis" />
-    <Natvis Include="cmm.natvis" />
+    <Natvis Include="cmm.natvis">
+      <SubType>Designer</SubType>
+    </Natvis>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

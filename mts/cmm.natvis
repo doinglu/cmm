@@ -11,20 +11,18 @@
             <Item Name="m_name">m_name</Item>
             <Item Name="m_value_list">m_value_list</Item>
             <Item Name="m_domain_context">(void*)m_domain_context</Item>
-            <LinkedListItems>
-                <HeadPointer>m_domain_context</HeadPointer>
-                <NextPointer>next</NextPointer>
-                <ValueNode>value</ValueNode>
-            </LinkedListItems>
-            <Item Name="m_all_call_context">(void*)m_all_call_context</Item>
-            <ArrayItems Condition="m_this_call_context>=m_all_call_context">
-                <Size>m_this_call_context-m_all_call_context+1</Size>
-                <ValuePointer>m_all_call_context</ValuePointer>
+            <ArrayItems Condition="m_this_domain_context>=m_all_domain_contexts">
+                <Size>m_this_domain_context-m_all_domain_contexts+1</Size>
+                <ValuePointer>m_domain_call_contexts</ValuePointer>
+            </ArrayItems>
+            <Item Name="m_all_call_contexts">(void*)m_all_call_contexts</Item>
+            <ArrayItems Condition="m_this_call_context>=m_all_call_contexts">
+                <Size>m_this_call_context-m_all_call_contexts+1</Size>
+                <ValuePointer>m_all_call_contexts</ValuePointer>
             </ArrayItems>
             <Item Name="m_this_call_context">m_this_call_context</Item>
             <Item Name="m_current_domain">m_current_domain</Item>
             <Item Name="m_start_domain">m_start_domain</Item>
-            <Item Name="m_start_domain_context">m_start_domain_context</Item>
         </Expand>
     </Type>
     <Type Name="cmm::Value" Inheritable="true">

@@ -15,7 +15,7 @@ namespace cmm
 DEFINE_EFUN(void, error, (string format, ...))
 {
     // Update argument no for RANDOM_ARG function
-    _thread->get_this_context()->m_arg_no = __n;
+    _thread->get_this_call_context()->m_arg_no = __n;
 
     String& format = (String&)__args[0];
     Output output;

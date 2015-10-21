@@ -284,6 +284,7 @@ String Output::format_output(const char_t *format_str, Value *argv, ArgNo argc)
     m_argv = argv;
     m_argc = argc;
     m_current_arg_index = -1;
+    m_current_arg = 0;
     m_obuf.clear();
 
     // For type value
@@ -480,6 +481,7 @@ String Output::format_output(const char_t *format_str, Value *argv, ArgNo argc)
                 if ((finfo & INFO_T) == INFO_T_ANY)
                 {
                     String str = sub.type_value(m_current_arg);
+                    printf("str.type = %d, int = %p.\n", str.m_type, (void*)str.m_intptr);////----
                     m_current_arg = &str;
                     finfo ^= INFO_T_ANY;
                     finfo |= INFO_T_STRING;

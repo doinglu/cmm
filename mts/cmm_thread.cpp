@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <stddef.h>
-#include <stdarg.h>
 #include "std_port/std_port_compiler.h"
 #include "std_port/std_port_os.h"
 #include "cmm_domain.h"
@@ -15,27 +14,8 @@ namespace cmm
 {
 
 Thread::GetStackPointerFunc Thread::m_get_stack_pointer_func = 0;
-size_t Thread::m_max_call_context_level = 128; // Default is 128
-
-// Constructor
-DomainContext::DomainContext(Thread *thread) :
-    m_thread(thread),
-    m_call_context(thread->m_this_call_context),
-    m_prev_context(thread->m_domain_context),
-    m_domain(thread->get_current_domain()),
-    m_start_sp((void *)(&thread + 4)),
-    m_end_sp(0)
-{
-    // Update end_sp of previous context
-    STD_ASSERT(("There must be existed m_prev_context.", m_prev_context));
-    m_prev_context->value.m_end_sp = &thread;
-
-    // Link to thread
-    DomainContextNode *node;
-    void *ptr_node = ((Uint8 *)this) - offsetof(DomainContextNode, value);
-    node = static_cast<DomainContextNode *>(ptr_node);
-    thread->m_domain_context = node;
-}
+size_t Thread::m_max_call_context_level = 128;  // Default
+size_t Thread::m_max_domain_context_level = 64; // Default
 
 std_tls_t Thread::m_thread_tls_id = STD_NO_TLS_ID;
 
@@ -68,7 +48,6 @@ void Thread::shutdown()
 Thread::Thread(const char *name)
 {
     // Set default values
-    m_domain_context = 0;
     m_current_domain = 0;
 
     // Set name to this thread
@@ -79,10 +58,15 @@ Thread::Thread(const char *name)
     } else
         snprintf(m_name, sizeof(m_name), "Thread(%zu)", (size_t) std_get_current_task_id());
 
-    // Initialize tiny context
-    m_all_call_context = new CallContext[m_max_call_context_level];
-    m_end_call_context = m_all_call_context + m_max_call_context_level - 1;
-    m_this_call_context = m_all_call_context - 1;
+    // Initialize call context
+    m_all_call_contexts = new CallContext[m_max_call_context_level];
+    m_end_call_context = m_all_call_contexts + m_max_call_context_level - 1;
+    m_this_call_context = m_all_call_contexts - 1;
+
+    // Initialize domain context
+    m_all_domain_contexts = new DomainContextNode[m_max_domain_context_level];
+    m_end_domain_context = m_all_domain_contexts + m_max_domain_context_level - 1;
+    m_this_domain_context = m_all_domain_contexts - 1;
 }
 
 Thread::~Thread()
@@ -121,25 +105,11 @@ void Thread::start()
     m_start_domain = XNEW(Domain, buf);
     switch_domain(m_start_domain);
 
-    // Create a context for this thread
-    m_start_domain_context = XNEW(DomainContextNode);
-    STD_ASSERT(("This is top DomainContext, m_prev_context must be 0.", !this->m_domain_context));
-    auto *domain_context = &m_start_domain_context->value;
+    // Create a domain context for this thread
     // Calculate the start sp of this thread (alignment to 4K)
     void *start_sp = (Uint8 *)m_get_stack_pointer_func() + 8 * sizeof(size_t);
     start_sp = (void *)(((size_t)start_sp | 0xFFF) + 1);
-    domain_context->m_prev_context = 0;
-    domain_context->m_domain = m_start_domain;
-    domain_context->m_thread = this;
-    domain_context->m_call_context = m_all_call_context;
-    domain_context->m_start_sp = start_sp;
-    domain_context->m_end_sp = 0; // Will be updated when enter another domain or gc
-
-    // Put first domain context to thread
-    m_domain_context = m_start_domain_context;
-
-    // Join this context into start domain
-    m_start_domain->m_context_list.append_node(m_start_domain_context);
+    push_domain_context(start_sp);
 }
 
 // Thread will be stopped
@@ -159,46 +129,128 @@ void Thread::stop()
 
     // Destroy start domain & context for convenience
     STD_ASSERT(m_current_domain == m_start_domain);
-    STD_ASSERT(m_domain_context == m_start_domain_context);
+    STD_ASSERT(m_this_domain_context == m_all_domain_contexts);
 
-    // Remove context from the start domain
-    m_start_domain->m_context_list.remove_node(m_start_domain_context);
-    XDELETE(m_start_domain_context);
-    m_start_domain_context = 0;
-    m_domain_context = 0;
+    // Dont call pop_domain_context() when thread stopped, removed it
+    STD_ASSERT(("There must be existed current_domain.", m_current_domain));
+    m_current_domain->m_context_list.remove_node(m_this_domain_context);
+    m_this_domain_context--;
 
-    m_start_domain->leave();
+    // Remove the thread local domain
     XDELETE(m_start_domain);
 
     // Unbind
     std_set_tls_data(m_thread_tls_id, 0);
 }
 
-// Enter a domain call
-void Thread::enter_domain_call(DomainContextNode *context)
+// Push new domain context
+void Thread::push_domain_context(void *sp)
 {
-    // Put this context in domain
-    m_current_domain->m_context_list.append_node(context);
+    if (m_this_domain_context >= m_end_domain_context)
+        throw "Too depth domain context.\n";
+    m_this_domain_context++;
+    m_this_domain_context->value.m_thread = this;
+    m_this_domain_context->value.m_call_context = m_this_call_context;
+    m_this_domain_context->value.m_domain = m_current_domain;
+    m_this_domain_context->value.m_start_sp = sp;
+    m_this_domain_context->value.m_end_sp = sp;
+
+    // Link to domain
+    m_current_domain->m_context_list.append_node(m_this_domain_context);
 }
 
-// Leave a domain call
-// Pop stack & restore function context
-Value Thread::leave_domain_call(DomainContextNode *context, Value& ret)
+// Restore previous domain context
+Value& Thread::pop_domain_context(Value& ret)
 {
     STD_ASSERT(("There must be existed current_domain.", m_current_domain));
-    m_current_domain->m_context_list.remove_node(context);
-
-    auto c = &context->value;
+    m_current_domain->m_context_list.remove_node(m_this_domain_context);
 
     // Get previous domain object & back to previous frame
-    Domain *prev_domain = c->m_prev_context->value.m_domain;
-    c->m_thread->m_domain_context = c->m_prev_context;
+    m_this_domain_context--;
+    Domain *prev_domain = m_this_domain_context->value.m_domain;
 
     // Domain will be changed, try to copy ret to target domain
-    ret.copy_to_local(c->m_thread);
-    c->m_thread->switch_domain(prev_domain);
+    ret.copy_to_local(this);
+    switch_domain(prev_domain);
     transfer_values_to_current_domain();
     return ret;
+}
+
+// Restore when error occurred
+// After restored, the "to_call_context" is the current call context
+void Thread::restore_call_stack_for_error(CallContext *to_call_context)
+{
+    auto *call_context = get_this_call_context();
+
+    STD_ASSERT(("Try to restore to bad call context.\n",
+               to_call_context >= get_all_call_contexts()));
+    while (call_context >= to_call_context)
+    {
+        // Switch to previous domain
+        while (m_this_domain_context > m_all_domain_contexts &&
+               m_this_domain_context->value.m_call_context > call_context)
+        {
+            // Back to previous domain context according the call context
+            Value unused_ret;
+            pop_domain_context(unused_ret);
+        }
+
+        call_context--;
+    }
+    STD_ASSERT(("Try to restore to unknown call context.\n",
+               to_call_context == call_context + 1));
+    m_this_call_context = to_call_context;
+}
+
+// Trace callstack & print it
+void Thread::trace_call_stack()
+{
+    auto *domain_context = get_this_domain_context();
+    auto *call_context = get_this_call_context();
+    auto *first_call_context = get_all_call_contexts();
+    auto *current_domain = get_current_domain();
+
+    while (call_context >= first_call_context)
+    {
+        // Switch to previous domain
+        while (domain_context->prev &&
+               domain_context->value.m_call_context > call_context)
+        {
+            // Back to previous domain context according the call context
+            domain_context = domain_context->value.m_prev_context;
+            switch_domain(domain_context->value.m_domain);
+        }
+        // Get the function via entry
+        auto *function = Program::get_function_by_entry(call_context->m_entry);
+        auto *object = call_context->m_this_object;
+        auto *program = object->get_program();
+
+        char oid_desc[64];
+        object->get_oid().print(oid_desc, sizeof(oid_desc), "Object");
+        printf("Function %s::%s @ %s(%s)\n",
+               function->get_program()->get_name()->c_str(),
+               function->get_name()->c_str(),
+               program->get_name()->c_str(),
+               oid_desc);
+
+        // Print all arguments
+        auto n = function->get_max_arg_no();
+        if (function->get_attrib() & Function::RANDOM_ARG)
+            // For random arg function, m_arg_no in call_context is the
+            // count of arugments passed when calling
+            n = call_context->m_arg_no;
+        print_variables(function->get_parameters(), "Argument",
+                        call_context->m_args, n);
+
+        // Print all local variables
+        print_variables(function->get_local_variables(), "Local variables",
+                        call_context->m_locals, 0);
+
+        call_context--;
+    }
+
+    // Return the saved current domain of the thread
+    switch_domain(current_domain);
 }
 
 // Switch execution ownership to a new domain
@@ -217,13 +269,6 @@ void Thread::switch_domain(Domain *to_domain)
         to_domain->enter();
 
     m_current_domain = to_domain;
-}
-
-// Switch execution ownership to a new domain
-void Thread::switch_object(Object *to_object)
-{
-    Domain *to_domain = to_object ? to_object->get_domain() : 0;
-    switch_domain(to_domain);
 }
 
 // Switch object by oid
@@ -286,17 +331,6 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
     return false;
 }
 
-// Should I change domain if enter target object?
-bool Thread::will_change_domain(Domain *to_domain)
-{
-    if (m_current_domain == to_domain)
-        // No target domain or domain is not switched
-        return false;
-
-    // I will change domain
-    return true;
-}
-
 // Return context of this thread
 // ({
 //     ([
@@ -312,7 +346,7 @@ Value Thread::get_domain_context_list()
 {
     // Get count of context list
     size_t count = 0;
-    auto *p = m_domain_context;
+    auto *p = m_this_domain_context;
     while (p)
     {
         count++;
@@ -324,7 +358,7 @@ Value Thread::get_domain_context_list()
 
     // Allocate array for return
     Array arr(count);
-    p = m_domain_context;
+    p = m_this_domain_context;
     while (p)
     {
         Map map = p->value.m_domain->get_domain_detail();
@@ -343,92 +377,6 @@ void Thread::transfer_values_to_current_domain()
 {
     if (m_value_list.get_count() && m_current_domain)
         m_current_domain->concat_value_list(&m_value_list);
-}
-
-// Print variables (arguments & local) of function
-void print_variables(const Variables& variables, const char *type, Value *arr, ArgNo n)
-{
-    Output output;
-
-    ArgNo i = 0;
-    for (auto it : (Variables&)variables)
-    {
-        printf("%s %s(%d) = ", type, it->get_name().c_str(), i + 1);
-        String str = output.type_value(&arr[i]);
-        printf("%s\n", str.c_str());
-        i++;
-    }
-
-    while (i < n)
-    {
-        printf("%s $%d = ", type, i + 1);
-        String str = output.type_value(&arr[i]);
-        printf("%s\n", str.c_str());
-        i++;
-    }
-}
-
-// Trace callstack
-void trace_call_stack(Thread *thread)
-{
-    auto *domain_context = thread->get_this_domain_context();
-    auto *call_context = thread->get_this_context();
-    auto *first_call_context = thread->get_all_context();
-
-    while (call_context >= first_call_context)
-    {
-        // Switch to previous domain
-        while (domain_context->prev &&
-               domain_context->value.m_call_context > call_context)
-        {
-            // Back to previous domain context according the call context
-            domain_context = domain_context->value.m_prev_context;
-            thread->switch_domain(domain_context->value.m_domain);
-        }
-        // Get the function via entry
-        auto *function = Program::get_function_by_entry(call_context->m_entry);
-        auto *object = call_context->m_this_object;
-        auto *program = object->get_program();
-
-        char oid_desc[64];
-        object->get_oid().print(oid_desc, sizeof(oid_desc), "Object");
-        printf("Function %s::%s @ %s(%s)\n",
-               function->get_program()->get_name()->c_str(),
-               function->get_name()->c_str(),
-               program->get_name()->c_str(),
-               oid_desc);
-
-        // Print all arguments
-        print_variables(function->get_parameters(), "Argument",
-                        call_context->m_args, call_context->m_arg_no);
-
-        // Print all local variables
-        print_variables(function->get_local_variables(), "Local variables",
-                        call_context->m_locals, 0);
-
-        call_context--;
-    }
-
-    // Return the current domain of the thread
-    thread->switch_domain(thread->get_this_domain_context()->value.m_domain);
-}
-
-// Throw exception
-void throw_error(const char *msg, ...)
-{
-    // Create formatted string
-    va_list va;
-    va_start(va, msg);
-    char buf[1024];
-    STD_VSNPRINTF(buf, sizeof(buf), msg, va);
-    buf[sizeof(buf) - 1] = 0;
-    va_end(va);
-
-    // Trace callstack
-    trace_call_stack(Thread::get_current_thread());
-
-    // Throw the message
-    throw buf;
 }
 
 } // End of namespace: cmm

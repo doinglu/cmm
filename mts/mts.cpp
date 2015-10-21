@@ -164,7 +164,18 @@ int main(int argn, char *argv[])
     ////----    auto *thread = Thread::get_current_thread();
 ////----    thread->update_start_sp_of_start_domain_context(&argn);
 
-    auto ret = main_body(argn, argv);
+    try
+    {
+        auto ret = main_body(argn, argv);
+    }
+    catch (const char *msg)
+    {
+        printf("Exception: %s\n", msg);
+    }
+    catch (...)
+    {
+        printf("Unknown error.\n");
+    }
 
     Efun::shutdown();
     Program::shutdown();

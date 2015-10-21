@@ -576,10 +576,9 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
 
     thread->push_call_context(object, *(void **)&func, args, component_no);
-    DomainContextNode __context(thread);
-    thread->enter_domain_call(&__context);
+    thread->push_domain_context(&thread);
     auto ret = (component_impl->*func)(thread, args, n);
-    ret = thread->leave_domain_call(&__context, ret);
+    ret = thread->pop_domain_context(ret);
     thread->pop_call_context();
     return ret;
 }

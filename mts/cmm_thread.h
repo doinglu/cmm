@@ -112,10 +112,10 @@ public:
     void update_end_sp_of_current_domain_context()
     {
         // Update end_sp of current context
-        if (!m_domain_context)
+        if (!m_this_domain_context)
             return;
         void *stack_pointer = m_get_stack_pointer_func();
-        m_domain_context->value.m_end_sp = stack_pointer;
+        m_this_domain_context->value.m_end_sp = stack_pointer;
     }
 
 public:
@@ -143,34 +143,46 @@ public:
         return m_this_call_context->m_component_no;
     }
 
-    // Return this context
-    DomainContextNode *get_this_domain_context()
-    {
-        return m_domain_context;
-    }
-
     // Return this object
     Object *get_this_object()
     {
         return m_this_call_context->m_this_object;
     }
 
-    // Get all context
-    CallContext *get_all_context()
+    // Get all call contexts
+    CallContext *get_all_call_contexts()
     {
-        return m_all_call_context;
+        return m_all_call_contexts;
     }
 
-    // Get end context (the last one)
-    CallContext *get_end_context()
+    // Get all domain contexts
+    DomainContextNode *get_all_domain_contexts()
+    {
+        return m_all_domain_contexts;
+    }
+
+    // Get end call context (the last one)
+    CallContext *get_end_call_context()
     {
         return m_end_call_context;
     }
 
-    // Get this context
-    CallContext *get_this_context()
+    // Get end domain context (the last one)
+    DomainContextNode *get_end_domain_context()
+    {
+        return m_end_domain_context;
+    }
+
+    // Get this call context
+    CallContext *get_this_call_context()
     {
         return m_this_call_context;
+    }
+
+    // Get this domain context
+    DomainContextNode *get_this_domain_context()
+    {
+        return m_this_domain_context;
     }
 
     // Push new context of current function call
@@ -186,30 +198,30 @@ public:
         // Don't init locals, it should be updated after entered function
     }
 
+    // Push new domain context
+    void push_domain_context(void *sp);
+
     // Restore previous function call context
     void pop_call_context()
     {
         m_this_call_context--;
     }
 
+    // Restore previous domain context
+    Value& pop_domain_context(Value& ret);
+
+    // Restore call context when error occurred
+    void restore_call_stack_for_error(CallContext *to_call_context);
+
+    // Trace callstack & print it
+    void trace_call_stack();
+
 public:
-    // Enter function call
-    void enter_domain_call(DomainContextNode *context);
-
-    // Leave function call
-    Value leave_domain_call(DomainContextNode *context, Value& ret);
-
     // Switch execution ownership to a new domain
     void switch_domain(Domain *to_domain);
 
-    // Switch execution ownership to a new domain
-    void switch_object(Object *to_object);
-
     // Try to switch execution ownership to a new domain by oid
     bool try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *args, ArgNo n);
-
-    // Will change domain?
-    bool will_change_domain(Domain *to_domain);
 
 public:
     // Bind value to local memory list
@@ -240,13 +252,16 @@ private:
     // Local memory list for this thread
     ValueList m_value_list;
 
-    // Current function context frame
-    DomainContextNode *m_domain_context;
-
-    // Current function context
-    CallContext *m_all_call_context;
+    // Function call context
+    CallContext *m_all_call_contexts;
     CallContext *m_end_call_context;
     CallContext *m_this_call_context;
+
+    // Function call cross domains
+    DomainContextNode *m_all_domain_contexts;
+    DomainContextNode *m_end_domain_context;
+    DomainContextNode *m_this_domain_context;
+
 
     // Current domain
     // ATTENTION:
@@ -274,6 +289,7 @@ private:
 private:
     // Configurations
     static size_t m_max_call_context_level;
+    static size_t m_max_domain_context_level;
 };
 
 } // End of namespace: cmm
