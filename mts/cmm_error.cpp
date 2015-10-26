@@ -19,7 +19,7 @@ void print_variables(const Variables& variables, const char *type, Value *arr, A
     Output output;
 
     ArgNo i = 0;
-    for (auto it : (Variables&)variables)
+    for (auto &it : (Variables&)variables)
     {
         printf("%s %s(%d) = ", type, it->get_name().c_str(), i + 1);
         String str = output.type_value(&arr[i]);

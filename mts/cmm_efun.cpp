@@ -64,7 +64,7 @@ bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, con
         function->m_ret_type = ValueType::NIL;
 
     // Add all arguments
-    for (auto it : prototype.arguments_list.args)
+    for (auto &it : prototype.arguments_list.args)
     {
         // The parameter's type
         auto attrib = (Parameter::Attrib)0;

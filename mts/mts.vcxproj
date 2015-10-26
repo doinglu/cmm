@@ -187,6 +187,7 @@
     <ClInclude Include="cmm_error.h" />
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_memory.h" />
+    <ClInclude Include="cmm_vm.h" />
     <ClInclude Include="std_os_socket.h" />
     <ClInclude Include="cmm_prototype_grammar.h" />
     <ClInclude Include="std_socket_bsd_errno.h" />
@@ -245,6 +246,7 @@
     </ClCompile>
     <ClCompile Include="..\std\src\std_template\simple_string.cpp" />
     <ClCompile Include="a_desc_2.h" />
+    <ClCompile Include="a_desc_i.cpp" />
     <ClCompile Include="a_entity_2.h" />
     <ClCompile Include="a_name.h" />
     <ClCompile Include="a_name_2.h" />
@@ -255,6 +257,7 @@
     <ClCompile Include="cmm_efun_core.cpp" />
     <ClCompile Include="cmm_error.cpp" />
     <ClCompile Include="cmm_memory.cpp" />
+    <ClCompile Include="cmm_vm.cpp" />
     <ClCompile Include="std_os_epoll_linux.c" />
     <ClCompile Include="std_os_epoll_sim.c" />
     <ClCompile Include="std_os_socket_bsd.c" />

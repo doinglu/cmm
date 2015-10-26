@@ -192,8 +192,8 @@ int main_body(int argn, char *argv[])
     simple::vector<int> arr;
     arr.push_back(123);
     arr.push_back(456);
-    for (auto it = arr.begin(); it != arr.end(); ++it)
-       printf("value = %d\n", *it);
+    for (auto &it: arr)
+       printf("value = %d\n", it);
     return 0;
 #endif
 
@@ -271,7 +271,7 @@ int main_body(int argn, char *argv[])
     __feature_desc_ob::create_program();
     __feature_name_ob::create_program();
 
-    Program::update_all_callees();
+    Program::update_all_programs();
 
     auto *thread = Thread::get_current_thread();
     call_efun(thread, "printf", "a=%d\n", 555);

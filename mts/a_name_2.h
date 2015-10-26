@@ -9,26 +9,18 @@ namespace cmm
 class __feature_name_ob : public Object
 {
 private:
-    typedef __feature_name_ob Self;
     typedef __feature_name_impl Impl;
-    __feature_name_impl m_name;
-    __feature_desc_impl m_desc;
 
 public:
-    static Object *new_instance()
-    {
-        return XNEW(Self);
-    }
-
     static Program *create_program()
     {
-        Program *program = XNEW(Program, "/feature/name");
+        Program *program = XNEW(Program, "/feature/name", Program::COMPILED_TO_NATIVE);
 
-        program->define_object(sizeof(Self));
-        program->set_new_instance_func(&new_instance);
+        program->define_member("name", ValueType::STRING);
+        program->define_member("unused", ValueType::MIXED);
 
-        program->add_component("/feature/name", MEMBER_OFFSET(m_name));
-        program->add_component("/feature/desc", MEMBER_OFFSET(m_desc));
+        program->add_component("/feature/name", 0);
+        program->add_component("/feature/desc", 0);
 
         Function *function;
         program->define_function("set_name", (Function::ScriptEntry)&Impl::set_name, 1, 1);

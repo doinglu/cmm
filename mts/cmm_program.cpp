@@ -1,6 +1,7 @@
 // cmm_program.cpp
 
 #include <stdio.h>
+#include <stddef.h>
 #include "std_port/std_port.h"
 #include "cmm_domain.h"
 #include "cmm_object.h"
@@ -33,8 +34,8 @@ Function::Function(Program *program, const String& name)
 // Destructor of function
 Function::~Function()
 {
-    for (auto it = m_parameters.begin(); it != m_parameters.end(); ++it)
-        XDELETE(*it);
+    for (auto &it: m_parameters)
+        XDELETE(it);
 }
 
 // Create local variable definition in function
@@ -73,7 +74,7 @@ bool Function::finish_adding_parameters()
     auto max_arg_no = (ArgNo)m_parameters.size();
     auto min_arg_no = (ArgNo)0;
     bool found_default = false;
-    for (auto it : m_parameters)
+    for (auto &it : m_parameters)
     {
         if (found_default)
         {
@@ -106,7 +107,7 @@ Member::Member(Program *program, const String& name)
     m_program = program;
     m_name = Program::find_or_add_string(name);
     m_type = (ValueType)0;
-    m_offset = 0;
+    m_index = 0;
 }
 
 // StringImpl pool of all programs
@@ -134,7 +135,7 @@ void Program::shutdown()
 
     // Clear all programs
     auto programs = m_name_programs->values();
-    for (auto it: programs)
+    for (auto &it: programs)
         XDELETE(it);
     STD_ASSERT(("All programs should be freed", m_name_programs->size() == 0));
     XDELETE(m_name_programs);
@@ -146,7 +147,7 @@ void Program::shutdown()
 }
 
 // Create a program
-Program::Program(const String& name)
+Program::Program(const String& name, Attrib attrib)
 {
     m_name = Program::find_or_add_string(name);
     STD_ASSERT(("Program has been defined.", !find_program_by_name(m_name)));
@@ -154,13 +155,23 @@ Program::Program(const String& name)
     std_enter_critical_section(m_program_cs);
     m_name_programs->put(m_name, this);
     std_leave_critical_section(m_program_cs);
+
+    // Set default object's size
+    m_entire_object_size = 0;
+    m_this_component_size = offsetof(AbstractComponent, m_members);
+
+    m_attrib = attrib;
 }
 
 // Destruct program (only being called when shuttint down)
 Program::~Program()
 {
     // Destruct all functions
-    for (auto it: m_functions)
+    for (auto &it: m_functions)
+        XDELETE(it);
+
+    // Destruct all members
+    for (auto &it: m_members)
         XDELETE(it);
 
     std_enter_critical_section(m_program_cs);
@@ -216,11 +227,26 @@ Program *Program::find_program_by_name(const String& program_name)
     return program;
 }
 
-// Update callees of all programs
-void Program::update_all_callees()
+// Update all programs after they are declared
+void Program::update_all_programs()
 {
-    for (auto it = m_name_programs->begin(); it != m_name_programs->end(); ++it)
-        it->second->update_callees();
+    for (auto &it: *m_name_programs)
+        it.second->update_program();
+}
+
+// Create a interpreter component
+Object *Program::new_interpreter_component()
+{
+    throw 0;////----
+}
+
+// Define the object's size, for compiled_to_native class only
+void Program::define_object(size_t object_size)
+{
+    STD_ASSERT(("Don't define size for non compiled-to-native-class object.",
+                is_compiled_to_native()));
+    m_entire_object_size = object_size;
+    throw 0;
 }
 
 // Create function in this program
@@ -242,12 +268,15 @@ Function *Program::define_function(const String& name,
 }
 
 // Create member in this program
-Member *Program::define_member(const String& name, ValueType type, MemberOffset offset)
+Member *Program::define_member(const String& name, ValueType type)
 {
     auto *member = XNEW(Member, this, name);
     member->m_type = type;
-    member->m_offset = offset;
+    member->m_index = (MemberIndex)m_members.size();
     m_members.push_back(member);
+
+    // Calcuate object size for using interpreter
+    m_this_component_size += sizeof(Value);
     return member;
 }
 
@@ -296,20 +325,16 @@ private:
 
 When init the program for this class:
 
-static Object *__clone_entity_ob::new_instance()
-{
-    return new __clone_entity_ob();
-}
-
 static Program *__clone_entity_ob::create_program()
 {
     Program *program = new Program("/object/entity");
 
-    program->set_new_instance_func(&new_instance);
+    program->define_member(...);
+    ...
 
-    program->add_component("/feature/name", offset(m_name));
-    program->add_component("/feature/dbase", offset(m_dbase));
-    program->add_component("/extend/feature/name", offset(m_name2));
+    program->add_component("/feature/name");
+    program->add_component("/feature/dbase");
+    program->add_component("/extend/feature/name");
 
     program->define_function(...);
     ...
@@ -317,8 +342,7 @@ static Program *__clone_entity_ob::create_program()
     return program;
 }
 
-# new_instance() - to new this class.
-# create_program() - to new & init the program for this class.
+# create_program() - to init the program for this class.
 
 ABOUT add_component() & update_callees()
 
@@ -468,7 +492,40 @@ void Program::add_component(const String& program_name, ComponentOffset offset)
     m_components.push_back(component);
 }
 
-// Update all callees after all components added
+// Update program after all programs are loaded
+void Program::update_program()
+{
+    m_this_component_size = offsetof(AbstractComponent, m_members) + m_members.size() * sizeof(Value);
+
+    // Lookup program by name
+    for (auto &it: m_components)
+    {
+        auto *program = Program::find_program_by_name(it.program_name);
+        STD_ASSERT(("Program is not found.", program));
+        it.program = program;
+    }
+
+    // Lookup all interpreter components & recalcute the offset & size
+    // Layout of an object (compiled-to-native-class)
+    // Object:
+    //    [virtual table]
+    //    component 1 : Values x N1
+    //    component 2 : Values x N2
+    //    ...
+    size_t entire_object_size = offsetof(Object, m_members);
+    for (auto &it : m_components)
+    {
+        auto *program = it.program;
+        it.offset = (ComponentOffset)entire_object_size;
+        entire_object_size += program->get_this_component_size();
+    }
+    m_entire_object_size = entire_object_size;
+
+    // Update all callees for this program
+    update_callees();
+}
+
+// Update all callees during updating program
 void Program::update_callees()
 {
     simple::hash_map<StringImpl *, ComponentNo> component_no_map;
@@ -478,31 +535,26 @@ void Program::update_callees()
     size_t components_no_map_size = 0;
     for (auto it = m_components.begin(); it != m_components.end(); ++it)
     {
-        auto *program = Program::find_program_by_name(it->program_name);
-        STD_ASSERT(("Program is not found.", program));
-        it->program = program;
         component_no_map.put(it->program_name, (ComponentNo)it.get_index());
 
         // Count size of components
-        components_no_map_size += program->m_components.size();
+        components_no_map_size += it->program->m_components.size();
     }
 
     // Build components no map
     m_components_map_offset.reserve(m_components.size());
     m_components_no_map.reserve(components_no_map_size);
-    for (auto it = m_components.begin(); it != m_components.end(); ++it)
+    for (auto &it: m_components)
     {
-        auto *program = Program::find_program_by_name(it->program_name);
-        STD_ASSERT(("Program is not found.", program));
+        auto *program = it.program;
 
         // Start map this component
         m_components_map_offset.push_back((MapOffset)m_components_no_map.size());
 
         // Create ComponentsMap for this component
-        auto end = program->m_components.end();
-        for (auto entry = program->m_components.begin(); entry != end; ++entry)
+        for (auto entry: program->m_components)
         {
-            auto component_no = component_no_map[entry->program_name];
+            auto component_no = component_no_map[entry.program_name];
             m_components_no_map.push_back(component_no);
         }
     }
@@ -518,15 +570,9 @@ void Program::update_callees()
     // Lookup all functions & add to callees map
     for (auto it = m_components.begin(); it != m_components.end(); ++it)
     {
-        auto *program = Program::find_program_by_name(it->program_name);
         ComponentNo component_no = (ComponentNo)it.get_index();
-
-        auto end = program->m_functions.end();
-        for (auto fun_it = program->m_functions.begin(); fun_it != end; ++fun_it)
-        {
-            auto *function = *fun_it;
+        for (auto function: it->program->m_functions)
             add_callee(component_no, function);
-        }
     }
 }
 
@@ -538,10 +584,27 @@ Object *Program::new_instance(Domain *domain)
 
     thread->switch_domain(domain);
 
-    auto *ob = m_new_instance_func();
+    auto *ob = (Object*)STD_MEM_ALLOC(m_entire_object_size);
     if (ob)
     {
+        // Initialize the object
+        memset((void *)ob, 0, m_entire_object_size);
+        new (ob)Object();
         ob->m_program = this;
+        // Set field ".program" for each component
+        for (auto &it : m_components)
+        {
+            auto *p = (AbstractComponent*)(((Uint8 *)ob) + it.offset);
+            p->m_program = it.program;
+            // Initial all types
+            for (auto &member : it.program->m_members)
+            {
+                auto type = member->m_type;
+                if (type == ValueType::MIXED)
+                    type = ValueType::NIL;
+                p->m_members[member->m_index].m_type = type;
+            }
+        }
         ob->assign_oid();
         ob->set_domain(domain);
     }

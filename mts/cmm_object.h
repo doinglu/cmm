@@ -9,6 +9,7 @@
 #include "std_template/simple_list.h"
 #include "cmm.h"
 #include "cmm_global_id.h"
+#include "cmm_value.h"
 
 namespace cmm
 {
@@ -97,9 +98,11 @@ public:
     }
 
 private:
-    ObjectId     m_oid;     // Object's ID
-    Domain      *m_domain;  // Belong to
-    Program     *m_program; // Program of this object
+                            // [virtual table]
+    ObjectId m_oid;         // Object's ID
+    Domain  *m_domain;      // Belong to
+    Program *m_program;     // Program of this object
+    Value    m_members[1];  // Members start here
 
 private:
     typedef GlobalIdManager<Entry> ObjectIdManager;

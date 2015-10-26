@@ -1,5 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+    <Type Name="cmm::Program" Inheritable="true">
+        <DisplayString>{m_name->buf,s}</DisplayString>
+    </Type>
+    <Type Name="cmm::Object" Inheritable="true">
+        <DisplayString>{m_oid}, {m_program->m_name->buf,s}</DisplayString>
+        <Expand HideRawView="true">
+            <Item Name="[m_oid]">m_oid</Item>
+            <Item Name="[m_domain]">m_domain</Item>
+            <Item Name="[m_program]">m_program</Item>
+            <CustomListItems MaxItemsPerView="100">
+                <Variable Name="prog_name" InitialValue="(char *)0" />
+                <Variable Name="prog_index" InitialValue="0" />
+                <Variable Name="prog_ptr" InitialValue="(cmm::Program*)0" />
+                <Variable Name="offset" InitialValue="0"/>
+                <Variable Name="abstract_component_ptr" InitialValue="(cmm::AbstractComponent*)0"/>
+                <Loop Condition="prog_index &lt; m_program-&gt;m_components.m_size">
+                    <Exec>prog_ptr=m_program->m_components.m_array[prog_index].program</Exec>
+                    <Exec>offset=m_program->m_components.m_array[prog_index].offset</Exec>
+                    <Exec>abstract_component_ptr=(cmm::AbstractComponent*)(((char*)this)+offset)</Exec>
+                    <Exec>prog_name=prog_ptr->m_name->buf</Exec>
+                    <Item Name="[{prog_name,sb}]">abstract_component_ptr</Item>
+                    <Exec>prog_index++</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
+    <Type Name="cmm::AbstractComponent" Inheritable="true">
+        <DisplayString>{m_program->m_name->buf,s}</DisplayString>
+        <Expand HideRawView="true">
+            <Item Name="[m_program]">m_program</Item>
+            <CustomListItems MaxItemsPerView="100">
+                <Variable Name="i" InitialValue="0" />
+                <Variable Name="name" InitialValue="(char *)0" />
+                <Size>m_program->m_members.m_size</Size>
+                <Loop>
+                    <Exec>name=m_program->m_members[i]->m_name->buf</Exec>
+                    <Item Name="[{name,sb}]">m_members[i]</Item>
+                    <Exec>i++</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
     <Type Name="cmm::Domain" Inheritable="true">
         <DisplayString>{m_name,s}</DisplayString>
         <Expand HideRawView="false">
@@ -30,10 +72,11 @@
         <DisplayString Condition="m_type==cmm::ValueType::INTEGER">{m_int}</DisplayString>
         <DisplayString Condition="m_type==cmm::ValueType::REAL">{m_real}</DisplayString>
         <DisplayString Condition="m_type==cmm::ValueType::OBJECT">{m_oid}</DisplayString>
-        <DisplayString Condition="m_type==cmm::ValueType::STRING">{m_string->buf,s}</DisplayString>
-        <DisplayString Condition="m_type==cmm::ValueType::BUFFER">buffer[{m_buffer->len}]</DisplayString>
-        <DisplayString Condition="m_type==cmm::ValueType::ARRAY">array {m_array->a}</DisplayString>
-        <DisplayString Condition="m_type==cmm::ValueType::MAPPING">mapping {m_map->m}</DisplayString>
+        <DisplayString Condition="m_type &gt;= cmm::ValueType::REFERENCE_VALUE &amp;&amp; m_reference == 0">(null)</DisplayString>
+        <DisplayString Condition="m_type==cmm::ValueType::STRING &amp;&amp; m_reference != 0">{m_string->buf,s}</DisplayString>
+        <DisplayString Condition="m_type==cmm::ValueType::BUFFER &amp;&amp; m_reference != 0">buffer[{m_buffer->len}]</DisplayString>
+        <DisplayString Condition="m_type==cmm::ValueType::ARRAY &amp;&amp; m_reference != 0">array {m_array->a}</DisplayString>
+        <DisplayString Condition="m_type==cmm::ValueType::MAPPING &amp;&amp; m_reference != 0">mapping {m_map->m}</DisplayString>
         <Expand HideRawView="true">
             <Item Name="[type]" ExcludeView="simple">m_type</Item>
             <Item Condition="m_type==cmm::ValueType::NIL" Name="[nil]" ExcludeView="simple">m_int</Item>

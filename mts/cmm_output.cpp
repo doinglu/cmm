@@ -785,9 +785,9 @@ void Output::type_value_at(const Value *value, size_t ident)
             add_c_str("{ /* sizeof() == ");
             add_number(arr.size());
             add_c_str(" */\n");
-            for (auto it = arr.a.begin(); it != arr.a.end(); ++it)
+            for (auto &it: arr.a)
             {
-                type_value_at(&(*it), ident + 4);
+                type_value_at(&it, ident + 4);
                 add_c_str(",\n");
             }
             add_pad(0, ident);
@@ -808,11 +808,11 @@ void Output::type_value_at(const Value *value, size_t ident)
             add_number(map.size());
             add_c_str(" */\n");
 
-            for (auto it = map.m.begin(); it != map.m.end(); ++it)
+            for (auto &it: map.m)
             {
-                type_value_at(&it->first, ident + 4);
+                type_value_at(&it.first, ident + 4);
                 add_c_str(" : ");
-                type_value_at(&it->second, ident + 4);
+                type_value_at(&it.second, ident + 4);
                 add_c_str(",\n");
             }
 

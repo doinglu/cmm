@@ -129,9 +129,8 @@ ReferenceImpl *ArrayImpl::copy_to_local(Thread *thread)
     thread->bind_value(v);
     // Bind before copy elements in case of exception when copying
 
-    auto end = this->a.end();
-    for (auto it = this->a.begin(); it != end; ++it)
-        v->a.push_back(it->copy_to_local(thread));
+    for (auto &it: this->a)
+        v->a.push_back(it.copy_to_local(thread));
     return v;
 }
 
@@ -146,9 +145,8 @@ ReferenceImpl *MapImpl::copy_to_local(Thread *thread)
     thread->bind_value(v);
     // Bind before copy elements in case of exception when copying
 
-    auto end = this->m.end();
-    for (auto it = this->m.begin(); it != end; ++it)
-        v->m.put(it->first.copy_to_local(thread), it->second.copy_to_local(thread));
+    for (auto &it: this->m)
+        v->m.put(it.first.copy_to_local(thread), it.second.copy_to_local(thread));
     return v;
 }
 
@@ -161,23 +159,21 @@ void FunctionPtrImpl::mark(MarkValueState& state)
 // Mark all elements in this container
 void ArrayImpl::mark(MarkValueState& state)
 {
-    auto end = a.end();
-    for (auto it = a.begin(); it != end; ++it)
-        if (it->m_type >= ValueType::REFERENCE_VALUE)
-            Domain::mark_value(state, it->m_reference);
+    for (auto &it: this->a)
+        if (it.m_type >= ValueType::REFERENCE_VALUE)
+            Domain::mark_value(state, it.m_reference);
 }
 
 // Mark all elements in this container
 void MapImpl::mark(MarkValueState& state)
 {
-    auto end = m.end();
-    for (auto it = m.begin(); it != end; ++it)
+    for (auto &it: this->m)
     {
-        if (it->first.m_type >= ValueType::REFERENCE_VALUE)
-            Domain::mark_value(state, it->first.m_reference);
+        if (it.first.m_type >= ValueType::REFERENCE_VALUE)
+            Domain::mark_value(state, it.first.m_reference);
 
-        if (it->second.m_type >= ValueType::REFERENCE_VALUE)
-            Domain::mark_value(state, it->second.m_reference);
+        if (it.second.m_type >= ValueType::REFERENCE_VALUE)
+            Domain::mark_value(state, it.second.m_reference);
     }
 }
 

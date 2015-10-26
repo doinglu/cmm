@@ -21,8 +21,14 @@ class Program;
 class Thread;
 
 // Abstract class, all program class are derived from this class
+// All classes derived from this class MUST NOT have virtual functions,
+// constructor, destructor.
+// The derived classes MUST BE initialized, destoried by Program 
 class AbstractComponent
 {
+public:
+    Program *m_program; // The relative program
+    Value m_members[1]; // Members start from here
 };
 
 // Variable of function
@@ -231,7 +237,7 @@ private:
     StringImpl  *m_name;
     Program     *m_program;
     ValueType    m_type;
-    MemberOffset m_offset;
+    MemberIndex  m_index;
 };
 
 // Program of object
@@ -240,7 +246,7 @@ class Program
 public:
     typedef enum
     {
-        COMPILED_TO_NATIVE = 1,     // This component was compiled to native class
+        COMPILED_TO_NATIVE = 0x0001,    // This component was compiled to native class
     } Attrib;
 
     typedef Object *(*NewInstanceFunc)();
@@ -265,7 +271,7 @@ public:
     static void shutdown();
 
 public:
-    Program(const String& name);
+    Program(const String& name, Attrib attrib = (Attrib)0);
     ~Program();
 
 public:
@@ -284,14 +290,28 @@ public:
     static Program *find_program_by_name(const String& program_name);
 
     // Update callees of all programs
-    static void update_all_callees();
+    static void update_all_programs();
+
+public:
+    // Create an interpreter component
+    static Object *new_interpreter_component();
+
+public:
+    // Is this program compiled to native class?
+    bool is_compiled_to_native()
+    {
+        return m_attrib & COMPILED_TO_NATIVE ? true : false;
+    }
+
+    // Is this program being interpreted by the interpreter?
+    bool is_using_interpreter()
+    {
+        return !is_compiled_to_native();
+    }
 
 public:
     // Decribe the object properties
-    void define_object(size_t object_size)
-    {
-        m_object_size = object_size;
-    }
+    void define_object(size_t object_size);
 
     // Create function definition in this program
     Function *define_function(const String& name,
@@ -300,7 +320,7 @@ public:
                               Function::Attrib attrib = (Function::Attrib)0);
 
     // Create member definition in this program
-    Member *define_member(const String& name, ValueType type, MemberOffset offset);
+    Member *define_member(const String& name, ValueType type);
 
 public:
     // Add a function to public callee map
@@ -315,7 +335,11 @@ public:
         m_new_instance_func = func;
     }
 
-    // Update all callees after all components added
+    // Update program after all programs are loaded
+    void update_program();
+
+private:
+    // Update all callees during updating program
     void update_callees();
 
 public:
@@ -351,10 +375,16 @@ public:
         return m_name;
     }
 
-    // Get object's size
-    size_t get_object_size() const
+    // Get this single component's size
+    size_t get_this_component_size() const
     {
-        return m_object_size;
+        return m_this_component_size;
+    }
+
+    // Get object's size
+    size_t get_entire_object_size() const
+    {
+        return m_entire_object_size;
     }
 
     // Get callee by name (access by public)
@@ -420,7 +450,8 @@ private:
 private:
     Attrib m_attrib;
     StringImpl *m_name;
-    size_t m_object_size;
+    size_t m_entire_object_size;
+    size_t m_this_component_size;
 
     // New() instance function
     NewInstanceFunc m_new_instance_func;

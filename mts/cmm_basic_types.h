@@ -13,7 +13,7 @@ typedef simple::uchar_t uchar_t; // Unsigned character
 
 #if 1
 typedef Uint16 ArgNo;               // Argument count/no
-typedef Uint32 MemberOffset;        // Offset of member in class object
+typedef Uint32 MemberIndex;         // Index of member in AbstractClass object
 typedef Uint16 ComponentNo;         // Number of component in a program
 typedef Uint32 ComponentOffset;     // Offset of component in class Object
 typedef Uint32 MapOffset;           // MapImpl offset for component no map

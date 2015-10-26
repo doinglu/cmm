@@ -39,8 +39,8 @@ void Domain::shutdown()
 {
     // Clear all domains
     auto domains = m_all_domains->values();
-    for (auto it = domains.begin(); it != domains.end(); ++it)
-        XDELETE(*it);
+    for (auto &it: domains)
+        XDELETE(it);
     STD_ASSERT(("All domains should be freed.", m_all_domains->size() == 0));
     XDELETE(m_all_domains);
     m_domain_0 = 0;
@@ -90,8 +90,8 @@ Domain::~Domain()
 {
     // Remove all objects
     auto objects = m_objects.to_array();
-    for (auto it = objects.begin(); it != objects.end(); ++it)
-        XDELETE(*it);
+    for (auto &it: objects)
+        XDELETE(it);
     STD_ASSERT(("There are still alive objects in domain.", m_objects.size() == 0));
 
 #ifdef _DEBUG
@@ -180,10 +180,9 @@ void Domain::gc()
     m_value_list.reset();
 
     // Scan all thread contexts of this domain
-    for (auto it = m_context_list.begin(); it != m_context_list.end(); ++it)
+    for (auto &context: m_context_list)
     {
         // Mark all values
-        auto &context = *it;
         auto *p = (ReferenceImpl **)context.m_start_sp;
         while (--p > (ReferenceImpl **)context.m_end_sp)
         {
@@ -193,11 +192,10 @@ void Domain::gc()
     }
 
     // Scan all member objects in this domain
-    for (auto it = m_objects.begin(); it != m_objects.end(); ++it)
+    for (auto &object: m_objects)
     {
-        auto *object = *it;
         auto *p = (ReferenceImpl **)object;
-        size_t size = object->get_program()->get_object_size();
+        size_t size = object->get_program()->get_entire_object_size();
         auto *p_end = (ReferenceImpl **)(((char *)p) + size);
         while (p < p_end)
         {
@@ -208,7 +206,7 @@ void Domain::gc()
     }
 
     // Free all non-refered values & regenerate value list
-    for (auto it: state.set)
+    for (auto &it: state.set)
     {
         // Value is not refered, free it
         XDELETE(it);

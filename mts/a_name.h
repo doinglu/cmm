@@ -33,7 +33,8 @@ public:
 //        Value __local[] = { };
         StringImpl* &name = __args[0].m_string;
 
-        this->name = name;
+        StringImpl* &m_name = this->m_members[0].m_string;
+        m_name = name;
         return Value();
     }
 
@@ -43,7 +44,8 @@ public:
         if (__n != 0)
             throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
-        return this->name;
+        StringImpl* &m_name = this->m_members[0].m_string;
+        return m_name;
     }
 
     // Function 2
@@ -55,7 +57,9 @@ public:
         ObjectId other_oid;
         other_oid.i64 = __args[0].m_int;
 
+#if 0
         call_far(_thread, 0, 5, other_oid, "---Inject error---");
+#endif
 
         auto *__this_object = _thread->get_this_object();
 
@@ -189,9 +193,6 @@ public:
         }
         return Value();
     }
-
-private:
-    Value name;
 };
 
 }

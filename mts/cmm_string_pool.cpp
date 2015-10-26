@@ -13,8 +13,8 @@ StringPool::StringPool()
 
 StringPool::~StringPool()
 {
-    for (auto it = m_pool.begin(); it != m_pool.end(); ++it)
-        STRING_FREE(it->ptr());
+    for (auto &it: m_pool)
+        STRING_FREE(it.ptr());
     std_destroy_spin_lock(&m_lock);
 }
     

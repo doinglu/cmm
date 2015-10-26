@@ -10,28 +10,18 @@ namespace cmm
     class __clone_entity_ob : public Object
     {
     private:
-        typedef __clone_entity_ob Self;
         typedef __clone_entity_impl Impl;
-        __clone_entity_impl m_entity;
-        __feature_name_impl m_name;
-        __feature_desc_impl m_desc;
 
     public:
-        static Object *new_instance()
-        {
-            return XNEW(Self);
-        }
-
         static Program *create_program()
         {
-            Program *program = XNEW(Program, "/clone/entity");
+            Program *program = XNEW(Program, "/clone/entity", Program::COMPILED_TO_NATIVE);
 
-            program->define_object(sizeof(Self));
-            program->set_new_instance_func(&new_instance);
+            program->define_member("id", ValueType::INTEGER);
 
-            program->add_component("/clone/entity", MEMBER_OFFSET(m_entity));
-            program->add_component("/feature/name", MEMBER_OFFSET(m_name));
-            program->add_component("/feature/desc", MEMBER_OFFSET(m_desc));
+            program->add_component("/clone/entity", 0);
+            program->add_component("/feature/name", 0);
+            program->add_component("/feature/desc", 0);
 
             program->define_function("create", (Function::ScriptEntry)&Impl::create, 0, 0);
 
