@@ -57,10 +57,10 @@ class CallContext
 public:
     Value      *m_args;
     Value      *m_locals;
-    void       *m_entry;        // Function entry
-    Object     *m_this_object;  // This object of context
-    ComponentNo m_component_no; // Component no in this object
-    ArgNo       m_arg_no;       // Real arguments (valid only for RANDOM_ARG)
+    void       *m_function_or_entry;// Function or function entry (for local call only)
+    Object     *m_this_object;      // This object of context
+    ComponentNo m_component_no;     // Component no in this object
+    ArgNo       m_arg_no;           // Real arguments (valid only for RANDOM_ARG)
 };
 
 // Define the node of DomainContext
@@ -131,24 +131,6 @@ public:
         return m_this_call_context->m_locals[n];
     }
 
-    // Return current domain of this object
-    inline Domain *get_current_domain()
-    {
-        return m_current_domain;
-    }
-
-    // Return this component
-    ComponentNo get_this_component_no()
-    {
-        return m_this_call_context->m_component_no;
-    }
-
-    // Return this object
-    Object *get_this_object()
-    {
-        return m_this_call_context->m_this_object;
-    }
-
     // Get all call contexts
     CallContext *get_all_call_contexts()
     {
@@ -159,6 +141,12 @@ public:
     DomainContextNode *get_all_domain_contexts()
     {
         return m_all_domain_contexts;
+    }
+
+    // Return current domain of this object
+    inline Domain *get_current_domain()
+    {
+        return m_current_domain;
     }
 
     // Get end call context (the last one)
@@ -179,20 +167,38 @@ public:
         return m_this_call_context;
     }
 
+    // Return this component
+    ComponentNo get_this_component_no()
+    {
+        return m_this_call_context->m_component_no;
+    }
+
     // Get this domain context
     DomainContextNode *get_this_domain_context()
     {
         return m_this_domain_context;
     }
 
+    // Get this function
+    Function *get_this_function();
+
+    // Return this object
+    Object *get_this_object()
+    {
+        return m_this_call_context->m_this_object;
+    }
+
     // Push new context of current function call
-    void push_call_context(Object *ob, void *entry, Value *args, ComponentNo component_no)
+    // For call_near, function_or_entry is the &AbstractComponent::*Func
+    // For others, functino_or_entry is class Function *
+    void push_call_context(Object *ob, void *function_or_entry, Value *args, ArgNo argn, ComponentNo component_no)
     {
         if (m_this_call_context >= m_end_call_context)
             throw "Too depth call context.\n";
         m_this_call_context++;
-        m_this_call_context->m_entry = entry;
+        m_this_call_context->m_function_or_entry = function_or_entry;
         m_this_call_context->m_args = args;
+        m_this_call_context->m_arg_no = argn;
         m_this_call_context->m_this_object = ob;
         m_this_call_context->m_component_no = component_no;
         // Don't init locals, it should be updated after entered function
@@ -208,7 +214,7 @@ public:
     }
 
     // Restore previous domain context
-    Value& pop_domain_context(Value& ret);
+    Value pop_domain_context(const Value& ret);
 
     // Restore call context when error occurred
     void restore_call_stack_for_error(CallContext *to_call_context);
@@ -228,6 +234,15 @@ public:
     void bind_value(ReferenceImpl *value)
     {
         m_value_list.append_value(value);
+    }
+
+    // Drop local values & free them
+    void free_values();
+
+    // Is the value list empty?
+    size_t get_value_list_count()
+    {
+        return m_value_list.get_count();
     }
 
 public:

@@ -154,7 +154,7 @@ Value Efun::invoke(Thread *thread, const Value& function_name, Value *args, ArgN
         return Value();
 
     auto func_entry = function->get_efun_entry();
-    thread->push_call_context(thread->get_this_object(), (void *)func_entry, args,
+    thread->push_call_context(thread->get_this_object(), (void *)func_entry, args, n,
                               thread->get_this_component_no());
     Value ret = func_entry(thread, args, n);
     thread->pop_call_context();

@@ -14,6 +14,7 @@
 namespace cmm
 {
 
+class AbstractComponent;
 class Domain;
 class Program;
 
@@ -91,6 +92,9 @@ public:
     void set_domain(Domain *domain);
 
 public:
+    // Return specified component in this object
+    AbstractComponent *get_component(ComponentNo component_no);
+
     // Return program of this object
     Program *get_program()
     {

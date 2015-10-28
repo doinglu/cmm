@@ -9,6 +9,7 @@
 #include "cmm_string_pool.h"
 #include "cmm_typedef.h"
 #include "cmm_value.h"
+#include "cmm_value_list.h"
 
 namespace cmm
 {
@@ -19,6 +20,7 @@ class Function;
 class Object;
 class Program;
 class Thread;
+struct Instruction;
 
 // Abstract class, all program class are derived from this class
 // All classes derived from this class MUST NOT have virtual functions,
@@ -53,8 +55,14 @@ public:
         return m_attrib;
     }
 
+    // Return the default value
+    const Value& get_default()
+    {
+        return m_default;
+    }
+
     // Return the name of parameter
-    const String get_name()
+    const StringImpl *get_name()
     {
         return m_name;
     }
@@ -82,7 +90,9 @@ private:
     Function   *m_function; // Owner function
 	ValueType   m_type;     // Type of this argument
 	Attrib      m_attrib;   // Attrib of this parmeters
+    Value       m_default;  // Default value (valid only for has_default())
 };
+
 class Variables : public simple::vector<Variable *> { };
 typedef Variable Parameter;
 typedef Variable LocalVariable;
@@ -101,6 +111,7 @@ public:
 		RANDOM_ARG = 0x0001,        // Accept random arguments
         RET_NULLABLE = 0x0002,      // Return nullable type
         EXTERNAL = 0x2000,          // An external function
+        INTERPRETED = 0x4000,       // Being interpreted by VM
         PRIVATE = 0x8000,           // A private function
 	} Attrib;
 
@@ -111,7 +122,7 @@ public:
     typedef Value (*EfunEntry)(Thread *, Value *, ArgNo);
     struct Entry
     {
-        Entry() { script_entry = 0; }
+        Entry(int zero = 0) { script_entry = 0; }
         Entry(ScriptEntry entry) { script_entry = entry; }
         Entry(EfunEntry entry) { efun_entry = entry; }
 
@@ -128,13 +139,33 @@ public:
 
 public:
     // Create local variable definition in function
-    LocalVariable *define_local_variable(const String& name, ValueType type, LocalVariable::Attrib attrib);
+    LocalVariable *define_local_variable(const String& name, ValueType type, LocalVariable::Attrib attrib = (LocalVariable::Attrib)0);
 
     // Create parameter definition in function
-    Parameter *define_parameter(const String& name, ValueType type, Parameter::Attrib attrib);
+    Parameter *define_parameter(const String& name, ValueType type, Parameter::Attrib attrib = (Parameter::Attrib)0);
+
+    // Define the return type
+    void define_ret_type(ValueType type, Variable::Attrib attrib = (Variable::Attrib)0)
+    {
+        m_ret_type = type;
+        if (attrib & Variable::Attrib::NULLABLE)
+            m_attrib = (Function::Attrib)(m_attrib | RET_NULLABLE);
+    }
 
     // Finish adding parameters
     bool finish_adding_parameters();
+
+    // Get byte codes address
+    const Instruction *get_byte_codes_addr() const;
+
+    // Reserve local space
+    void reserve_local(LocalNo count)
+    {
+        m_max_local_no = count;
+    }
+
+    // Set byte codes
+    void set_byte_codes(Instruction *codes, size_t len);
 
 public:
     // Get attribute
@@ -149,22 +180,30 @@ public:
         return m_entry.efun_entry;
     }
 
+    // Get local variables
+    const LocalVariables& get_local_variables() const
+    {
+        return m_local_variables;
+    }
+
     // Get max argument count
-    ArgNo get_max_arg_no() const
+    LocalNo get_max_arg_no() const
     {
         return m_max_arg_no;
+    }
+
+    // Get max local count
+    LocalNo get_max_local_no() const
+    {
+        // ATTENTION:
+        // m_max_local_no != m_local_variables.size()
+        return m_max_local_no;
     }
 
     // Get min argument count
     ArgNo get_min_arg_no() const
     {
         return m_min_arg_no;
-    }
-
-    // Get local variables
-    const LocalVariables& get_local_variables() const
-    {
-        return m_local_variables;
     }
 
     // Get the function name
@@ -197,6 +236,12 @@ public:
         return m_ret_type;
     }
 
+    // Is this function being interpreted by VM?
+    bool is_being_interpreted() const
+    {
+        return (m_attrib & INTERPRETED) ? true : false;
+    }
+
     // Is this function private?
     bool is_private() const
     {
@@ -215,11 +260,16 @@ private:
     Attrib      m_attrib;
     ArgNo       m_min_arg_no;
 	ArgNo       m_max_arg_no;
+    LocalNo     m_max_local_no;
     ValueType   m_ret_type;
 
 	// Parameters & local variables
     Parameters m_parameters;
     LocalVariables m_local_variables;
+
+    // Byte codes for interpreted function
+    typedef simple::unsafe_vector<Instruction> ByteCodes;
+    ByteCodes m_byte_codes;
 
     // Entry
     Entry       m_entry;
@@ -247,6 +297,7 @@ public:
     typedef enum
     {
         COMPILED_TO_NATIVE = 0x0001,    // This component was compiled to native class
+        INTERPRETED = 0x8000,           // This is a interpreted program
     } Attrib;
 
     typedef Object *(*NewInstanceFunc)();
@@ -310,6 +361,9 @@ public:
     }
 
 public:
+    // Create a constant & return the index in pool
+    ConstantIndex define_constant(const Value& value);
+
     // Decribe the object properties
     void define_object(size_t object_size);
 
@@ -327,7 +381,7 @@ public:
     void add_callee(ComponentNo component_no, Function *function);
 
     // Add component in this program
-    void add_component(const String& program_name, ComponentOffset offset);
+    void add_component(const String& program_name);
 
     // Set function handler: new_instance
     void set_new_instance_func(NewInstanceFunc func)
@@ -339,6 +393,10 @@ public:
     void update_program();
 
 private:
+    // Mark a reference value & all values to CONSTANT in this container
+    // (if value is array or mapping)
+    void mark_constant(Value *value);
+        
     // Update all callees during updating program
     void update_callees();
 
@@ -355,6 +413,18 @@ public:
         return m_components[component_no].offset;
     }
 
+    // Get constant by index
+    Value *get_constant(ConstantIndex index) const
+    {
+        return m_constants.get_array_address(index);
+    }
+
+    // Get constant count
+    ConstantIndex get_constants_count() const
+    {
+        return (ConstantIndex)m_constants.size();
+    }
+
     // Get function by function no
     Function *get_function(FunctionNo function_no) const
     {
@@ -367,6 +437,18 @@ public:
         auto map_offset = m_components_map_offset[this_component_no];
         auto mapped_component_no = m_components_no_map[map_offset + call_component_no];
         return mapped_component_no;
+    }
+
+    // Get member by index
+    const Member *get_member(MemberIndex index) const
+    {
+        return m_members[index];
+    }
+
+    // Get member count
+    MemberIndex get_members_count() const
+    {
+        return (MemberIndex)m_members.size();
     }
 
     // Get name
@@ -414,18 +496,19 @@ public:
     // function_name may be modified to shared string, IGNORE the const
     // ATTENTION: Must use Value for input parameter to avoid constructor String(),
     // or the modification of function_name (to lookup shared) would be useless.
-    Value invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n);
+    Value invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n) const;
 
     // Invoke routine can be accessed by self component
     // See ATTENTION of invoke
-    Value invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n);
+    Value invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n) const;
 
 public:
     // Get function by entry
-    static Function *get_function_by_entry(void *entry)
+    static Function *get_function_by_entry(void *function_or_entry)
     {
-        Function *function = 0;
-        m_entry_functions->try_get(entry, &function);
+        Function *function;
+        if (!m_entry_functions->try_get(function_or_entry, &function))
+            function = (Function *)function_or_entry;
         return function;
     }
 
@@ -443,6 +526,10 @@ private:
     // Program name -> program map
     typedef simple::hash_map<StringImpl *, Program *> ProgramNameMap;
     static ProgramNameMap *m_name_programs;
+
+    // Obsoleted programs
+    typedef simple::hash_set<Program *> ObsoletedProgramSet;
+    static ObsoletedProgramSet *m_obsoleted_programs;
 
     // Critical Section for access
     static struct std_critical_section *m_program_cs;
@@ -464,6 +551,12 @@ private:
     typedef simple::unsafe_vector<ComponentNo> ComponentsNoMap;
     ComponentsMapOffset m_components_map_offset;
     ComponentsNoMap m_components_no_map;
+
+    // Rember all allocated constants
+    ValueList m_list;
+
+    // All constants
+    simple::unsafe_vector<Value> m_constants;
 
     // All functions defined this program (those defined in component not included) 
     simple::unsafe_vector<Function *> m_functions;

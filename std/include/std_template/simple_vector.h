@@ -155,6 +155,7 @@ public:
         return end();
     }
 
+    // Append an element
     inline void push_back(const T& element)
     {
         if (m_size >= m_space)
@@ -167,6 +168,7 @@ public:
         m_array[m_size++] = element;
     }
 
+    // Append an element
     inline void push_back(T&& element)
     {
         if (m_size >= m_space)
@@ -179,6 +181,7 @@ public:
         m_array[m_size++] = simple::move(element);
     }
 
+    // Append an element N times
     void push_backs(const T& e, size_t count)
     {
         STD_ASSERT(count >= 0);
@@ -189,6 +192,20 @@ public:
         // Put all values
         while (m_size < new_size)
             m_array[m_size++] = e;
+    }
+
+    // Append an array
+    void push_back_array(const T *ptr, size_t count)
+    {
+        STD_ASSERT(count >= 0);
+        size_t new_size = m_size + count;
+        // Extend size when necessary
+        while (new_size > m_space)
+            extend();
+        // Put all values
+        size_t i = 0;
+        while (m_size < new_size)
+            m_array[m_size++] = ptr[i++];
     }
 
     // Remove an element @ index

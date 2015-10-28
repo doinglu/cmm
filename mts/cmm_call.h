@@ -43,7 +43,7 @@ inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo funct
 
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     auto func = function->get_script_entry();
-    thread->push_call_context(object, *(void **)&func, args, mapped_component_no);
+    thread->push_call_context(object, function, args, n, mapped_component_no);
     Value ret = (component_impl->*func)(thread, args, n);
     thread->pop_call_context();
     return ret;
@@ -63,7 +63,9 @@ template<typename F>
 inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Value *args = 0, ArgNo n = 0)
 {
     auto func = (Function::ScriptEntry) fptr;
-    thread->push_call_context(thread->get_this_object(), *(void **)&func, args,
+    // Use the function pointer instead of function to optimize
+    // the speed of near call
+    thread->push_call_context(thread->get_this_object(), *(void **)&func, args, n,
                               thread->get_this_component_no());
     Value ret = (component->*func)(thread, args, n);
     thread->pop_call_context();
@@ -99,7 +101,7 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
         auto offset = program->get_component_offset(component_no);
         auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
         auto func = callee.function->get_script_entry();
-        thread->push_call_context(object, *(void **)&func, args, component_no);
+        thread->push_call_context(object, callee.function, args, n, component_no);
         Value ret = (component_impl->*func)(thread, args, n);
         thread->pop_call_context();
         return ret;

@@ -16,10 +16,10 @@ public:
     {
         Program *program = XNEW(Program, "/feature/desc", Program::COMPILED_TO_NATIVE);
 
-        program->define_member("desc", ValueType::STRING);
+        program->define_member("desc", STRING);
 
-        program->add_component("/feature/desc", 0);
-        program->add_component("/feature/name", 0);
+        program->add_component("/feature/desc");
+        program->add_component("/feature/name");
 
         Function *function;
         program->define_function("print", (Function::ScriptEntry)&Impl::print, 0, 0);

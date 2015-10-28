@@ -95,9 +95,9 @@ public:
     {
         index_t index;
         if (!try_get_index(key, &index))
-            return end();
+            return ((hash_map *)this)->end();
 
-        return iterator(*this, index);
+        return iterator(*(hash_map *)this, index);
     }
 
     // Put key-value pair into map, replace if existed

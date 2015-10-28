@@ -143,6 +143,13 @@ void Thread::stop()
     std_set_tls_data(m_thread_tls_id, 0);
 }
 
+// Get function for this context
+Function *Thread::get_this_function()
+{
+    auto *context = get_this_call_context();
+    return Program::get_function_by_entry(context->m_function_or_entry);
+}
+
 // Push new domain context
 void Thread::push_domain_context(void *sp)
 {
@@ -160,7 +167,7 @@ void Thread::push_domain_context(void *sp)
 }
 
 // Restore previous domain context
-Value& Thread::pop_domain_context(Value& ret)
+Value Thread::pop_domain_context(const Value& ret)
 {
     STD_ASSERT(("There must be existed current_domain.", m_current_domain));
     m_current_domain->m_context_list.remove_node(m_this_domain_context);
@@ -170,10 +177,10 @@ Value& Thread::pop_domain_context(Value& ret)
     Domain *prev_domain = m_this_domain_context->value.m_domain;
 
     // Domain will be changed, try to copy ret to target domain
-    ret.copy_to_local(this);
+    Value new_ret = ret.copy_to_local(this);
     switch_domain(prev_domain);
     transfer_values_to_current_domain();
-    return ret;
+    return new_ret;
 }
 
 // Restore when error occurred
@@ -183,7 +190,7 @@ void Thread::restore_call_stack_for_error(CallContext *to_call_context)
     auto *call_context = get_this_call_context();
 
     STD_ASSERT(("Try to restore to bad call context.\n",
-               to_call_context >= get_all_call_contexts()));
+               to_call_context >= get_all_call_contexts() - 1));
     while (call_context >= to_call_context)
     {
         // Switch to previous domain
@@ -221,7 +228,7 @@ void Thread::trace_call_stack()
             switch_domain(domain_context->value.m_domain);
         }
         // Get the function via entry
-        auto *function = Program::get_function_by_entry(call_context->m_entry);
+        auto *function = Program::get_function_by_entry(call_context->m_function_or_entry);
         auto *object = call_context->m_this_object;
         auto *program = object->get_program();
 
@@ -289,7 +296,7 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
         // Domain will be changed
         // Copy arguments to thread local value list & pass to target
         for (ArgNo i = 0; i < n; i++)
-            args[i].copy_to_local(thread);
+            args[i] = args[i].copy_to_local(thread);
 
         // OK, Switch the domain first
         if (m_current_domain)
@@ -329,6 +336,12 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
     // Transfer the value no matter the domain to avoid them left on thread
     thread->transfer_values_to_current_domain();
     return false;
+}
+
+// Drop all values in local value list
+void Thread::free_values()
+{
+    m_value_list.free();
 }
 
 // Return context of this thread

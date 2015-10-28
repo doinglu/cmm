@@ -27,6 +27,7 @@
 #include "a_name_2.h"
 #include "a_desc_2.h"
 #include "a_entity_2.h"
+#include "a_desc_i.h"
 #endif
 
 long long GetUsCounter()
@@ -159,25 +160,25 @@ int main(int argn, char *argv[])
     Object::init();
     Thread::init();
     Program::init();
+    Simulator::init();
     Efun::init();
 
     ////----    auto *thread = Thread::get_current_thread();
 ////----    thread->update_start_sp_of_start_domain_context(&argn);
 
+    auto *try_context = Thread::get_current_thread()->get_this_call_context();
     try
     {
         auto ret = main_body(argn, argv);
     }
-    catch (const char *msg)
-    {
-        printf("Exception: %s\n", msg);
-    }
     catch (...)
     {
-        printf("Unknown error.\n");
+//        printf("Exception: %s\n", msg);
+        Thread::get_current_thread()->restore_call_stack_for_error(try_context);
     }
 
     Efun::shutdown();
+    Simulator::shutdown();
     Program::shutdown();
     Thread::shutdown();
     Domain::shutdown();
@@ -270,6 +271,7 @@ int main_body(int argn, char *argv[])
     __clone_entity_ob::create_program();
     __feature_desc_ob::create_program();
     __feature_name_ob::create_program();
+    create_desc_i_program();
 
     Program::update_all_programs();
 
@@ -303,7 +305,7 @@ int main_body(int argn, char *argv[])
     auto *ob2 = program->new_instance(domain2);
     call_other(thread, ob->get_oid(), "create");
     call_other(thread, ob2->get_oid(), "create");
-    Value ret = call_other(thread, ob->get_oid(), "test_call", ob2->get_oid());
+    Value ret = call_other(thread, ob->get_oid(), "printf", ob2->get_oid());
 //    printf("ret = %d.\n", (int) ret.m_int);
     XDELETE(ob);
 

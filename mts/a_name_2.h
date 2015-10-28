@@ -16,11 +16,11 @@ public:
     {
         Program *program = XNEW(Program, "/feature/name", Program::COMPILED_TO_NATIVE);
 
-        program->define_member("name", ValueType::STRING);
-        program->define_member("unused", ValueType::MIXED);
+        program->define_member("name", STRING);
+        program->define_member("unused", MIXED);
 
-        program->add_component("/feature/name", 0);
-        program->add_component("/feature/desc", 0);
+        program->add_component("/feature/name");
+        program->add_component("/feature/desc");
 
         Function *function;
         program->define_function("set_name", (Function::ScriptEntry)&Impl::set_name, 1, 1);

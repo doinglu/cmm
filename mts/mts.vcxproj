@@ -89,6 +89,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)std\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -104,6 +105,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)std\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -176,6 +178,7 @@
     <ClInclude Include="..\std\include\std_template\simple_util.h" />
     <ClInclude Include="..\std\include\std_template\simple_vector.h" />
     <ClInclude Include="a_desc.h" />
+    <ClInclude Include="a_desc_i.h" />
     <ClInclude Include="a_entity.h" />
     <ClInclude Include="cmm.h" />
     <ClInclude Include="cmm_buffer_new.h" />
@@ -246,7 +249,6 @@
     </ClCompile>
     <ClCompile Include="..\std\src\std_template\simple_string.cpp" />
     <ClCompile Include="a_desc_2.h" />
-    <ClCompile Include="a_desc_i.cpp" />
     <ClCompile Include="a_entity_2.h" />
     <ClCompile Include="a_name.h" />
     <ClCompile Include="a_name_2.h" />

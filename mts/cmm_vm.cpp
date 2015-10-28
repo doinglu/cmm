@@ -1,9 +1,13 @@
 // cmm_vm.c
 
+#include <stdio.h>
 #include "std_port/std_port.h"
 #include "cmm.h"
+#include "cmm_call.h"
+#include "cmm_common_util.h"
+#include "cmm_output.h"
+#include "cmm_thread.h"
 #include "cmm_vm.h"
-
 
 namespace cmm
 {
@@ -11,7 +15,7 @@ namespace cmm
 // Define a instruction
 #define _INST(code, opern, memo) { Instruction::code, #code, &Simulator::x##code, opern, memo }
 
-Simulator::InstructionInfo Simulator::m_instructionInfo[] =
+Simulator::InstructionInfo Simulator::m_instruction_info[] =
 {
     _INST(NOP,      0, "$$"),
     _INST(ADDI,     3, "$$ $1, $2, $3"),
@@ -58,18 +62,24 @@ Simulator::InstructionInfo Simulator::m_instructionInfo[] =
     _INST(RSHX,     3, "$$ $1, $2, $3"),
     _INST(CAST,     3, "$$ $1, ($2.type)$3"),
     _INST(ISTYPE,   3, "$$ $1, $3 is $2.type"),
-    _INST(LDN,      2, "$$ $1, nil"),
-    _INST(LDI,      2, "$$ $1, $2"),
-    _INST(LDR,      2, "$$ $1, $2"),
+    _INST(LDMULX,   3, "$$ $1, $2 x$3"),
+    _INST(LDI,      2, "$$ $1, $23.imm"),
+    _INST(LDR,      2, "$$ $1, $23.immf"),
     _INST(LDX,      2, "$$ $1, $2"),
-    _INST(RIDXMS,   3, "$$ $1, $2[$3]"),
+    _INST(LDARGN,   1, "$$ $1, argn"),
     _INST(RIDXXX,   3, "$$ $1, $2[$3]"),
-    _INST(LIDXMS,   3, "$$ $1[$3], $2"),
     _INST(LIDXXX,   3, "$$ $1[$3], $2"),
-    _INST(CALLNEAR, 2, "$$ $1($2...)"),
-    _INST(CALLFAR,  3, "$$ $3.$1($2...)"),
+    _INST(MKEARR,   3, "$$ $1, [] capacity:$2"),
+    _INST(MKIARR,   3, "$$ $1, [$3... x$2]"),
+    _INST(MKEMAP,   3, "$$ $1, {} capacity:$2"),
+    _INST(MKIMAP,   3, "$$ $1, {$3:... x$2}"),
+    _INST(JMP,      1, "$$ $1.offset"),
+    _INST(JCOND,    2, "$$ $1.offset when $2 != 0"),
+    _INST(CALLNEAR, 2, "$$ $1.fun($2...)"),
+    _INST(CALLFAR,  3, "$$ $31.fun($2...)"),
     _INST(CALLNAME, 2, "$$ $1($2...)"),
     _INST(CALLOTHER,3, "$$ $1($2...)"),
+    _INST(CALLEFUN, 3, "$$ $1($2...)"),
     _INST(CHKPARAM, 0, "$$"),
     _INST(RET,      1, "$$ $1"),
     _INST(LOOPIN,   3, "$$ ($1=$2 to $3)"),
@@ -84,8 +94,8 @@ Uint8 Simulator::m_code_map[256];
 int Simulator::init()
 {
     // Build code map: code->index
-    for (Uint8 i = 0; m_instructionInfo[i].name != 0; i++)
-        m_code_map[m_instructionInfo[i].code] = i;
+    for (Uint8 i = 0; m_instruction_info[i].name != 0; i++)
+        m_code_map[m_instruction_info[i].code] = i;
     return 0;
 }
 
@@ -93,67 +103,1495 @@ void Simulator::shutdown()
 {
 }
 
-void Simulator::xNOP() {}
-void Simulator::xADDI() {}
-void Simulator::xADDR() {}
-void Simulator::xADDX() {}
-void Simulator::xSUBI() {}
-void Simulator::xSUBR() {}
-void Simulator::xSUBX() {}
-void Simulator::xMULI() {}
-void Simulator::xMULR() {}
-void Simulator::xMULX() {}
-void Simulator::xDIVI() {}
-void Simulator::xDIVR() {}
-void Simulator::xDIVX() {}
-void Simulator::xEQI() {}
-void Simulator::xEQR() {}
-void Simulator::xEQX() {}
-void Simulator::xGTI() {}
-void Simulator::xGTR() {}
-void Simulator::xGTX() {}
-void Simulator::xLTI() {}
-void Simulator::xLTR() {}
-void Simulator::xLTX() {}
-void Simulator::xNEI() {}
-void Simulator::xNER() {}
-void Simulator::xNEX() {}
-void Simulator::xGEI() {}
-void Simulator::xGER() {}
-void Simulator::xGEX() {}
-void Simulator::xLEI() {}
-void Simulator::xLER() {}
-void Simulator::xLEX() {}
-void Simulator::xANDI() {}
-void Simulator::xANDX() {}
-void Simulator::xORI() {}
-void Simulator::xORX() {}
-void Simulator::xXORI() {}
-void Simulator::xXORX() {}
-void Simulator::xNOTI() {}
-void Simulator::xNOTX() {}
-void Simulator::xLSHI() {}
-void Simulator::xLSHX() {}
-void Simulator::xRSHI() {}
-void Simulator::xRSHX() {}
-void Simulator::xCAST() {}
-void Simulator::xISTYPE() {}
-void Simulator::xLDN() {}
-void Simulator::xLDI() {}
-void Simulator::xLDR() {}
-void Simulator::xLDX() {}
-void Simulator::xRIDXMS() {}
-void Simulator::xRIDXXX() {}
-void Simulator::xLIDXMS() {}
-void Simulator::xLIDXXX() {}
-void Simulator::xCALLNEAR() {}
-void Simulator::xCALLFAR() {}
-void Simulator::xCALLNAME() {}
-void Simulator::xCALLOTHER() {}
-void Simulator::xCHKPARAM() {}
-void Simulator::xRET() {}
-void Simulator::xLOOPIN() {}
-void Simulator::xLOOPRANGE() {}
-void Simulator::xLOOPEND() {}
+// Get value by parameter
+// If "is_imm_only" is false, get the value offset by type:imm, or return
+// the imm (in Value *) directly 
+Value *Simulator::get_parameter_value(int index)
+{
+    int type = 0;       // Type of this code parameter
+    int imm = 0;        // Immidiate number
+    switch (index)
+    {
+    case 0: type = m_this_code->t1; imm = m_this_code->p1; break;
+    case 1: type = m_this_code->t2; imm = m_this_code->p2; break;
+    case 2: type = m_this_code->t3; imm = m_this_code->p3; break;
+    default: break;
+    }
+
+    // Derive the value
+    Value *p = 0;
+    switch (type)
+    {
+    case Instruction::CONSTANT: p = m_constants;    break;
+    case Instruction::ARGUMENT: p = m_args;         break;
+    case Instruction::LOCAL:    p = m_locals;       break;
+    case Instruction::MEMBER:   p = m_members;      break;
+    default: break;
+    }
+
+    return p + imm;
+}
+
+// Get immediately value in parameter
+int Simulator::get_parameter_imm(int index)
+{
+    int imm = 0;        // Immidiate number
+    switch (index)
+    {
+    case 0: imm = m_this_code->p1; break;
+    case 1: imm = m_this_code->p2; break;
+    case 2: imm = m_this_code->p3; break;
+    default: break;
+    }
+    return imm;
+}
+
+// Interpter of VM
+Value InterpreterComponent::interpreter(Thread *_thread, Value *__args, ArgNo __n)
+{
+    return Simulator::interpreter(this, _thread, __args, __n);
+}
+
+// Interpter of VM
+Value Simulator::interpreter(AbstractComponent *_component, Thread *_thread, Value *__args, ArgNo __n)
+{
+    // Create simulation context
+    Simulator sim;
+    sim.m_thread = _thread;
+    sim.m_component = _component;
+    sim.m_domain = _thread->get_current_domain();
+    sim.m_function = _thread->get_this_function();
+    sim.m_program = sim.m_function->get_program();
+    sim.m_argn = __n;
+    sim.m_args = __args;
+    sim.m_localn = sim.m_function->get_max_local_no();
+    sim.m_locals = (Value *)STD_ALLOCA(sizeof(Value) * sim.m_localn);
+    sim.m_constantn = sim.m_program->get_constants_count();
+    sim.m_constants = sim.m_program->get_constant(0);
+    sim.m_membern = sim.m_component->m_program->get_members_count();
+    sim.m_members = sim.m_component->m_members;
+    memset(sim.m_locals, 0, sizeof(Value) * sim.m_localn);
+
+    // Set byte codes
+    sim.m_byte_codes = sim.m_function->get_byte_codes_addr();
+
+    // Start simulation
+    return sim.run();
+}
+
+// Make a constant include component_no:function_no
+Integer Simulator::make_function_constant(ComponentNo component_no, FunctionNo function_no)
+{
+    return (((Integer)component_no << 16) | function_no);
+}
+
+#define GET_P1      Value *p1 = get_parameter_value(0)
+#define GET_P2      Value *p2 = get_parameter_value(1)
+#define GET_P3      Value *p3 = get_parameter_value(2)
+#define GET_P1_IMM  int p1 = get_parameter_imm(1)
+#define GET_P2_IMM  int p2 = get_parameter_imm(1)
+#define GET_P3_IMM  int p3 = get_parameter_imm(1)
+
+// Run the function
+Value Simulator::run()
+{
+    m_ip = m_byte_codes;
+    for (;;)
+    {
+        if (m_ip->code == Instruction::RET)
+        {
+            GET_P1;
+            return *p1;
+        }
+
+        // Get index of InstructionInfo for this code
+        size_t index = m_code_map[m_ip->code];
+        auto *info = &m_instruction_info[index];
+        m_this_code = m_ip;
+        m_ip++;
+        (this->*info->entry)();
+
+#ifdef _DEBUG
+        {
+            // The return value (p1) must be binded to current domain
+            GET_P1;
+            STD_ASSERT(p1->m_type < REFERENCE_VALUE ||
+                       (p1->m_reference->attrib & ReferenceImpl::CONSTANT) ||
+                       p1->m_reference->owner == m_domain->get_value_list());
+        }
+#endif
+    }
+}
+
+// Do nothing
+void Simulator::xNOP()
+{
+}
+
+// ADD two integers, p1 = p2 + p3
+void Simulator::xADDI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int + p3->m_int;
+}
+
+void Simulator::xADDR()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::REAL;
+    p1->m_real = p2->m_real + p3->m_real;
+}
+
+void Simulator::xADDX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = p2->m_int + p3->m_int;
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = (Real)p2->m_int + p3->m_real;
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = p2->m_real + p3->m_real;
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = p2->m_real + (Real)p3->m_int;
+            return;
+        }
+        break;
+
+    case ValueType::STRING:
+        if (p3->m_type == ValueType::STRING)
+        {
+            p1->m_type = ValueType::STRING;
+            p1->m_string = p2->m_string->concat(p3->m_string);
+            return;
+        } else
+        {
+            Output output;
+            p1->m_string = p2->m_string->concat(output.type_value(p3).ptr());
+            return;
+        }
+        break;
+
+    case ValueType::BUFFER:
+        if (p3->m_type == ValueType::BUFFER)
+        {
+            p1->m_type = ValueType::BUFFER;
+            p1->m_buffer = p2->m_buffer->concat(p3->m_buffer);
+            return;
+        }
+        break;
+
+    case ValueType::ARRAY:
+        if (p3->m_type == ValueType::ARRAY)
+        {
+            p1->m_type = ValueType::ARRAY;
+            p1->m_array = p2->m_array->concat(p3->m_array);
+            return;
+        }
+        break;
+
+    case ValueType::MAPPING:
+        if (p3->m_type == ValueType::MAPPING)
+        {
+            p1->m_type = ValueType::MAPPING;
+            p1->m_map = p2->m_map->concat(p3->m_map);
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s + %s.\n",
+        Value::type_to_name(p2->m_type),
+        Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xSUBI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int - p3->m_int;
+}
+
+void Simulator::xSUBR()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::REAL;
+    p1->m_real = p2->m_real - p3->m_real;
+}
+
+void Simulator::xSUBX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = p2->m_int - p3->m_int;
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = (Real)p2->m_int - p3->m_real;
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = p2->m_real - p3->m_real;
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = p2->m_real - (Real)p3->m_int;
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s - %s.\n",
+        Value::type_to_name(p2->m_type),
+        Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xMULI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int * p3->m_int;
+}
+
+void Simulator::xMULR()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::REAL;
+    p1->m_real = p2->m_real * p3->m_real;
+}
+
+void Simulator::xMULX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = p2->m_int * p3->m_int;
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = (Real)p2->m_int * p3->m_real;
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = p2->m_real * p3->m_real;
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = p2->m_real * (Real)p3->m_int;
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s * %s.\n",
+        Value::type_to_name(p2->m_type),
+        Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xDIVI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int / p3->m_int;
+}
+
+void Simulator::xDIVR()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::REAL;
+    p1->m_real = p2->m_real / p3->m_real;
+}
+
+void Simulator::xDIVX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = p2->m_int / p3->m_int;
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = (Real)p2->m_int / p3->m_real;
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = p2->m_real / p3->m_real;
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::REAL;
+            p1->m_real = p2->m_real / (Real)p3->m_int;
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s / %s.\n",
+        Value::type_to_name(p2->m_type),
+        Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xEQI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_int == p3->m_int);
+}
+
+void Simulator::xEQR()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_real == p3->m_real);
+}
+
+void Simulator::xEQX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_int == p3->m_int);
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)((Real)p2->m_int == p3->m_real);
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real == p3->m_real);
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real == (Real)p3->m_int);
+            return;
+        }
+        break;
+
+    case ValueType::STRING:
+        if (p3->m_type == ValueType::STRING)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) == 0);
+            return;
+        }
+        break;
+
+    case ValueType::BUFFER:
+        if (p3->m_type == ValueType::BUFFER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) == 0);
+            return;
+        }
+        break;
+
+    default:
+        if (p2->m_type == p3->m_type)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_intptr == p3->m_intptr);
+            return;
+        }
+        break;
+    }
+
+    // Not eq
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = 0;
+}
+
+void Simulator::xNEI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_int != p3->m_int);
+}
+
+void Simulator::xNER()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_real != p3->m_real);
+}
+
+void Simulator::xNEX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_int != p3->m_int);
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)((Real)p2->m_int != p3->m_real);
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real != p3->m_real);
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real != (Real)p3->m_int);
+            return;
+        }
+        break;
+
+    case ValueType::STRING:
+        if (p3->m_type == ValueType::STRING)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) != 0);
+            return;
+        }
+        break;
+
+    case ValueType::BUFFER:
+        if (p3->m_type == ValueType::BUFFER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) != 0);
+            return;
+        }
+        break;
+
+    default:
+        if (p2->m_type == p3->m_type)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_intptr != p3->m_intptr);
+            return;
+        }
+        break;
+    }
+
+    // Not eq
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = 1;
+}
+
+void Simulator::xGTI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_int > p3->m_int);
+}
+
+void Simulator::xGTR()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_real > p3->m_real);
+}
+
+void Simulator::xGTX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_int > p3->m_int);
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)((Real)p2->m_int > p3->m_real);
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real > p3->m_real);
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real > (Real)p3->m_int);
+            return;
+        }
+        break;
+
+    case ValueType::STRING:
+        if (p3->m_type == ValueType::STRING)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) > 0);
+            return;
+        }
+        break;
+
+    case ValueType::BUFFER:
+        if (p3->m_type == ValueType::BUFFER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) > 0);
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s > %s.\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xLTI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_int < p3->m_int);
+}
+
+void Simulator::xLTR()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_real < p3->m_real);
+}
+
+void Simulator::xLTX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_int < p3->m_int);
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)((Real)p2->m_int < p3->m_real);
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real < p3->m_real);
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real < (Real)p3->m_int);
+            return;
+        }
+        break;
+
+    case ValueType::STRING:
+        if (p3->m_type == ValueType::STRING)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) < 0);
+            return;
+        }
+        break;
+
+    case ValueType::BUFFER:
+        if (p3->m_type == ValueType::BUFFER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) < 0);
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s < %s.\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xGEI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_int >= p3->m_int);
+}
+
+void Simulator::xGER()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_real >= p3->m_real);
+}
+
+void Simulator::xGEX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_int >= p3->m_int);
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)((Real)p2->m_int >= p3->m_real);
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real >= p3->m_real);
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real >= (Real)p3->m_int);
+            return;
+        }
+        break;
+
+    case ValueType::STRING:
+        if (p3->m_type == ValueType::STRING)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) >= 0);
+            return;
+        }
+        break;
+
+    case ValueType::BUFFER:
+        if (p3->m_type == ValueType::BUFFER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) >= 0);
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s >= %s.\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xLEI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_int <= p3->m_int);
+}
+
+void Simulator::xLER()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = (Integer)(p2->m_real <= p3->m_real);
+}
+
+void Simulator::xLEX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_int <= p3->m_int);
+            return;
+        }
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)((Real)p2->m_int <= p3->m_real);
+            return;
+        }
+        break;
+
+    case ValueType::REAL:
+        if (p3->m_type == ValueType::REAL)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real <= p3->m_real);
+            return;
+        }
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(p2->m_real <= (Real)p3->m_int);
+            return;
+        }
+        break;
+
+    case ValueType::STRING:
+        if (p3->m_type == ValueType::STRING)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) <= 0);
+            return;
+        }
+        break;
+
+    case ValueType::BUFFER:
+        if (p3->m_type == ValueType::BUFFER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) <= 0);
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s <= %s.\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xANDI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int & p3->m_int;
+}
+
+void Simulator::xANDX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = p2->m_int & p3->m_int;
+            return;
+        }
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s & %s.\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xORI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int | p3->m_int;
+}
+
+void Simulator::xORX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = p2->m_int | p3->m_int;
+            return;
+        }
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s | %s.\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xXORI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int ^ p3->m_int;
+}
+
+void Simulator::xXORX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = p2->m_int ^ p3->m_int;
+            return;
+        }
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s ^ %s.\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xNOTI()
+{
+    GET_P1; GET_P2;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = ~p2->m_int;
+}
+
+void Simulator::xNOTX()
+{
+    GET_P1; GET_P2;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        p1->m_type = ValueType::INTEGER;
+        p1->m_int = ~p2->m_int;
+        return;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do ~%s.\n",
+                Value::type_to_name(p2->m_type));
+}
+
+void Simulator::xLSHI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int << p3->m_int;
+}
+
+void Simulator::xLSHX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = p2->m_int << p3->m_int;
+            return;
+        }
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s << %s.\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xRSHI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int >> p3->m_int;
+}
+
+void Simulator::xRSHX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ValueType::INTEGER:
+        if (p3->m_type == ValueType::INTEGER)
+        {
+            p1->m_type = ValueType::INTEGER;
+            p1->m_int = p2->m_int >> p3->m_int;
+            return;
+        }
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do %s >> %s.\n",
+        Value::type_to_name(p2->m_type),
+        Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xCAST()
+{
+    GET_P1; GET_P2_IMM; GET_P3;
+    if (p3->m_type == (ValueType)p2)
+    {
+        *p1 = *p3;
+        return;
+    }
+
+    switch ((ValueType)p2)
+    {
+    case INTEGER:
+        if (p3->m_type == NIL)
+        {
+            p1->m_type = INTEGER;
+            p1->m_int = 0;
+            return;
+        }
+        if (p3->m_type == REAL)
+        {
+            p1->m_type = INTEGER;
+            p1->m_int = (Integer)p3->m_real;
+            return;
+        }
+        if (p3->m_type == STRING)
+        {
+            p1->m_type = INTEGER;
+            p1->m_int = (Integer)strtol(p3->m_string->c_str(), 0, 10, 1);
+            return;
+        }
+        break;
+
+    case REAL:
+        if (p3->m_type == NIL)
+        {
+            p1->m_type = REAL;
+            p1->m_real = 0;
+            return;
+        }
+        if (p3->m_type == INTEGER)
+        {
+            p1->m_type = REAL;
+            p1->m_real = (Real)p3->m_int;
+            return;
+        }
+        if (p3->m_type == STRING)
+        {
+            p1->m_type = REAL;
+            p1->m_real = (Real)strtof(p3->m_string->c_str(), 0, 1);
+            return;
+        }
+        break;
+
+    case STRING:
+        if (p3->m_type == NIL)
+        {
+            p1->m_type = STRING;
+            p1->m_string = STRING_ALLOC("nil");
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        if (p3->m_type == INTEGER)
+        {
+            char temp[64];
+            snprintf(temp, sizeof(temp), "%lld", (Int64)p3->m_int);
+            p1->m_type = STRING;
+            p1->m_string = STRING_ALLOC(temp);
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        if (p3->m_type == REAL)
+        {
+            char temp[64];
+            snprintf(temp, sizeof(temp), "%g", (double)p3->m_real);
+            p1->m_type = STRING;
+            p1->m_string = STRING_ALLOC(temp);
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        if (p3->m_type == BUFFER)
+        {
+            // Find length to string
+            size_t len = p3->m_buffer->length();
+            auto *p = p3->m_buffer->data();
+            for (size_t i = 0; i < len; i++)
+            {
+                if (p[i] == 0)
+                {
+                    len = i;
+                    break;
+                }
+            }
+            p1->m_type = STRING;
+            p1->m_string = STRING_ALLOC((char *)p, len);
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        break;
+
+    case BUFFER:
+        if (p3->m_type == NIL)
+        {
+            p1->m_type = BUFFER;
+            p1->m_buffer = BUFFER_ALLOC((size_t)0);
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        if (p3->m_type == INTEGER)
+        {
+            // Make to network order
+            Uint8 temp[sizeof(Integer)];
+            Integer val = p3->m_int;
+            for (int i = sizeof(Integer) - 1; i >= 0; i--)
+            {
+                temp[i] = (Uint8)(val & 0xFF);
+                val >>= 8;
+            }
+            p1->m_buffer = BUFFER_ALLOC(temp, sizeof(Integer));
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        if (p3->m_type == REAL)
+        {
+            // Make to network order
+            Uint8 temp[sizeof(double)];
+            Int64 val = *(Int64 *)&p3->m_real;
+            for (int i = sizeof(Int64) - 1; i >= 0; i--)
+            {
+                temp[i] = (Uint8)(val & 0xFF);
+                val >>= 8;
+            }
+            p1->m_buffer = BUFFER_ALLOC(temp, sizeof(Int64));
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        if (p3->m_type == STRING)
+        {
+            p1->m_type = BUFFER;
+            p1->m_buffer = BUFFER_ALLOC((Uint8 *)p3->m_string->c_str(), p3->m_string->length());
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        break;
+
+    case ARRAY:
+        if (p3->m_type == NIL)
+        {
+            p1->m_type = ARRAY;
+            p1->m_array = XNEW(ArrayImpl, 0);
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        break;
+
+    case MAPPING:
+        if (p3->m_type == NIL)
+        {
+            p1->m_type = MAPPING;
+            p1->m_map = XNEW(MapImpl, 0);
+            m_domain->bind_value(p1->m_reference);
+            return;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do cast %s to %s.\n",
+                Value::type_to_name(p3->m_type),
+                Value::type_to_name((ValueType)p2));
+}
+
+void Simulator::xISTYPE()
+{
+    GET_P1; GET_P2_IMM; GET_P3;
+    p1->m_type = INTEGER;
+    p1->m_int = (Integer)(p3->m_type == (ValueType)p2);
+}
+
+void Simulator::xLDMULX()
+{
+    GET_P1; GET_P2; GET_P3;
+    // P1 must be local for LDMULX
+    STD_ASSERT(("p1 must be local variables for LDMULX.\n",
+                m_this_code->t1 == Instruction::LOCAL));
+    if (m_this_code->p1 + p3->m_int > m_localn)
+        throw_error("Overflow when copy values (%lld) to local (offset = %lld).\n",
+                    (Int64)p3->m_int, (Int64)m_this_code->p1);
+    memcpy(p1, p2, sizeof(Value) * p3->m_int);
+}
+
+void Simulator::xLDI()
+{
+    GET_P1; GET_P2_IMM; GET_P3_IMM;
+    p1->m_type = INTEGER;
+    p1->m_int = (((Integer)p2) << 16) | (Integer)p3;
+}
+
+void Simulator::xLDR()
+{
+    GET_P1; GET_P2_IMM; GET_P3_IMM;
+    p1->m_type = REAL;
+    p1->m_real = (Real)p2 + (Real)p3/10000.0;
+}
+
+void Simulator::xLDX()
+{
+    GET_P1; GET_P2;
+    *p1 = *p2;
+}
+
+void Simulator::xLDARGN()
+{
+    GET_P1;
+    p1->m_type = INTEGER;
+    p1->m_int = (Integer)m_argn;
+}
+
+void Simulator::xRIDXXX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case STRING:
+        if (p3->m_type == INTEGER)
+        {
+            if (p3->m_int < 0 || p3->m_int >= (Integer)p2->m_string->length())
+                throw_error("Index (%lld) is out of string range (%zu).\n",
+                            (Int64)p3->m_int, p2->m_string->length());
+            p1->m_type = INTEGER;
+            p1->m_int = (*p2->m_string)[p3->m_int];
+            break;
+        }
+    case BUFFER:
+        if (p3->m_type == INTEGER)
+        {
+            if (p3->m_int < 0 || p3->m_int >= (Integer)p2->m_buffer->length())
+                throw_error("Index (%lld) is out of buffer range (%zu).\n",
+                            (Int64)p3->m_int, p2->m_buffer->length());
+            p1->m_type = INTEGER;
+            p1->m_int = (*p2->m_buffer)[p3->m_int];
+            break;
+        }
+    case ARRAY:
+        if (p3->m_type == INTEGER)
+        {
+            if (p3->m_int < 0 || p3->m_int >= (Integer)p2->m_array->size())
+                throw_error("Index (%lld) is out of array range (%zu).\n",
+                            (Int64)p3->m_int, p2->m_array->size());
+            *p1 = (*p2->m_array)[p3->m_int];
+            break;
+        }
+
+    case MAPPING:
+        *p1 = (*p2->m_map)[*p3];
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do index like %s[%s].\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+void Simulator::xLIDXXX()
+{
+    GET_P1; GET_P2; GET_P3;
+    switch (p2->m_type)
+    {
+    case ARRAY:
+        if (p3->m_type == INTEGER)
+        {
+            if (p3->m_int < 0 || p3->m_int >= (Integer)p2->m_array->size())
+                throw_error("Index (%lld) is out of array range (%zu).\n",
+                            (Int64)p3->m_int, p2->m_array->size());
+            (*p2->m_array)[p3->m_int] = *p1;
+            break;
+        }
+
+    case MAPPING:
+        (*p2->m_map)[*p3] = *p1;
+        break;
+
+    default:
+        break;
+    }
+
+    throw_error("Failed to do assign index like %s[%s].\n",
+                Value::type_to_name(p2->m_type),
+                Value::type_to_name(p3->m_type));
+}
+
+// Make an empty array
+void Simulator::xMKEARR()
+{
+    GET_P1; GET_P2;
+    p1->m_type = ARRAY;
+    p1->m_array = XNEW(ArrayImpl, (size_t)p2->m_int);
+    m_domain->bind_value(p1->m_reference);
+}
+
+// Make and initialize an array
+void Simulator::xMKIARR()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ARRAY;
+    p1->m_array = XNEW(ArrayImpl, (size_t)p2->m_int);
+    p1->m_array->a.push_back_array(p3, (size_t)p2->m_int);
+    m_domain->bind_value(p1->m_reference);
+}
+
+// Make an empty mapping
+void Simulator::xMKEMAP()
+{
+    GET_P1; GET_P2;
+    p1->m_type = MAPPING;
+    p1->m_map = XNEW(MapImpl, (size_t)p2->m_int);
+    m_domain->bind_value(p1->m_reference);
+}
+
+// Make and initialize a mapping
+void Simulator::xMKIMAP()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = MAPPING;
+    p1->m_map = XNEW(MapImpl, (size_t)p2->m_int);
+    m_domain->bind_value(p1->m_reference);
+    for (Integer i = 0; i < p2->m_int; i++)
+        p1->m_map->m.put(p3[i * 2], p3[i * 2 + 1]);
+}
+
+void Simulator::xJMP()
+{
+    GET_P1_IMM;
+    m_ip += p1;
+}
+
+void Simulator::xJCOND()
+{
+    GET_P1_IMM; GET_P2;
+    if (p2->is_non_zero())
+        m_ip += p1;
+}
+
+void Simulator::xCALLNEAR()
+{
+    GET_P1; GET_P2_IMM; GET_P3;
+    auto function_no = (FunctionNo)p2;
+    *p1 = call_far(m_thread, 0/* current component */, function_no, p3 + 1, (ArgNo)p3->m_int);
+}
+
+void Simulator::xCALLFAR()
+{
+    GET_P1; GET_P2; GET_P3;
+    // p2 is constant: FunctionNo & ComponentNo
+    auto function_no = (FunctionNo)(p2->m_int >> 16);
+    auto component_no = (ComponentNo)(p2->m_int & 0xFFFF);
+    *p1 = call_far(m_thread, component_no, function_no, p3 + 1, (ArgNo)p3->m_int);
+}
+
+void Simulator::xCALLNAME()
+{
+    GET_P1; GET_P2; GET_P3;
+    if (p2->m_type != STRING)
+        throw_error("Bad type to call, expected string got %s.\n",
+                    Value::type_to_name(p1->m_type));
+    // p2 is constant: name
+    *p1 = m_program->invoke_self(m_thread, p2[0], p3 + 1, (ArgNo)p3->m_int);
+}
+
+void Simulator::xCALLOTHER()
+{
+    GET_P1; GET_P2; GET_P3;
+    if (p2->m_type != STRING)
+        throw_error("Bad type to call, expected string got %s.\n",
+                    Value::type_to_name(p1->m_type));
+    // p2 is locals: oid, name
+    *p1 = m_program->invoke(m_thread, p2[0].m_oid, p2[1], p3 + 1, (ArgNo)p3->m_int);
+}
+
+void Simulator::xCALLEFUN()
+{
+    GET_P1; GET_P2; GET_P3;
+    if (p2->m_type != STRING)
+        throw_error("Bad type to call, expected string got %s.\n",
+                    Value::type_to_name(p1->m_type));
+    // p2 is locals: oid, name
+    *p1 = call_efun(m_thread, p2[0], p3 + 1, (ArgNo)p3->m_int);
+}
+
+void Simulator::xCHKPARAM()
+{
+    // Check the count & type of all arguments
+    // Pad default if necessary
+    if (m_argn < m_function->get_min_arg_no())
+        throw_error("Two few arguments to %s, expected %d, got %d.\n",
+                    m_function->get_name()->c_str(),
+                    m_function->get_min_arg_no(), m_argn);
+
+    if (m_argn > m_function->get_min_arg_no() &&
+        !m_function->get_attrib() & Function::RANDOM_ARG)
+        throw_error("Two many arguments to %s, expected %d, got %d.\n",
+                    m_function->get_name()->c_str(),
+                    m_function->get_max_arg_no(), m_argn);
+
+    // Check types
+    auto& parameters = (Parameters&)m_function->get_parameters();
+    Value *p = m_args;
+    for (auto& it : parameters)
+    {
+        if (it->get_type() != p->m_type &&
+            (!it->is_nullable() || p->m_type != NIL))
+            // Type is not matched
+            throw_error("Bad type of arguments %s, expected %s, got %s.\n",
+                        it->get_name()->c_str(),
+                        it->get_type(), p->m_type);
+    }
+    // Append the default parameters if necessary
+    if (m_argn < m_function->get_min_arg_no())
+    {
+        auto *new_args = (Value *)STD_ALLOCA(sizeof(Value) * m_function->get_max_arg_no());
+        memcpy(new_args, m_args, sizeof(Value) * m_argn);
+        while (m_argn < m_function->get_min_arg_no())
+        {
+            new_args[m_argn] = parameters[m_argn]->get_default();
+            m_argn++;
+        }
+    }
+}
+
+void Simulator::xRET()
+{
+    // NEVER USE THIS ROUTINE
+    throw_error("The instruction RET shouldn't be invoked.\n");
+}
+
+void Simulator::xLOOPIN()
+{
+    // More to be added
+}
+
+void Simulator::xLOOPRANGE()
+{
+    // More to be added
+}
+
+void Simulator::xLOOPEND()
+{
+    // More to be added
+}
 
 }

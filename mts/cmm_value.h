@@ -83,7 +83,7 @@ public:
     }
 
     // This value will be freed manually, unbind it if necessary
-    void unbind_when_free();
+    void unbind();
 
 public:
     // Copy to local value list
@@ -99,7 +99,7 @@ public:
     virtual void mark(MarkValueState& value_map) { }
 
 public:
-    Uint attrib;
+    Uint attrib;             // 32bits only (Don't use enum)
     mutable Uint hash_cache; // Cache of hash value
     ValueList *owner;        // Owned by domain or thread
     ReferenceImpl *next;     // Next value in list
@@ -135,6 +135,13 @@ public:
     // Don't add destructor, or it may cause the poor performance.
     // We will use this class in function freqencily and the destructor
     // will generated many Exception Handling relative code.
+
+    // Raw constructor (Do nothing, just copy)
+    Value(IntPtr intptr, ValueType type)
+    {
+        m_type = type;
+        m_intptr = intptr;
+    }
 
     Value(const Value& value)
     {
@@ -177,12 +184,14 @@ public:
     Value(Object *ob);
 
     // Contruct from reference values
+    // The ReferenceImpl should be allocated without been binded
     Value(ReferenceImpl *v, ValueType type = NIL)
     {
         if (type == NIL)
             type = v->get_type();
         m_type = type;
         m_reference = v;
+        // Bind if the reference value has not owner yet
         m_reference->bind_to_current_domain();
     }
 
@@ -327,14 +336,13 @@ public:
     // Copy this value to local value list if this is a reference type value
     // After copy, caller should enter another domain & transfer these values
     // to it
-    Value copy_to_local(Thread *thread)
+    Value copy_to_local(Thread *thread) const
     {
         if (m_type < REFERENCE_VALUE)
             return *this;
 
-        // Copy reference value
-        m_reference = m_reference->copy_to_local(thread);
-        return *this;
+        // Copy reference value to a new value
+        return Value((IntPtr)m_reference->copy_to_local(thread), m_type);
     }
 
 public:
@@ -416,11 +424,11 @@ public:
     static int compare(const StringImpl *a, const StringImpl *b);
 
 public:
-    // Concat with other string
-    StringImpl *concat_string(const StringImpl *other) const;
+    // Concat with other
+    StringImpl *concat(const StringImpl *other) const;
 
-    // Get sub string
-    StringImpl *sub_string(size_t offset, size_t len = SIZE_MAX) const;
+    // Get sub of me
+    StringImpl *sub_of(size_t offset, size_t len = SIZE_MAX) const;
 
     // Generate string by snprintf
     static StringImpl *snprintf(const char *fmt, size_t n, ...);
@@ -502,6 +510,9 @@ public:
     virtual size_t hash_this() const;
 
 public:
+    // Get length of me
+    size_t length() const { return len; }
+
     // Get raw data pointer
     Uint8 *data() const { return (Uint8 *) (this + 1); }
 
@@ -520,6 +531,21 @@ public:
             return data() + RESERVE_FOR_CLASS_ARR + index * info->size;
         }
         throw_error("This buffer doesn't not contain any class.\n");
+    }
+
+public:
+    // Concat with other
+    BufferImpl *concat(const BufferImpl *other) const;
+
+    // Get sub of me
+    BufferImpl *sub_of(size_t offset, size_t len = SIZE_MAX) const;
+
+public:
+    inline int operator [](size_t index) const
+    {
+        if (index > length())
+            throw_error("Index of string is out of range.\n");
+        return (int)data()[index];
     }
 
 public:
@@ -591,6 +617,13 @@ public:
     virtual void mark(MarkValueState& value_map);
 
 public:
+    // Concat with other
+    ArrayImpl *concat(const ArrayImpl *other) const;
+
+    // Get sub of me
+    ArrayImpl *sub_of(size_t offset, size_t len = SIZE_MAX) const;
+
+public:
     Value& operator [](Integer index) const
     {
         if (index < 0 || index >= (Integer)a.size())
@@ -653,6 +686,10 @@ public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
     virtual ValueType get_type() const { return this_type; }
     virtual void mark(MarkValueState& value_map);
+
+public:
+    // Concat with other
+    MapImpl *concat(const MapImpl *other) const;
 
 public:
     Value& operator [](const Value& index)
@@ -819,10 +856,10 @@ public:
     // more codes to make them easy to understand.
 public:
     String operator +(const String& other) const
-        { return impl().concat_string(&other.impl()); }
+        { return impl().concat(&other.impl()); }
 
     String operator +=(const String& other)
-        { return (*this = impl().concat_string(&other.impl())); }
+        { return (*this = impl().concat(&other.impl())); }
 
     int operator[](size_t index) const
         { return impl()[index]; }
@@ -839,7 +876,7 @@ public:
         { return StringImpl::snprintf(fmt, n, simple::forward<Types>(args)...); }
 
     String sub_string(size_t offset, size_t len = SIZE_MAX) const
-        { return impl().sub_string(offset, len); }
+        { return impl().sub_of(offset, len); }
 };
 
 class Buffer : public TypedValue<BufferImpl>
@@ -854,18 +891,39 @@ public:
         TypedValue(impl)
     {
     }
+
+    // Redirect function to impl()
+    // ATTENTION:
+    // Why not override -> or * (return T *) for redirection call?
+    // Because the override may cause confusing, I would rather to write
+    // more codes to make them easy to understand.
+public:
+    Buffer operator +(const Buffer& other) const
+    {
+        return impl().concat(&other.impl());
+    }
+
+    Buffer operator +=(const Buffer& other)
+    {
+        return (*this = impl().concat(&other.impl()));
+    }
+
+    int operator[](size_t index) const
+    {
+        return impl()[index];
+    }
 };
 
 class Array : public TypedValue<ArrayImpl>
 {
 public:
     Array(const Value& value) :
-        TypedValue(value)
+          TypedValue(value)
     {
     }
 
     Array(ArrayImpl *impl) :
-        TypedValue(impl)
+          TypedValue(impl)
     {
     }
 

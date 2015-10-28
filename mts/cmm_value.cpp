@@ -33,7 +33,7 @@ void ReferenceImpl::bind_to_current_domain()
 }
 
 // Unbind me if already binded
-void ReferenceImpl::unbind_when_free()
+void ReferenceImpl::unbind()
 {
     if (owner == 0)
         // Not binded yet, do nothing
@@ -222,7 +222,7 @@ StringImpl *StringImpl::alloc(const char *file, int line, const StringImpl *othe
 // Free a string
 void StringImpl::free(const char *file, int line, StringImpl *string)
 {
-    string->unbind_when_free();
+    string->unbind();
     std_free_memory(string, "cpp", file, line);
 }
 
@@ -309,7 +309,7 @@ BufferImpl *BufferImpl::alloc(const char *file, int line, const BufferImpl *othe
 // Free a buffer
 void BufferImpl::free(const char *file, int line, BufferImpl *buffer)
 {
-    buffer->unbind_when_free();
+    buffer->unbind();
 
     if (buffer->attrib & CONTAIN_1_CLASS)
     {
@@ -442,28 +442,28 @@ Value Value::operator [](const Value& value) const
 }
 
 // Concat with other string
-StringImpl *StringImpl::concat_string(const StringImpl *other) const
+StringImpl *StringImpl::concat(const StringImpl *other) const
 {
-    size_t len1 = length();
+    size_t len1 = this->length();
     size_t len2 = other->length();
     size_t len = len1 + len2;
     auto *string = STRING_ALLOC(len);
-    char_t *data = (char_t *)string->buf;
-    memcpy(data, buf, len1 * sizeof(char_t));
-    memcpy(data + len1, other->buf, len2 * sizeof(char_t));
-    data[len] = 0;
+    char_t *p = (char_t *)string->buf;
+    memcpy(p, this->buf, len1 * sizeof(char_t));
+    memcpy(p + len1, other->buf, len2 * sizeof(char_t));
+    p[len] = 0;
 
     // Replace with new string
     return string;
 }
 
-// Get sub string
-StringImpl *StringImpl::sub_string(size_t offset, size_t len) const
+// Get sub of me
+StringImpl *StringImpl::sub_of(size_t offset, size_t len) const
 {
     if (offset >= length())
         return StringImpl::alloc(__FILE__, __LINE__);
 
-    // Calculate the length of sub string
+    // Calculate the length of sub
     if (len > length() - offset)
         len = length() - offset;
 
@@ -491,6 +491,78 @@ StringImpl *StringImpl::snprintf(const char *fmt, size_t n, ...)
 
     buf[n - 1] = 0;
     return STRING_ALLOC(buf);
+}
+
+// Concat with other buffer
+BufferImpl *BufferImpl::concat(const BufferImpl *other) const
+{
+    size_t len1 = this->length();
+    size_t len2 = other->length();
+    size_t len = len1 + len2;
+    auto *buffer = BUFFER_ALLOC(len);
+    Uint8 *p = buffer->data();
+    memcpy(p, this->data(), len1 * sizeof(Uint8));
+    memcpy(p + len1, other->data(), len2 * sizeof(Uint8));
+    p[len] = 0;
+
+    // Replace with new string
+    return buffer;
+}
+
+// Get sub of me
+BufferImpl *BufferImpl::sub_of(size_t offset, size_t len) const
+{
+    if (offset >= length())
+        return BufferImpl::alloc(__FILE__, __LINE__, (size_t)0);
+
+    // Calculate the length of sub
+    if (len > length() - offset)
+        len = length() - offset;
+
+    // Return part of me
+    return BufferImpl::alloc(__FILE__, __LINE__, data() + offset, len);
+}
+
+// Concat with other buffer
+ArrayImpl *ArrayImpl::concat(const ArrayImpl *other) const
+{
+    size_t size1 = this->size();
+    size_t size2 = other->size();
+    size_t size = size1 + size2;
+    auto *array = XNEW(ArrayImpl, size);
+    array->a.push_back_array(this->a.get_array_address(0), this->a.size());
+    array->a.push_back_array(other->a.get_array_address(0), other->a.size());
+    return array;
+}
+
+// Get sub of me
+ArrayImpl *ArrayImpl::sub_of(size_t offset, size_t len) const
+{
+    if (offset >= size())
+        return XNEW(ArrayImpl, (size_t)0);
+
+    // Calculate the length of sub
+    if (len > size() - offset)
+        len = size() - offset;
+
+    // Return part of me
+    auto *array = XNEW(ArrayImpl, (size_t)len);
+    array->a.push_back_array(a.get_array_address(offset), len);
+    return array;
+}
+
+// Concat with other
+MapImpl *MapImpl::concat(const MapImpl *other) const
+{
+    size_t size1 = this->size();
+    size_t size2 = other->size();
+    size_t size = size1 + size2;
+    auto *map = XNEW(MapImpl, size);
+    for (auto& it : (DataType&)this->m)
+        map->m.put(it.first, it.second);
+    for (auto& it : (DataType&)other->m)
+        map->m.put(it.first, it.second);
+    return map;
 }
 
 Array::Array(size_t size_hint) :

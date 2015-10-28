@@ -8,6 +8,7 @@
 #include "cmm_program.h"
 #include "cmm_thread.h"
 #include "cmm_value.h"
+#include "cmm_vm.h"
 
 namespace cmm
 {
@@ -28,6 +29,8 @@ Function::Function(Program *program, const String& name)
     m_name = Program::find_or_add_string(name);
     m_min_arg_no = 0;
     m_max_arg_no = 0;
+    m_max_local_no = 0;
+    m_ret_type = NIL;
     m_attrib = (Attrib)0;
 }
 
@@ -82,7 +85,7 @@ bool Function::finish_adding_parameters()
             {
                 // There is non default argument following default arguments
                 STD_TRACE("Bad arguments list, found argument %s following "
-                          "default arguments.\n", it->get_name().c_str());
+                          "default arguments.\n", it->get_name()->c_str());
                 return false;
             }
         }
@@ -102,6 +105,25 @@ bool Function::finish_adding_parameters()
     return true;
 }
 
+// Get byte codes address
+const Instruction *Function::get_byte_codes_addr() const
+{
+    STD_ASSERT(("Byte codes only for the interpreted function.\n",
+                is_being_interpreted()));
+    return m_byte_codes.get_array_address(0);
+}
+
+// Set byte codes for interpreted function
+void Function::set_byte_codes(Instruction *codes, size_t len)
+{
+    STD_ASSERT(("Byte codes only for the interpreted function.\n",
+                is_being_interpreted()));
+    STD_ASSERT(("There are byte codes existed for this function.\n",
+                m_byte_codes.size() == 0));
+    m_byte_codes.reserve(len);
+    m_byte_codes.push_back_array(codes, len);
+}
+
 Member::Member(Program *program, const String& name)
 {
     m_program = program;
@@ -117,12 +139,14 @@ StringPool *Program::m_string_pool = 0;
 Program::ProgramNameMap *Program::m_name_programs = 0;
 Program::FunctionEntryMap *Program::m_entry_functions = 0;
 struct std_critical_section *Program::m_program_cs = 0;
+Program::ObsoletedProgramSet *Program::m_obsoleted_programs = 0;
 
 int Program::init()
 {
     m_string_pool = XNEW(StringPool);
     m_entry_functions = XNEW(FunctionEntryMap);
     m_name_programs = XNEW(ProgramNameMap);
+    m_obsoleted_programs = XNEW(ObsoletedProgramSet);
 
     std_new_critical_section(&m_program_cs);
     return 0;
@@ -133,9 +157,15 @@ void Program::shutdown()
     // Drop the entry function map
     XDELETE(m_entry_functions);
 
-    // Clear all programs
-    auto programs = m_name_programs->values();
-    for (auto &it: programs)
+    // Clear all obsoleted programs
+    auto obsoleted = m_obsoleted_programs->to_array();
+    for (auto& it : obsoleted)
+        XDELETE(it);
+    XDELETE(m_obsoleted_programs);
+
+    // Clear all active programs
+    auto actives = m_name_programs->values();
+    for (auto& it : actives)
         XDELETE(it);
     STD_ASSERT(("All programs should be freed", m_name_programs->size() == 0));
     XDELETE(m_name_programs);
@@ -150,7 +180,16 @@ void Program::shutdown()
 Program::Program(const String& name, Attrib attrib)
 {
     m_name = Program::find_or_add_string(name);
-    STD_ASSERT(("Program has been defined.", !find_program_by_name(m_name)));
+    auto *prev_program = find_program_by_name(m_name);
+    if (prev_program)
+    {
+        if (!(attrib & Program::INTERPRETED))
+            throw_error("Program %s has been defined.\n", name.c_str());
+
+        // Replace the previous definition with new one, put the
+        // old one to obsoleted set
+        m_obsoleted_programs->put(prev_program);
+    }
 
     std_enter_critical_section(m_program_cs);
     m_name_programs->put(m_name, this);
@@ -174,8 +213,16 @@ Program::~Program()
     for (auto &it: m_members)
         XDELETE(it);
 
+    // Destruct all constants
+    m_list.free();
+
     std_enter_critical_section(m_program_cs);
-    m_name_programs->erase(m_name);
+    if (m_name_programs->find(m_name)->second == this)
+        // This program is active now, removed
+        m_name_programs->erase(m_name);
+    else
+        // This program is obsoleted, removed
+        m_obsoleted_programs->erase(this);
     std_leave_critical_section(m_program_cs);
 }
 
@@ -220,7 +267,11 @@ Program *Program::find_program_by_name(const String& program_name)
         // No such name in shared pool, program not found
         return 0;
 
-    if (!m_name_programs->try_get(program_name.ptr(), &program))
+    std_enter_critical_section(m_program_cs);
+    bool found = m_name_programs->try_get(program_name.ptr(), &program);
+    std_leave_critical_section(m_program_cs);
+
+    if (!found)
         // Program not found
         return 0;
 
@@ -238,6 +289,40 @@ void Program::update_all_programs()
 Object *Program::new_interpreter_component()
 {
     throw 0;////----
+}
+
+// Define a constant in this program
+ConstantIndex Program::define_constant(const Value& value)
+{
+    auto *thread = Thread::get_current_thread();
+    Value dup = value;
+    if (dup.m_type >= REFERENCE_VALUE)
+    {
+        if (dup.m_type == STRING)
+        {
+            dup.m_string = Program::find_or_add_string(*(String *)&dup);
+        } else
+        {
+            STD_ASSERT(("There are still values in thread local value list.\n",
+                        thread->get_value_list_count() == 0));
+            dup.m_reference = dup.m_reference->copy_to_local(thread);
+
+            /* Mark them to constant */
+            mark_constant(&dup);
+        }
+    }
+
+    // Add to constants pool
+    auto index = (ConstantIndex)m_constants.size();
+    STD_ASSERT(("Constants pool is too large to insert new one.\n",
+                index <= Instruction::PARA_UMAX));
+    m_constants.push_back(dup);
+
+    // Drop thread local values (should be string only, others were
+    // binded to this program)
+    thread->free_values();
+
+    return index;
 }
 
 // Define the object's size, for compiled_to_native class only
@@ -262,8 +347,14 @@ Function *Program::define_function(const String& name,
     function->m_attrib = attrib;
     m_functions.push_back(function);
 
-    // Add function to entry->function map
-    m_entry_functions->put(*(void **)&entry, function);
+    if (function->is_being_interpreted())
+    {
+        // Use the interpreter entry
+        STD_ASSERT(("Expect 0 for interpreted function.\n", entry.efun_entry == 0));
+        function->m_entry.script_entry = (Function::ScriptEntry)&InterpreterComponent::interpreter;
+    } else
+        // Add function to entry->function map for future searching
+        m_entry_functions->put(*(void **)&entry, function);
     return function;
 }
 
@@ -482,13 +573,13 @@ instead.
 */
 
 // Add component in this program
-void Program::add_component(const String& program_name, ComponentOffset offset)
+void Program::add_component(const String& program_name)
 {
     // Lookup & add all new programs
     ComponentInfo component;
     component.program_name = Program::find_or_add_string(program_name);
-    component.program = 0; // Will be updated later in update_callees()
-    component.offset = offset;
+    component.program = 0; // Will be updated later in update_program()
+    component.offset = 0;  // Will be updated later in update_program()
     m_components.push_back(component);
 }
 
@@ -523,6 +614,57 @@ void Program::update_program()
 
     // Update all callees for this program
     update_callees();
+}
+
+// Mark a reference value & all values to CONSTANT in this container
+// (if value is array or mapping)
+void Program::mark_constant(Value *value)
+{
+    auto *reference = value->m_reference;
+    if (reference->attrib & ReferenceImpl::CONSTANT)
+        // It's already a constant value
+        return;
+
+    if (value->m_type == STRING)
+    {
+        // For string, move them into shared string pool
+        value->m_string = Program::find_or_add_string(*(String *)value);
+        return;
+    }
+
+    // Move non-string reference value to this program
+    reference->attrib |= ReferenceImpl::CONSTANT;
+    reference->unbind();
+    m_list.append_value(reference);
+    switch (value->m_type)
+    {
+    case ARRAY:
+        // Mark array elements
+        for (auto& it : ((ArrayImpl *)reference)->a)
+        {
+            if (it.is_reference_value())
+                mark_constant(&it);
+        }
+        break;
+
+    case MAPPING:
+        // Mark mapping pairs
+        for (auto& it : ((MapImpl *)reference)->m)
+        {
+            if (it.first.is_reference_value())
+                mark_constant(&it.first);
+            if (it.second.is_reference_value())
+                mark_constant(&it.second);
+        }
+        break;
+
+    case FUNCTION:
+        // More to be added;
+        break;
+
+    default:
+        break;
+    }
 }
 
 // Update all callees during updating program
@@ -615,7 +757,7 @@ Object *Program::new_instance(Domain *domain)
 }
 
 // Invoke a function in program
-Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n)
+Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n) const
 {
     CalleeInfo callee;
 
@@ -638,7 +780,7 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
 
-    thread->push_call_context(object, *(void **)&func, args, component_no);
+    thread->push_call_context(object, callee.function, args, n, component_no);
     thread->push_domain_context(&thread);
     auto ret = (component_impl->*func)(thread, args, n);
     ret = thread->pop_domain_context(ret);
@@ -648,7 +790,7 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
 
 // Invoke self function
 // Call public function in this program OR private function of this component
-Value Program::invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n)
+Value Program::invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n) const
 {
     CalleeInfo callee;
 
@@ -669,7 +811,7 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
     ComponentOffset offset = m_components[component_no].offset;
     auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
-    thread->push_call_context(object, *(void **)&func, args, component_no);
+    thread->push_call_context(object, callee.function, args, n, component_no);
     Value ret = (component_impl->*func)(thread, args, n);
     thread->pop_call_context();
     return ret;

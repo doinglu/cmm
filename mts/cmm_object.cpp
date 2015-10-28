@@ -5,6 +5,7 @@
 #include "std_port/std_port_spin_lock.h"
 #include "cmm_domain.h"
 #include "cmm_object.h"
+#include "cmm_program.h"
 
 namespace cmm
 {
@@ -68,6 +69,14 @@ void Object::set_domain(Domain *domain)
     // Update entry.domain
     auto *entry = Object::m_id_manager->get_entry_by_id(m_oid);
     entry->domain = m_domain;
+}
+
+// Return specified component in this object
+AbstractComponent *Object::get_component(ComponentNo component_no)
+{
+    auto offset = m_program->get_component_offset(component_no);
+    auto *p = ((Uint8 *)this) + offset;
+    return (AbstractComponent *)p;
 }
 
 } // End of namespace: cmm
