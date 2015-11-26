@@ -86,9 +86,6 @@ public:
         return &m_value_list;
     }
 
-    // Mark value
-    static void mark_value(MarkValueState& state, ReferenceImpl *ptr_value);
-
 public:
     // Let object join in domain
     void join_object(Object *ob);

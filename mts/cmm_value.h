@@ -21,6 +21,11 @@ class Object;
 class Thread;
 
 class Value;
+class String;
+class Buffer;
+class Array;
+class Map;
+
 class ValueList;
 
 struct ArrayImpl;
@@ -248,8 +253,15 @@ public:
     MapImpl         *get_map() const { return as_map().m_map; }
 
 public:
-    bool operator <(const Value& b) const;
-    bool operator ==(const Value& b) const;
+    // Cast operators
+    operator bool();
+    operator Integer();
+    operator Real();
+    operator const char*();
+    operator String();
+    operator Buffer();
+    operator Array();
+    operator Map();
 
 public:
     // Type to name
@@ -405,6 +417,7 @@ public:
 
 public:
     size_t length() const { return len; }
+    char_t *ptr() { return buf; }
     const char_t *ptr() const { return buf; }
     const char *c_str() const { return (const char *)buf; }
 
@@ -422,6 +435,7 @@ public:
 
     // Compare two strings
     static int compare(const StringImpl *a, const StringImpl *b);
+    static int compare(const StringImpl *a, const char *c_str);
 
 public:
     // Concat with other
@@ -449,6 +463,16 @@ public:
     inline bool operator ==(const StringImpl& b) const
     {
         return StringImpl::compare(this, &b) == 0;
+    }
+
+    inline bool operator ==(const char *c_str) const
+    {
+        return StringImpl::compare(this, c_str) == 0;
+    }
+
+    inline bool operator !=(const char *c_str) const
+    {
+        return StringImpl::compare(this, c_str) != 0;
     }
 
 private:
@@ -508,6 +532,7 @@ public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
     virtual ValueType get_type() const { return this_type; }
     virtual size_t hash_this() const;
+    virtual void mark(MarkValueState& value_map);
 
 public:
     // Get length of me
@@ -861,6 +886,18 @@ public:
     String operator +=(const String& other)
         { return (*this = impl().concat(&other.impl())); }
 
+    bool operator ==(const String& other)
+        { return *this == other; }
+
+    bool operator !=(const String& other)
+        { return *this != other; }
+
+    bool operator ==(const char *other_c_str) const
+        { return impl() == other_c_str; }
+
+    bool operator !=(const char *other_c_str) const
+        { return impl() != other_c_str; }
+
     int operator[](size_t index) const
         { return impl()[index]; }
 
@@ -988,5 +1025,28 @@ public:
     auto end() -> decltype(impl().m.begin())
         { return impl().m.end(); }
 };
+
+// Common operators for convenience
+Value operator +(const Value& a, const Value& b);
+Value operator -(const Value& a, const Value& b);
+Value operator *(const Value& a, const Value& b);
+Value operator /(const Value& a, const Value& b);
+Value operator %(const Value& a, const Value& b);
+Value operator &(const Value& a, const Value& b);
+Value operator |(const Value& a, const Value& b);
+Value operator ^(const Value& a, const Value& b);
+Value operator ~(const Value& a);
+Value operator -(const Value& a);
+Value operator <<(const Value& a, const Value& b);
+Value operator >>(const Value& a, const Value& b);
+
+// Compare operators
+bool operator !(const Value& a);
+bool operator ==(const Value& a, const Value& b);
+bool operator !=(const Value& a, const Value& b);
+bool operator <(const Value& a, const Value& b);
+bool operator >(const Value& a, const Value& b);
+bool operator <=(const Value& a, const Value& b);
+bool operator >=(const Value& a, const Value& b);
 
 } // End namespace: cmm

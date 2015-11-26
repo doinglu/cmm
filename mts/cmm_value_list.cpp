@@ -69,4 +69,36 @@ void ValueList::free()
     }
 }
 
+// Mark value
+void MarkValueState::mark_value(ReferenceImpl *ptr_value)
+{
+    // Try remove from set
+    if (!set.erase(ptr_value))
+    {
+        // Not in set, is this a class pointer?
+
+        if (!class_ptrs.size())
+            // Class pointer map is empty
+            return;
+
+        auto it = class_ptrs.find(ptr_value);
+        if (it == class_ptrs.end())
+            // Not found in class pointer map
+            return;
+
+        // Found raw BufferImpl contains this class
+        class_ptrs.erase(ptr_value);
+        if (!set.erase(it->second))
+            // The BufferImpl was marked, ignored
+            return;
+    }
+
+    // Put back to list
+    ptr_value->owner = 0;
+    list->append_value(ptr_value);
+
+    // Let the ReferenceImpl mark
+    ptr_value->mark(*this);
+}
+
 } // End of namespace: cmm

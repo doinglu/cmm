@@ -164,4 +164,24 @@ Value Efun::invoke(Thread *thread, const Value& function_name, Value *args, ArgN
     return ret;
 }
 
+// Get an efun by name
+// See ATTENTION of Program::invoke
+Function* Efun::get_efun(const Value& function_name)
+{
+    if (function_name.m_type != ValueType::STRING)
+        // Bad type of function name
+        return NULL;
+
+    if (!Program::convert_to_shared((String*)&function_name))
+        // Not found name in shared string pool, no such efun
+        return NULL;
+
+    Function *function;
+    if (!m_efun_map->try_get(function_name.m_string, &function))
+        // Function is not found
+        return NULL;
+
+    return function;
+}
+
 } // End of namespace: cmm

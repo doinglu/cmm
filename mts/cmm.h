@@ -8,4 +8,11 @@
 namespace cmm
 {
 
+// File path realtives
+enum
+{
+    MAX_PATH_LEN = 256,
+    PATH_SEPARATOR = '/',
+};
+
 }

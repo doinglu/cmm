@@ -71,6 +71,18 @@ int StringImpl::compare(const StringImpl *a, const StringImpl *b)
     return memcmp(a->buf, b->buf, (len + 1) * sizeof(char_t));
 }
 
+// Compare two strings, return -1 means less, 1 means greater, 0 means equal
+int StringImpl::compare(const StringImpl *a, const char *b)
+{
+    size_t len;
+
+    len = strlen(b);
+    if (len > a->len)
+        len = a->len;
+
+    return memcmp(a->buf, b, (len + 1) * sizeof(char));
+}
+
 // Compare two buffers, return -1 means less, 1 means greater, 0 means equal
 int BufferImpl::compare(const BufferImpl *a, const BufferImpl *b)
 {
@@ -148,6 +160,21 @@ ReferenceImpl *MapImpl::copy_to_local(Thread *thread)
     for (auto &it: this->m)
         v->m.put(it.first.copy_to_local(thread), it.second.copy_to_local(thread));
     return v;
+}
+
+// Mark all elements in buffer value
+void BufferImpl::mark(MarkValueState& state)
+{
+    if (!(attrib & CONTAIN_CLASS))
+        // Not contains classes, ignored
+        return;
+
+    // Lookup all elements in classes in buffer
+    auto **p = (ReferenceImpl **)data();
+    size_t count = length() / sizeof(void *);
+    for (size_t i = 0; i < count; i++, p++)
+        if (state.is_possible_pointer(*p))
+            state.mark_value(*p);
 }
 
 // Mark all elements in function ptr value
@@ -348,55 +375,6 @@ Value::Value(const char *c_str, size_t len) :
 Value::Value(const simple::string& str) :
     Value(STRING_ALLOC(str))
 {
-}
-
-// Compare with other value
-bool Value::operator <(const Value& b) const
-{
-    const Value& a = *this;
-
-    // Compare type first
-    if (a.m_type < b.m_type)
-        return true;
-    if (a.m_type > b.m_type)
-        return false;
-
-    // Type is same
-
-    if (a.m_type >= ValueType::REFERENCE_VALUE)
-    {
-        switch (a.m_type)
-        {
-        case ValueType::STRING: return StringImpl::compare(a.m_string, b.m_string) < 0;
-        case ValueType::BUFFER: return BufferImpl::compare(a.m_buffer, b.m_buffer) < 0;
-        default: break;
-        }
-    }
-
-    // Compare intptr only
-    return a.m_intptr < b.m_intptr;
-}
-
-// Compare with other value
-bool Value::operator ==(const Value& b) const
-{
-    const Value& a = *this;
-
-    if (a.m_type != b.m_type)
-        // Type is not same
-        return false;
-
-    if (a.m_type >= ValueType::REFERENCE_VALUE)
-    {
-        switch (a.m_type)
-        {
-        case ValueType::STRING: return StringImpl::compare(a.m_string, b.m_string) == 0;
-        case ValueType::BUFFER: return BufferImpl::compare(a.m_buffer, b.m_buffer) == 0;
-        default: break;
-        }
-    }
-
-    return a.m_intptr == b.m_intptr;
 }
 
 // Calculate & cache hash number of the value

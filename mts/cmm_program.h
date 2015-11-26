@@ -33,8 +33,8 @@ public:
     Value m_members[1]; // Members start from here
 };
 
-// Variable of function
-class Variable
+// SyntaxVariable of function
+class SyntaxVariable
 {
 friend Function;
 
@@ -46,7 +46,7 @@ public:
 	} Attrib;
 
 public:
-    Variable(Function *function, const String& name, ValueType type, Attrib attrib);
+    SyntaxVariable(Function *function, const String& name, ValueType type, Attrib attrib);
 
 public:
     // Return the attribute of parameter
@@ -93,9 +93,9 @@ private:
     Value       m_default;  // Default value (valid only for has_default())
 };
 
-class Variables : public simple::vector<Variable *> { };
-typedef Variable Parameter;
-typedef Variable LocalVariable;
+class Variables : public simple::vector<SyntaxVariable *> { };
+typedef SyntaxVariable Parameter;
+typedef SyntaxVariable LocalVariable;
 typedef Variables Parameters;
 typedef Variables LocalVariables;
 
@@ -145,10 +145,10 @@ public:
     Parameter *define_parameter(const String& name, ValueType type, Parameter::Attrib attrib = (Parameter::Attrib)0);
 
     // Define the return type
-    void define_ret_type(ValueType type, Variable::Attrib attrib = (Variable::Attrib)0)
+    void define_ret_type(ValueType type, SyntaxVariable::Attrib attrib = (SyntaxVariable::Attrib)0)
     {
         m_ret_type = type;
-        if (attrib & Variable::Attrib::NULLABLE)
+        if (attrib & SyntaxVariable::Attrib::NULLABLE)
             m_attrib = (Function::Attrib)(m_attrib | RET_NULLABLE);
     }
 

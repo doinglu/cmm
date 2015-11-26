@@ -49,39 +49,4 @@ struct pair
     V2 second;	// the second stored value
 };
 
-// TEMPLATE FUNCTIONS
-
-template<typename T> inline
-void swap(T& a, T& b)
-{
-    T tmp(a);
-    a = simple::move(b);
-    b = simple::move(tmp);
-}
-
-// TEMPLATE OPERATORS
-template<typename T> inline
-bool operator != (const T& p1, const T& p2)
-{	// test for inequality, in terms of equality
-    return (!(p1 == p2));
-}
-
-template<typename T> inline
-bool operator > (const T& p1, const T& p2)
-{	// test if p1 > p2, in terms of operator<
-    return (p2 < p1);
-}
-
-template<typename T> inline
-bool operator <= (const T& p1, const T& p2)
-{	// test if p1 <= p2, in terms of operator<
-    return (!(p2 < p1));
-}
-
-template<typename T> inline
-bool operator >= (const T& p1, const T& p2)
-{	// test if p1 >= p2, in terms of operator<
-    return (!(p1 < p2));
-}
-
 } // End of namespace: simple

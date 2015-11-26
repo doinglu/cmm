@@ -7,6 +7,7 @@
 namespace cmm
 {
 
+struct BufferImpl;
 struct ReferenceImpl;
 
 // Values list for thread/domain, using by GC
@@ -54,15 +55,31 @@ private:
 struct MarkValueState
 {
 public:
-    simple::hash_set<struct ReferenceImpl *> set;
+    simple::hash_set<ReferenceImpl *> set;
+    simple::hash_map<void *, BufferImpl *> class_ptrs;
     ValueList *list;
+    void *low;      // Low bound of all pointers
+    void *high;     // High bound of all pointers 
 
 public:
     MarkValueState(ValueList *_list) :
-        set(_list->get_count())
+        set(_list->get_count()),
+        class_ptrs(_list->get_count())
     {
         list = _list;
     }
+
+public:
+    // Is the pointer possible be a valid ReferenceImpl *?
+    bool is_possible_pointer(void *p)
+    {
+        // For all valid pointer, the last N bits should be zero
+        const IntPtr mask = sizeof(void *) - 1;
+        return (((IntPtr)p & mask) == 0 && p >= low && p <= high);
+    }
+
+    // Mark the possible pointer
+    void mark_value(ReferenceImpl *ptr_value);
 };
 
 } // End of namespace: cmm

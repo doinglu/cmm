@@ -40,49 +40,54 @@ struct Instruction
         DIVI      = 10,  // p1<-p2, p3
         DIVR      = 11,  // p1<-p2, p3
         DIVX      = 12,  // p1<-p2, p3
-        EQI       = 13,  // p1<-p2, p3
-        EQR       = 14,  // p1<-p2, p3
-        EQX       = 15,  // p1<-p2, p3
-        NEI       = 16,  // p1<-p2, p3
-        NER       = 17,  // p1<-p2, p3
-        NEX       = 18,  // p1<-p2, p3
-        GTI       = 19,  // p1<-p2, p3
-        GTR       = 20,  // p1<-p2, p3
-        GTX       = 21,  // p1<-p2, p3
-        LTI       = 22,  // p1<-p2, p3
-        LTR       = 23,  // p1<-p2, p3
-        LTX       = 24,  // p1<-p2, p3
-        GEI       = 25,  // p1<-p2, p3
-        GER       = 26,  // p1<-p2, p3
-        GEX       = 27,  // p1<-p2, p3
-        LEI       = 28,  // p1<-p2, p3
-        LER       = 29,  // p1<-p2, p3
-        LEX       = 30,  // p1<-p2, p3
-        ANDI      = 31,  // p1<-p2, p3
-        ANDX      = 33,  // p1<-p2, p3
-        ORI       = 34,  // p1<-p2, p3
-        ORX       = 36,  // p1<-p2, p3
-        XORI      = 37,  // p1<-p2, p3
-        XORX      = 39,  // p1<-p2, p3
-        NOTI      = 40,  // p1<-p2, p3
-        NOTX      = 42,  // p1<-p2, p3
-        LSHI      = 43,  // p1<-p2, p3
-        LSHX      = 45,  // p1<-p2, p3
-        RSHI      = 46,  // p1<-p2, p3
-        RSHX      = 48,  // p1<-p2, p3
-        CAST      = 51,  // p1<-(p2)p3
-        ISTYPE    = 54,  // p1<-p3 is (p2)?
-        LDMULX    = 57,  // p1...<-p2... x p3
-        LDI       = 58,  // p1<-p2p3 (combine to 32bits)
-        LDR       = 59,  // p1<-p2.p3 (p3 /= 10000)
-        LDX       = 60,  // p1<-p2
-        LDARGN    = 61,  // p1<-argn
-        RIDXXX    = 66,  // p1<-p2[p3]
-        LIDXXX    = 69,  // p1[p3]<-p2
-        MKEARR    = 72,  // p1<-[], capacity=p2
-        MKIARR    = 75,  // p1<-p2... x p3
-        MKEMAP    = 78,  // p1<-{}, capacity=p2
-        MKIMAP    = 81,  // p1<-p2... x p3
+        MODI      = 13,  // p1<-p2, p3
+        MODR      = 14,  // p1<-p2, p3
+        MODX      = 15,  // p1<-p2, p3
+        EQI       = 16,  // p1<-p2, p3
+        EQR       = 17,  // p1<-p2, p3
+        EQX       = 18,  // p1<-p2, p3
+        NEI       = 19,  // p1<-p2, p3
+        NER       = 20,  // p1<-p2, p3
+        NEX       = 21,  // p1<-p2, p3
+        GTI       = 22,  // p1<-p2, p3
+        GTR       = 23,  // p1<-p2, p3
+        GTX       = 24,  // p1<-p2, p3
+        LTI       = 25,  // p1<-p2, p3
+        LTR       = 26,  // p1<-p2, p3
+        LTX       = 27,  // p1<-p2, p3
+        GEI       = 28,  // p1<-p2, p3
+        GER       = 29,  // p1<-p2, p3
+        GEX       = 30,  // p1<-p2, p3
+        LEI       = 31,  // p1<-p2, p3
+        LER       = 32,  // p1<-p2, p3
+        LEX       = 33,  // p1<-p2, p3
+        ANDI      = 34,  // p1<-p2, p3
+        ANDX      = 36,  // p1<-p2, p3
+        ORI       = 37,  // p1<-p2, p3
+        ORX       = 39,  // p1<-p2, p3
+        XORI      = 41,  // p1<-p2, p3
+        XORX      = 42,  // p1<-p2, p3
+        REVI      = 43,  // p1<-p2, p3
+        REVX      = 45,  // p1<-p2, p3
+        NEGI      = 49,  // p1<-p2, p3
+        NEGX      = 51,  // p1<-p2, p3
+        LSHI      = 55,  // p1<-p2, p3
+        LSHX      = 57,  // p1<-p2, p3
+        RSHI      = 58,  // p1<-p2, p3
+        RSHX      = 60,  // p1<-p2, p3
+        CAST      = 63,  // p1<-(p2)p3
+        ISTYPE    = 66,  // p1<-p3 is (p2)?
+        LDMULX    = 69,  // p1...<-p2... x p3
+        LDI       = 70,  // p1<-p2p3 (combine to 32bits)
+        LDR       = 71,  // p1<-p2.p3 (p3 /= 10000)
+        LDX       = 72,  // p1<-p2
+        LDARGN    = 73,  // p1<-argn
+        RIDXXX    = 75,  // p1<-p2[p3]
+        LIDXXX    = 78,  // p1[p3]<-p2
+        MKEARR    = 81,  // p1<-[], capacity=p2
+        MKIARR    = 84,  // p1<-p2... x p3
+        MKEMAP    = 87,  // p1<-{}, capacity=p2
+        MKIMAP    = 90,  // p1<-p2... x p3
         JMP       = 102, // Jmp p1
         JCOND     = 105, // Jmp p1 when p2 != 0
         CALLNEAR  = 108, // p1<-call(p2 = function_no, p3 = argn, args)
@@ -203,6 +208,9 @@ private:
     void xDIVI();
     void xDIVR();
     void xDIVX();
+    void xMODI();
+    void xMODR();
+    void xMODX();
     void xEQI();
     void xEQR();
     void xEQX();
@@ -227,8 +235,10 @@ private:
     void xORX();
     void xXORI();
     void xXORX();
-    void xNOTI();
-    void xNOTX();
+    void xREVI();
+    void xREVX();
+    void xNEGI();
+    void xNEGX();
     void xLSHI();
     void xLSHX();
     void xRSHI();

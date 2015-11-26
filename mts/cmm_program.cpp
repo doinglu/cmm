@@ -14,7 +14,7 @@ namespace cmm
 {
 
 // Constructor of parameter
-Variable::Variable(Function *function, const String& name, ValueType type, Attrib attrib)
+SyntaxVariable::SyntaxVariable(Function *function, const String& name, ValueType type, Attrib attrib)
 {
     m_function = function;
     m_name = Program::find_or_add_string(name);

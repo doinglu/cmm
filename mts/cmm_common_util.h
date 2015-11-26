@@ -30,8 +30,8 @@ extern StrwidthFunc register_strwidth_func(StrwidthFunc func);
 /* Utilities functions */
 extern void        convert_string_to_readable(char *temp, size_t size, const char *str);
 extern size_t      convert_c_string(char *output, const char *input);
-extern void        int_to_string(char *temp, size_t size, int val, int base, int sign_flag, int upper_case);
-extern void        int64_to_string(char *temp, size_t size, Int64 val, int base, int sign_flag, int upper_case);
+extern void        int_to_string(char *temp, size_t size, int val, int base, bool has_sign_flag, bool is_upper_case);
+extern void        int64_to_string(char *temp, size_t size, Int64 val, int base, bool has_sign_flag, bool is_upper_case);
 extern void        remove_escape_of_string(char *str);
 extern int         strtol(const char *ptr, char **endptr, int base, int skip_space);
 extern Int64       strtol64(const char *ptr, char **endptr, int base, int skip_space);

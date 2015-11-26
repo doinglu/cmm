@@ -61,6 +61,9 @@ public:
     // Invoke
     static Value invoke(Thread *thread, const Value& function_name, Value *args, ArgNo n);
 
+    // Get efun
+    static Function* get_efun(const Value& function_name);
+
 private:
     typedef simple::hash_map<StringImpl *, Program *> EfunPackage;
     static EfunPackage *m_efun_packages;

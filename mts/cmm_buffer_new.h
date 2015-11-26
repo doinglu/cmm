@@ -120,9 +120,17 @@ void buffer_delete_arr(const char *file, int line, BufferImpl *buffer)
 }
 
 // Macro as operators
-#define BUFFER_NEW(T, ...)          buffer_new<T>(__FILE__, __LINE__, ##__VA_ARGS__)
-#define BUFFER_DELETE(p)            buffer_delete(__FILE__, __LINE__, p)
-#define BUFFER_NEWN(T, n)           buffer_new_arr<T>(__FILE__, __LINE__, n)
-#define BUFFER_DELETEN(p)           buffer_delete_arr(__FILE__, __LINE__, p)
+
+// Return/delete the BufferImpl
+#define RAW_BUFFER_NEW(T, ...)          buffer_new<T>(__FILE__, __LINE__, ##__VA_ARGS__)
+#define RAW_BUFFER_DELETE(p)            buffer_delete(__FILE__, __LINE__, p)
+#define RAW_BUFFER_NEWN(T, n)           buffer_new_arr<T>(__FILE__, __LINE__, n)
+#define RAW_BUFFER_DELETEN(p)           buffer_delete_arr(__FILE__, __LINE__, p)
+
+// Return/delete the class inside BufferImpl
+#define BUFFER_NEW(T, ...)          (T*)buffer_new<T>(__FILE__, __LINE__, ##__VA_ARGS__)->class_ptr()
+#define BUFFER_DELETE(p)            buffer_delete(__FILE__, __LINE__, (BufferImpl *)(((char*)p) - sizeof(BufferImpl)))
+#define BUFFER_NEWN(T, n)           (T*)buffer_new_arr<T>(__FILE__, __LINE__, n)->class_ptr()
+#define BUFFER_DELETEN(p)           buffer_delete_arr(__FILE__, __LINE__, (BufferImpl *)(((char*)p) - BufferImpl::RESERVE_FOR_CLASS_ARR- sizeof(BufferImpl)))
 
 }

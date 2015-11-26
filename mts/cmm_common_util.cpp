@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <string.h>
 #include "std_port/std_port.h"
-#include "std_socket_port.h"
+#include "std_socket/std_socket_port.h"
 #include "cmm_common_util.h"
 
 namespace cmm
@@ -169,7 +169,7 @@ extern size_t convert_c_string(char *output, const char *input)
 
 /* Make an integer to string */
 /* temp must has enough space to carry result */
-extern void int_to_string(char *temp, size_t size, int val, int base, int sign_flag, int upper_case)
+extern void int_to_string(char *temp, size_t size, int val, int base, bool has_sign_flag, bool is_upper_case)
 {
     char  ch;
     size_t uval;
@@ -187,7 +187,7 @@ extern void int_to_string(char *temp, size_t size, int val, int base, int sign_f
         return;
     }
 
-    if (sign_flag && val < 0)
+    if (has_sign_flag && val < 0)
     {
         /* Check for sign */
         *(p++) = '-';
@@ -223,7 +223,7 @@ extern void int_to_string(char *temp, size_t size, int val, int base, int sign_f
         if (ch < 10)
             ch += '0';
         else
-        if (upper_case)
+        if (is_upper_case)
             ch += 'A' - 10;
         else
             ch += 'a' - 10;
@@ -235,7 +235,7 @@ extern void int_to_string(char *temp, size_t size, int val, int base, int sign_f
 
 /* Make an integer (64bits) to string */
 /* temp must has enough space to carry result */
-extern void int64_to_string(char *temp, size_t size, Int64 val, int base, int sign_flag, int upper_case)
+extern void int64_to_string(char *temp, size_t size, Int64 val, int base, bool has_sign_flag, bool is_upper_case)
 {
     char  ch;
     Int64 uval;
@@ -253,7 +253,7 @@ extern void int64_to_string(char *temp, size_t size, Int64 val, int base, int si
         return;
     }
 
-    if (sign_flag && val < 0)
+    if (has_sign_flag && val < 0)
     {
         /* Check for sign */
         *(p++) = '-';
@@ -289,7 +289,7 @@ extern void int64_to_string(char *temp, size_t size, Int64 val, int base, int si
         if (ch < 10)
             ch += '0';
         else
-        if (upper_case)
+        if (is_upper_case)
             ch += 'A' - 10;
         else
             ch += 'a' - 10;

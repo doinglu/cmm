@@ -5,7 +5,7 @@
 #ifndef __STD_OS_SOCKET_H__
 #define __STD_OS_SOCKET_H__
 
-#include "std_socket_port.h"
+#include "std_socket/std_socket_port.h"
 
 #ifdef _WINDOWS
     #define USE_OS_SOCKET_WIN32                1

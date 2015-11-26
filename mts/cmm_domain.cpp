@@ -152,7 +152,6 @@ void Domain::gc()
         thread->update_end_sp_of_current_domain_context();
 
     MarkValueState state(&m_value_list);
-    ReferenceImpl *low, *high;
 
     // Mask of valid pointer
     // For all valid pointer, the last N bits should be zero
@@ -160,21 +159,33 @@ void Domain::gc()
 
     // Put all values into the map
     auto *p = m_value_list.get_list();
-    low = p;
-    high = p;
+    state.low = p;
+    state.high = p;
     while (p)
     {
         // Reset bound of valid pointers
-        if (p < low)
-            low = p;
+        if (p < state.low)
+            state.low = p;
         else
-        if (p > high)
-            high = p;
+        if (p > state.high)
+            state.high = p;
 
         STD_ASSERT((((IntPtr) p) & mask) == 0);
 
         // Add to set
         state.set.put(p);
+
+        // For BufferImpl with classes, put the class pointer into set
+        if (p->get_type() == BUFFER)
+        {
+            auto *buffer_impl = (BufferImpl *)p;
+            if (buffer_impl->attrib & BufferImpl::CONTAIN_CLASS)
+            {
+                // This buffer contains class (or array of class)
+                // Map first class pointer -> this buffer impl
+                state.class_ptrs.put(buffer_impl->class_ptr(), buffer_impl);
+            }
+        }
         p = p->next;
     }
     m_value_list.reset();
@@ -185,24 +196,19 @@ void Domain::gc()
         // Mark all values
         auto *p = (ReferenceImpl **)context.m_start_sp;
         while (--p > (ReferenceImpl **)context.m_end_sp)
-        {
-            if (((IntPtr)*p & mask) == 0 && *p >= low && *p <= high)
-                mark_value(state, *p);
-        }
+            if (state.is_possible_pointer(*p))
+                state.mark_value(*p);
     }
 
     // Scan all member objects in this domain
     for (auto &object: m_objects)
     {
-        auto *p = (ReferenceImpl **)object;
+        auto *p_end = (ReferenceImpl **)object;
         size_t size = object->get_program()->get_entire_object_size();
-        auto *p_end = (ReferenceImpl **)(((char *)p) + size);
-        while (p < p_end)
-        {
-            if (((IntPtr)*p & mask) == 0 && *p >= low && *p <= high)
-                mark_value(state, *p);
-            p++;
-        }
+        auto *p = (ReferenceImpl **)(((char *)p_end) + size);
+        while (--p >= p_end)
+            if (state.is_possible_pointer(*p))
+                state.mark_value(*p);
     }
 
     // Free all non-refered values & regenerate value list
@@ -222,21 +228,6 @@ void Domain::gc()
 
     auto e = std_get_current_us_counter();
     ////----printf("GC cost: %zuus.\n", (size_t) (e - b));////----
-}
-
-// Mark value
-void Domain::mark_value(MarkValueState& state, ReferenceImpl *ptr_value)
-{
-    // Try remove from set
-    if (!state.set.erase(ptr_value))
-        // Not in set, ignored
-        return;
-
-    // Put back to list
-    ptr_value->owner = 0;
-    state.list->append_value(ptr_value);
-
-    ptr_value->mark(state);
 }
 
 // Let object join in domain

@@ -11,6 +11,8 @@ namespace cmm
 typedef simple::char_t char_t; // Character of string
 typedef simple::uchar_t uchar_t; // Unsigned character
 
+typedef IntR Handle;                // Handle
+
 #if 1
 typedef Uint16 ArgNo;               // Argument count/no
 typedef Uint16 ComponentNo;         // Number of component in a program
@@ -32,7 +34,7 @@ typedef size_t MapOffset;           // MapImpl offset for component no map
 typedef size_t MemberOffset;        // Offset of member in class object
 #endif
 
-typedef enum
+enum ValueType
 {
     NIL = 0,            // Can be casted to any other type
     INTEGER = 1,        // Integer (int64)
@@ -47,9 +49,12 @@ typedef enum
     TVOID = 98,         // Void
     MIXED = 99,         // Any type
     BAD_TYPE = 255,     // Bad type
-}  ValueType;
+};
 
-enum { GLOBAL_ID_PER_PAGE = (1 << 8) };
+enum
+{
+    GLOBAL_ID_PER_PAGE = (1 << 8)
+};
 
 // Global Id is a 64bits, cross multi-process Id.
 // The Id.process_id indicates the process;

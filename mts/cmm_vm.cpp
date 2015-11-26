@@ -1,5 +1,6 @@
 // cmm_vm.c
 
+#include <math.h>
 #include <stdio.h>
 #include "std_port/std_port.h"
 #include "cmm.h"
@@ -30,6 +31,9 @@ Simulator::InstructionInfo Simulator::m_instruction_info[] =
     _INST(DIVI,     3, "$$ $1, $2, $3"),
     _INST(DIVR,     3, "$$ $1, $2, $3"),
     _INST(DIVX,     3, "$$ $1, $2, $3"),
+    _INST(MODI,     3, "$$ $1, $2, $3"),
+    _INST(MODR,     3, "$$ $1, $2, $3"),
+    _INST(MODX,     3, "$$ $1, $2, $3"),
     _INST(EQI,      3, "$$ $1, $2, $3"),
     _INST(EQR,      3, "$$ $1, $2, $3"),
     _INST(EQX,      3, "$$ $1, $2, $3"),
@@ -54,8 +58,10 @@ Simulator::InstructionInfo Simulator::m_instruction_info[] =
     _INST(ORX,      3, "$$ $1, $2, $3"),
     _INST(XORI,     3, "$$ $1, $2, $3"),
     _INST(XORX,     3, "$$ $1, $2, $3"),
-    _INST(NOTI,     3, "$$ $1, $2, $3"),
-    _INST(NOTX,     3, "$$ $1, $2, $3"),
+    _INST(REVI,     3, "$$ $1, $2, $3"),
+    _INST(REVX,     3, "$$ $1, $2, $3"),
+    _INST(NEGI,     3, "$$ $1, $2, $3"),
+    _INST(NEGX,     3, "$$ $1, $2, $3"),
     _INST(LSHI,     3, "$$ $1, $2, $3"),
     _INST(LSHX,     3, "$$ $1, $2, $3"),
     _INST(RSHI,     3, "$$ $1, $2, $3"),
@@ -246,86 +252,7 @@ void Simulator::xADDR()
 void Simulator::xADDX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = p2->m_int + p3->m_int;
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = (Real)p2->m_int + p3->m_real;
-            return;
-        }
-        break;
-
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = p2->m_real + p3->m_real;
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = p2->m_real + (Real)p3->m_int;
-            return;
-        }
-        break;
-
-    case ValueType::STRING:
-        if (p3->m_type == ValueType::STRING)
-        {
-            p1->m_type = ValueType::STRING;
-            p1->m_string = p2->m_string->concat(p3->m_string);
-            return;
-        } else
-        {
-            Output output;
-            p1->m_string = p2->m_string->concat(output.type_value(p3).ptr());
-            return;
-        }
-        break;
-
-    case ValueType::BUFFER:
-        if (p3->m_type == ValueType::BUFFER)
-        {
-            p1->m_type = ValueType::BUFFER;
-            p1->m_buffer = p2->m_buffer->concat(p3->m_buffer);
-            return;
-        }
-        break;
-
-    case ValueType::ARRAY:
-        if (p3->m_type == ValueType::ARRAY)
-        {
-            p1->m_type = ValueType::ARRAY;
-            p1->m_array = p2->m_array->concat(p3->m_array);
-            return;
-        }
-        break;
-
-    case ValueType::MAPPING:
-        if (p3->m_type == ValueType::MAPPING)
-        {
-            p1->m_type = ValueType::MAPPING;
-            p1->m_map = p2->m_map->concat(p3->m_map);
-            return;
-        }
-        break;
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s + %s.\n",
-        Value::type_to_name(p2->m_type),
-        Value::type_to_name(p3->m_type));
+    *p1 = *p2 + *p3;
 }
 
 void Simulator::xSUBI()
@@ -345,45 +272,7 @@ void Simulator::xSUBR()
 void Simulator::xSUBX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = p2->m_int - p3->m_int;
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = (Real)p2->m_int - p3->m_real;
-            return;
-        }
-        break;
-
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = p2->m_real - p3->m_real;
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = p2->m_real - (Real)p3->m_int;
-            return;
-        }
-        break;
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s - %s.\n",
-        Value::type_to_name(p2->m_type),
-        Value::type_to_name(p3->m_type));
+    *p1 = *p2 - *p3;
 }
 
 void Simulator::xMULI()
@@ -403,45 +292,7 @@ void Simulator::xMULR()
 void Simulator::xMULX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = p2->m_int * p3->m_int;
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = (Real)p2->m_int * p3->m_real;
-            return;
-        }
-        break;
-
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = p2->m_real * p3->m_real;
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = p2->m_real * (Real)p3->m_int;
-            return;
-        }
-        break;
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s * %s.\n",
-        Value::type_to_name(p2->m_type),
-        Value::type_to_name(p3->m_type));
+    *p1 = *p2 * *p3;
 }
 
 void Simulator::xDIVI()
@@ -461,45 +312,27 @@ void Simulator::xDIVR()
 void Simulator::xDIVX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = p2->m_int / p3->m_int;
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = (Real)p2->m_int / p3->m_real;
-            return;
-        }
-        break;
+    *p1 = *p2 / *p3;
+}
 
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = p2->m_real / p3->m_real;
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::REAL;
-            p1->m_real = p2->m_real / (Real)p3->m_int;
-            return;
-        }
-        break;
+void Simulator::xMODI()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = p2->m_int % p3->m_int;
+}
 
-    default:
-        break;
-    }
+void Simulator::xMODR()
+{
+    GET_P1; GET_P2; GET_P3;
+    p1->m_type = ValueType::REAL;
+    p1->m_real = fmod(p2->m_real, p3->m_real);
+}
 
-    throw_error("Failed to do %s / %s.\n",
-        Value::type_to_name(p2->m_type),
-        Value::type_to_name(p3->m_type));
+void Simulator::xMODX()
+{
+    GET_P1; GET_P2; GET_P3;
+    *p1 = *p2 % *p3;
 }
 
 void Simulator::xEQI()
@@ -519,69 +352,7 @@ void Simulator::xEQR()
 void Simulator::xEQX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_int == p3->m_int);
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)((Real)p2->m_int == p3->m_real);
-            return;
-        }
-        break;
-
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real == p3->m_real);
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real == (Real)p3->m_int);
-            return;
-        }
-        break;
-
-    case ValueType::STRING:
-        if (p3->m_type == ValueType::STRING)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) == 0);
-            return;
-        }
-        break;
-
-    case ValueType::BUFFER:
-        if (p3->m_type == ValueType::BUFFER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) == 0);
-            return;
-        }
-        break;
-
-    default:
-        if (p2->m_type == p3->m_type)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_intptr == p3->m_intptr);
-            return;
-        }
-        break;
-    }
-
-    // Not eq
-    p1->m_type = ValueType::INTEGER;
-    p1->m_int = 0;
+    *p1 = (*p2 == *p3);
 }
 
 void Simulator::xNEI()
@@ -601,69 +372,7 @@ void Simulator::xNER()
 void Simulator::xNEX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_int != p3->m_int);
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)((Real)p2->m_int != p3->m_real);
-            return;
-        }
-        break;
-
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real != p3->m_real);
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real != (Real)p3->m_int);
-            return;
-        }
-        break;
-
-    case ValueType::STRING:
-        if (p3->m_type == ValueType::STRING)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) != 0);
-            return;
-        }
-        break;
-
-    case ValueType::BUFFER:
-        if (p3->m_type == ValueType::BUFFER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) != 0);
-            return;
-        }
-        break;
-
-    default:
-        if (p2->m_type == p3->m_type)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_intptr != p3->m_intptr);
-            return;
-        }
-        break;
-    }
-
-    // Not eq
-    p1->m_type = ValueType::INTEGER;
-    p1->m_int = 1;
+    *p1 = (*p2 != *p3);
 }
 
 void Simulator::xGTI()
@@ -683,63 +392,7 @@ void Simulator::xGTR()
 void Simulator::xGTX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_int > p3->m_int);
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)((Real)p2->m_int > p3->m_real);
-            return;
-        }
-        break;
-
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real > p3->m_real);
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real > (Real)p3->m_int);
-            return;
-        }
-        break;
-
-    case ValueType::STRING:
-        if (p3->m_type == ValueType::STRING)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) > 0);
-            return;
-        }
-        break;
-
-    case ValueType::BUFFER:
-        if (p3->m_type == ValueType::BUFFER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) > 0);
-            return;
-        }
-        break;
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s > %s.\n",
-                Value::type_to_name(p2->m_type),
-                Value::type_to_name(p3->m_type));
+    *p1 = (*p2 > *p3);
 }
 
 void Simulator::xLTI()
@@ -759,63 +412,7 @@ void Simulator::xLTR()
 void Simulator::xLTX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_int < p3->m_int);
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)((Real)p2->m_int < p3->m_real);
-            return;
-        }
-        break;
-
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real < p3->m_real);
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real < (Real)p3->m_int);
-            return;
-        }
-        break;
-
-    case ValueType::STRING:
-        if (p3->m_type == ValueType::STRING)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) < 0);
-            return;
-        }
-        break;
-
-    case ValueType::BUFFER:
-        if (p3->m_type == ValueType::BUFFER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) < 0);
-            return;
-        }
-        break;
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s < %s.\n",
-                Value::type_to_name(p2->m_type),
-                Value::type_to_name(p3->m_type));
+    *p1 = (*p2 < *p3);
 }
 
 void Simulator::xGEI()
@@ -835,63 +432,7 @@ void Simulator::xGER()
 void Simulator::xGEX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_int >= p3->m_int);
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)((Real)p2->m_int >= p3->m_real);
-            return;
-        }
-        break;
-
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real >= p3->m_real);
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real >= (Real)p3->m_int);
-            return;
-        }
-        break;
-
-    case ValueType::STRING:
-        if (p3->m_type == ValueType::STRING)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) >= 0);
-            return;
-        }
-        break;
-
-    case ValueType::BUFFER:
-        if (p3->m_type == ValueType::BUFFER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) >= 0);
-            return;
-        }
-        break;
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s >= %s.\n",
-                Value::type_to_name(p2->m_type),
-                Value::type_to_name(p3->m_type));
+    *p1 = (*p2 >= *p3);
 }
 
 void Simulator::xLEI()
@@ -911,63 +452,7 @@ void Simulator::xLER()
 void Simulator::xLEX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_int <= p3->m_int);
-            return;
-        }
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)((Real)p2->m_int <= p3->m_real);
-            return;
-        }
-        break;
-
-    case ValueType::REAL:
-        if (p3->m_type == ValueType::REAL)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real <= p3->m_real);
-            return;
-        }
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(p2->m_real <= (Real)p3->m_int);
-            return;
-        }
-        break;
-
-    case ValueType::STRING:
-        if (p3->m_type == ValueType::STRING)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(StringImpl::compare(p2->m_string, p3->m_string) <= 0);
-            return;
-        }
-        break;
-
-    case ValueType::BUFFER:
-        if (p3->m_type == ValueType::BUFFER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = (Integer)(BufferImpl::compare(p2->m_buffer, p3->m_buffer) <= 0);
-            return;
-        }
-        break;
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s <= %s.\n",
-                Value::type_to_name(p2->m_type),
-                Value::type_to_name(p3->m_type));
+    *p1 = (*p2 <= *p3);
 }
 
 void Simulator::xANDI()
@@ -980,23 +465,7 @@ void Simulator::xANDI()
 void Simulator::xANDX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = p2->m_int & p3->m_int;
-            return;
-        }
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s & %s.\n",
-                Value::type_to_name(p2->m_type),
-                Value::type_to_name(p3->m_type));
+    *p1 = *p2 & *p3;
 }
 
 void Simulator::xORI()
@@ -1009,23 +478,7 @@ void Simulator::xORI()
 void Simulator::xORX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = p2->m_int | p3->m_int;
-            return;
-        }
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s | %s.\n",
-                Value::type_to_name(p2->m_type),
-                Value::type_to_name(p3->m_type));
+    *p1 = *p2 | *p3;
 }
 
 void Simulator::xXORI()
@@ -1038,48 +491,33 @@ void Simulator::xXORI()
 void Simulator::xXORX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = p2->m_int ^ p3->m_int;
-            return;
-        }
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s ^ %s.\n",
-                Value::type_to_name(p2->m_type),
-                Value::type_to_name(p3->m_type));
+    *p1 = *p2 ^ *p3;
 }
 
-void Simulator::xNOTI()
+void Simulator::xREVI()
 {
     GET_P1; GET_P2;
     p1->m_type = ValueType::INTEGER;
     p1->m_int = ~p2->m_int;
 }
 
-void Simulator::xNOTX()
+void Simulator::xREVX()
 {
     GET_P1; GET_P2;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        p1->m_type = ValueType::INTEGER;
-        p1->m_int = ~p2->m_int;
-        return;
+    *p1 = ~*p2;
+}
 
-    default:
-        break;
-    }
+void Simulator::xNEGI()
+{
+    GET_P1; GET_P2;
+    p1->m_type = ValueType::INTEGER;
+    p1->m_int = -p2->m_int;
+}
 
-    throw_error("Failed to do ~%s.\n",
-                Value::type_to_name(p2->m_type));
+void Simulator::xNEGX()
+{
+    GET_P1; GET_P2;
+    *p1 = -*p2;
 }
 
 void Simulator::xLSHI()
@@ -1092,23 +530,7 @@ void Simulator::xLSHI()
 void Simulator::xLSHX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = p2->m_int << p3->m_int;
-            return;
-        }
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s << %s.\n",
-                Value::type_to_name(p2->m_type),
-                Value::type_to_name(p3->m_type));
+    *p1 = *p2 << *p3;
 }
 
 void Simulator::xRSHI()
@@ -1121,23 +543,7 @@ void Simulator::xRSHI()
 void Simulator::xRSHX()
 {
     GET_P1; GET_P2; GET_P3;
-    switch (p2->m_type)
-    {
-    case ValueType::INTEGER:
-        if (p3->m_type == ValueType::INTEGER)
-        {
-            p1->m_type = ValueType::INTEGER;
-            p1->m_int = p2->m_int >> p3->m_int;
-            return;
-        }
-
-    default:
-        break;
-    }
-
-    throw_error("Failed to do %s >> %s.\n",
-        Value::type_to_name(p2->m_type),
-        Value::type_to_name(p3->m_type));
+    *p1 = *p2 >> *p3;
 }
 
 void Simulator::xCAST()
@@ -1152,165 +558,34 @@ void Simulator::xCAST()
     switch ((ValueType)p2)
     {
     case INTEGER:
-        if (p3->m_type == NIL)
-        {
-            p1->m_type = INTEGER;
-            p1->m_int = 0;
-            return;
-        }
-        if (p3->m_type == REAL)
-        {
-            p1->m_type = INTEGER;
-            p1->m_int = (Integer)p3->m_real;
-            return;
-        }
-        if (p3->m_type == STRING)
-        {
-            p1->m_type = INTEGER;
-            p1->m_int = (Integer)strtol(p3->m_string->c_str(), 0, 10, 1);
-            return;
-        }
+        *p1 = (Integer)*p3;
         break;
 
     case REAL:
-        if (p3->m_type == NIL)
-        {
-            p1->m_type = REAL;
-            p1->m_real = 0;
-            return;
-        }
-        if (p3->m_type == INTEGER)
-        {
-            p1->m_type = REAL;
-            p1->m_real = (Real)p3->m_int;
-            return;
-        }
-        if (p3->m_type == STRING)
-        {
-            p1->m_type = REAL;
-            p1->m_real = (Real)strtof(p3->m_string->c_str(), 0, 1);
-            return;
-        }
+        *p1 = (Real)*p3;
         break;
 
     case STRING:
-        if (p3->m_type == NIL)
-        {
-            p1->m_type = STRING;
-            p1->m_string = STRING_ALLOC("nil");
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
-        if (p3->m_type == INTEGER)
-        {
-            char temp[64];
-            snprintf(temp, sizeof(temp), "%lld", (Int64)p3->m_int);
-            p1->m_type = STRING;
-            p1->m_string = STRING_ALLOC(temp);
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
-        if (p3->m_type == REAL)
-        {
-            char temp[64];
-            snprintf(temp, sizeof(temp), "%g", (double)p3->m_real);
-            p1->m_type = STRING;
-            p1->m_string = STRING_ALLOC(temp);
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
-        if (p3->m_type == BUFFER)
-        {
-            // Find length to string
-            size_t len = p3->m_buffer->length();
-            auto *p = p3->m_buffer->data();
-            for (size_t i = 0; i < len; i++)
-            {
-                if (p[i] == 0)
-                {
-                    len = i;
-                    break;
-                }
-            }
-            p1->m_type = STRING;
-            p1->m_string = STRING_ALLOC((char *)p, len);
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
+        *p1 = (String)*p3;
         break;
 
     case BUFFER:
-        if (p3->m_type == NIL)
-        {
-            p1->m_type = BUFFER;
-            p1->m_buffer = BUFFER_ALLOC((size_t)0);
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
-        if (p3->m_type == INTEGER)
-        {
-            // Make to network order
-            Uint8 temp[sizeof(Integer)];
-            Integer val = p3->m_int;
-            for (int i = sizeof(Integer) - 1; i >= 0; i--)
-            {
-                temp[i] = (Uint8)(val & 0xFF);
-                val >>= 8;
-            }
-            p1->m_buffer = BUFFER_ALLOC(temp, sizeof(Integer));
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
-        if (p3->m_type == REAL)
-        {
-            // Make to network order
-            Uint8 temp[sizeof(double)];
-            Int64 val = *(Int64 *)&p3->m_real;
-            for (int i = sizeof(Int64) - 1; i >= 0; i--)
-            {
-                temp[i] = (Uint8)(val & 0xFF);
-                val >>= 8;
-            }
-            p1->m_buffer = BUFFER_ALLOC(temp, sizeof(Int64));
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
-        if (p3->m_type == STRING)
-        {
-            p1->m_type = BUFFER;
-            p1->m_buffer = BUFFER_ALLOC((Uint8 *)p3->m_string->c_str(), p3->m_string->length());
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
+        *p1 = (Buffer)*p3;
         break;
 
     case ARRAY:
-        if (p3->m_type == NIL)
-        {
-            p1->m_type = ARRAY;
-            p1->m_array = XNEW(ArrayImpl, 0);
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
+        *p1 = (Array)*p3;
         break;
 
     case MAPPING:
-        if (p3->m_type == NIL)
-        {
-            p1->m_type = MAPPING;
-            p1->m_map = XNEW(MapImpl, 0);
-            m_domain->bind_value(p1->m_reference);
-            return;
-        }
+        *p1 = (Map)*p3;
         break;
 
     default:
-        break;
+        throw_error("Failed to do cast %s to %s.\n",
+                    Value::type_to_name(p3->m_type),
+                    Value::type_to_name((ValueType)p2));
     }
-
-    throw_error("Failed to do cast %s to %s.\n",
-                Value::type_to_name(p3->m_type),
-                Value::type_to_name((ValueType)p2));
 }
 
 void Simulator::xISTYPE()

@@ -22,8 +22,12 @@ LFLAGS = $(ARCH) -lstdc++ $(LINK_PLATFORM)
 SRCS := $(notdir $(shell ls ../mts/*.cpp))
 OBJS := $(addprefix mts/, $(addsuffix .o, $(basename $(SRCS))))
 
-STD_SRCS := $(notdir $(shell ls ../std/src/std_port/*.c))
-STD_OBJS := $(addprefix std/src/std_port/, $(addsuffix .o, $(basename $(STD_SRCS)))) std/src/std_memmgr/std_memmgr.o std/src/std_template/simple_string.o
+STD_PORT_SRCS := $(notdir $(shell ls ../std/src/std_port/*.c))
+STD_SOCKET_SRCS := $(notdir $(shell ls ../std/src/std_socket/*.c))
+STD_OBJS := \
+  $(addprefix std/src/std_port/, $(addsuffix .o, $(basename $(STD_PORT_SRCS)))) \
+  $(addprefix std/src/std_socket/, $(addsuffix .o, $(basename $(SRD_SOCKET_SRCS)))) \
+  std/src/std_memmgr/std_memmgr.o std/src/std_template/simple_string.o
 
 a.out : $(OBJS) $(STD_OBJS)
 	@echo $(STD_SRCS)
