@@ -43,71 +43,72 @@
      L_NUMBER = 259,
      L_REAL = 260,
      L_BASIC_TYPE = 261,
-     L_DEFINED_NAME = 262,
-     L_IDENTIFIER = 263,
-     L_EFUN = 264,
-     L_FUN = 265,
-     L_OSFUN = 266,
-     L_OSVAR = 267,
-     L_LABEL = 268,
-     L_NIL = 269,
-     L_IS_REF = 270,
-     L_ADD_COMPONENT = 271,
-     L_USING = 272,
-     L_USING_STATEMENT = 273,
-     L_INC = 274,
-     L_DEC = 275,
-     L_ASSIGN = 276,
-     L_LAND = 277,
-     L_LOR = 278,
-     L_LSH = 279,
-     L_RSH = 280,
-     L_ORDER = 281,
-     L_NOT = 282,
-     L_BUILD = 283,
-     L_IF = 284,
-     L_ELSE = 285,
-     L_SWITCH = 286,
-     L_CASE = 287,
-     L_DEFAULT = 288,
-     L_RANGE = 289,
-     L_DOT_DOT_DOT = 290,
-     L_WHILE = 291,
-     L_DO = 292,
-     L_FOR = 293,
-     L_LOOP = 294,
-     L_UPTO = 295,
-     L_DOWNTO = 296,
-     L_EACH = 297,
-     L_IN = 298,
-     L_BREAK = 299,
-     L_CONTINUE = 300,
-     L_ARROW = 301,
-     L_EXPAND_ARROW = 302,
-     L_COLON_COLON = 303,
-     L_ARRAY_OPEN = 304,
-     L_MAPPING_OPEN = 305,
-     L_FUNCTION_OPEN = 306,
-     L_GOTO = 307,
-     L_CALL = 308,
-     L_RETURN = 309,
-     L_TRACE = 310,
-     L_SHOUT = 311,
-     L_GLOBAL = 312,
-     L_TRY = 313,
-     L_CATCH = 314,
-     L_PRIVATE = 315,
-     L_PUBLIC = 316,
-     L_OVERRIDE = 317,
-     L_NOMASK = 318,
-     L_VARARGS = 319,
-     L_STATIC = 320,
-     L_NOSAVE = 321,
-     L_CONST = 322,
-     L_FILE = 323,
-     LOWER_THAN_ELSE = 324,
-     L_NE = 325,
-     L_EQ = 326
+     L_IDENTIFIER = 262,
+     L_LABEL = 263,
+     L_NIL = 264,
+     L_IS_REF = 265,
+     L_ADD_COMPONENT = 266,
+     L_INC = 267,
+     L_DEC = 268,
+     L_ASSIGN = 269,
+     L_LAND = 270,
+     L_LOR = 271,
+     L_LSH = 272,
+     L_RSH = 273,
+     L_ORDER = 274,
+     L_NOT = 275,
+     L_REV = 276,
+     L_ADD = 277,
+     L_SUB = 278,
+     L_MUL = 279,
+     L_DIV = 280,
+     L_MOD = 281,
+     L_OR = 282,
+     L_AND = 283,
+     L_XOR = 284,
+     L_LT = 285,
+     L_BUILD = 286,
+     L_IF = 287,
+     L_ELSE = 288,
+     L_SWITCH = 289,
+     L_CASE = 290,
+     L_DEFAULT = 291,
+     L_RANGE = 292,
+     L_DOT_DOT_DOT = 293,
+     L_WHILE = 294,
+     L_DO = 295,
+     L_FOR = 296,
+     L_LOOP = 297,
+     L_UPTO = 298,
+     L_DOWNTO = 299,
+     L_EACH = 300,
+     L_IN = 301,
+     L_BREAK = 302,
+     L_CONTINUE = 303,
+     L_ARROW = 304,
+     L_EXPAND_ARROW = 305,
+     L_COLON_COLON = 306,
+     L_ARRAY_OPEN = 307,
+     L_MAPPING_OPEN = 308,
+     L_FUNCTION_OPEN = 309,
+     L_GOTO = 310,
+     L_CALL = 311,
+     L_RETURN = 312,
+     L_TRACE = 313,
+     L_SHOUT = 314,
+     L_GLOBAL = 315,
+     L_TRY = 316,
+     L_CATCH = 317,
+     L_PRIVATE = 318,
+     L_PUBLIC = 319,
+     L_OVERRIDE = 320,
+     L_NOMASK = 321,
+     L_STATIC = 322,
+     L_NOSAVE = 323,
+     L_CONST = 324,
+     LOWER_THAN_ELSE = 325,
+     L_NE = 326,
+     L_EQ = 327
    };
 #endif
 
@@ -118,30 +119,29 @@ typedef union YYSTYPE
 {
 
 /* Line 1676 of yacc.c  */
-#line 122 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 113 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
 
     Integer             number;
     Real                real;
-    char*               string;
-    ValueType           basic_type;
-    AstVarType       type;
-    AstVariableInfo        variable;
-    SyntaxVariable*		    declare_var;
-    AstFunction*     fun;
-    AstFunctionArg*  argument;
-    AstFunctionArgs* arg_list;
-    AstElement*      element;
-    AstCase*         switch_case;
-    AstFunctionDesc        function_desc;
-    AstVariableDesc             var_desc;
-    AstLValueInfo*   lv_info;
-    AstExpression*   expression;
-    AstExpressions*  expressions;
-    SyntaxSourceNode*   source_node;
-    AstDeclare*      declares;
-    SyntaxMappingPair*  mapping_pair;
-    Vector_T            array;
-    SyntaxContextState  context_state;
+    StringImpl*         string;
+
+    AstNode*            node;
+    AstCase*            cases;
+    AstDeclare*         declares;
+    AstExpr*            expression;
+    AstExpr*            expr_list;
+    AstFunction*        function;
+    AstFunctionArg*     argument;
+    AstFunctionArgsEx   arguments_ex;
+    AstLValue*          lvalue;
+    AstPrototype*       prototype;
+
+    ValueType           basic_var_type;
+    Uint8               var_attrib;
+    VarType             var_type;
+
+    bool                bool_flag;
+    Uint32              uint32_val;
 
 
 

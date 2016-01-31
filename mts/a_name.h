@@ -35,7 +35,7 @@ public:
 
         StringImpl* &m_name = this->m_members[0].m_string;
         m_name = name;
-        return Value();
+        return Value(UNDEFINED);
     }
 
     // Function 1
@@ -116,9 +116,9 @@ public:
         printf("Per domain call with parameter is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
 
         Value str_a = "a", str_b = "b";
-        Value m = Map(8).bind_to(_thread->get_current_domain());
-        m["a"] = 1;
-        m["b"] = 2;
+        Value m = Map(8);
+        m[str_a] = 1;
+        m[str_b] = 2;
         b = std_get_current_us_counter();
         for (i = 0; i < 1000; i++)
             m[str_a];
@@ -128,9 +128,9 @@ public:
         t *= 1000;
         printf("Per mapping read is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
 
-        m = Map().bind_to(_thread->get_current_domain());
-        m["a"] = 1;
-        m["b"] = 2;
+        m = Map(8);
+        m[str_a] = 1;
+        m[str_b] = 2;
         b = std_get_current_us_counter();
         for (i = 0; i < 1000; i++)
             m[str_b] = 5;
@@ -165,7 +165,7 @@ public:
     {
         if (__n != 0)
             throw_error("Bad parameters, expected %lld, got %lld.", (Integer)0, (Integer)__n);
-        return Value();
+        return Value(UNDEFINED);
     }
 
     // Function 5
@@ -191,7 +191,7 @@ public:
         {
             _thread->restore_call_stack_for_error(this_call_context);
         }
-        return Value();
+        return Value(UNDEFINED);
     }
 };
 

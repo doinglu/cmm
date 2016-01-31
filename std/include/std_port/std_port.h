@@ -20,9 +20,7 @@
 extern "C" {
 #endif
 
-#ifdef _DEBUG
 #include <stdio.h>
-#endif
 
 #include <ctype.h>
 #include "std_port_platform.h"

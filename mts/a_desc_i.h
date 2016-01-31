@@ -20,7 +20,7 @@ Program *create_desc_i_program()
 //    Map m2 = XNEW(MapImpl, 3);
 //    m2["key2"] = "value2";
 //    m["m2"] = m2;
-    m["purpose"] = "test";
+    m[String("purpose")] = "test";
 
     Function *function;
     function = program->define_function("printf", 0, 1, 1, (Function::Attrib)(Function::Attrib::RANDOM_ARG|Function::Attrib::INTERPRETED));

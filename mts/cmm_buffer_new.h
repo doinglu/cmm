@@ -111,7 +111,7 @@ BufferImpl *buffer_new_arr(const char *file, int line, size_t n)
 }
 
 // Delete buffer contains N classes
-void buffer_delete_arr(const char *file, int line, BufferImpl *buffer)
+inline void buffer_delete_arr(const char *file, int line, BufferImpl *buffer)
 {
     // Verify attrib & free the buffer - destructor will be invoked in free()
     STD_ASSERT(("Bad buffer class array pointer to delete.",

@@ -11,14 +11,14 @@
 namespace simple
 {
 
-template <typename K, typename V, typename F>
+template <typename K, typename V, typename F, typename Alloc>
 class hash_map_iterator;
 
 template <typename T>
 struct hash_func;
 
 // hash map
-template <typename K, typename V, typename F = hash_func<K> >
+template <typename K, typename V, typename F = hash_func<K>, typename Alloc = XAlloc>
 class hash_map
 {
     enum { MinCapacity = 4 };
@@ -26,7 +26,7 @@ class hash_map
     typedef unsigned int index_t;
 
 public:
-    typedef hash_map_iterator<K, V, F> iterator;
+    typedef hash_map_iterator<K, V, F, Alloc> iterator;
     friend iterator;
 
 public:
@@ -148,9 +148,9 @@ public:
 
 public:
     // Generate vector of keys
-    vector<K> keys() const
+    vector<K, Alloc> keys() const
     {
-        vector<K> vec(m_size);
+        vector<K, Alloc> vec(m_size);
         // Lookup entire table to add all keys
         for (size_t i = 0; i < m_size; i++)
             vec.push_back(m_pairs[i].first);
@@ -158,9 +158,9 @@ public:
     }
 
     // Generate vector of values
-    vector<V> values() const
+    vector<V, Alloc> values() const
     {
-        vector<V> vec(m_size);
+        vector<V, Alloc> vec(m_size);
         // Lookup entire table to add all keys
         for (size_t i = 0; i < m_size; i++)
             vec.push_back(m_pairs[i].second);
@@ -313,19 +313,19 @@ public:
 
 private:
     // hash table
-    simple::unsafe_vector<pair<K, V> > m_pairs;
-    simple::unsafe_vector<index_t> m_table;
-    simple::unsafe_vector<index_t> m_list;
+    simple::unsafe_vector<pair<K, V>, Alloc> m_pairs;
+    simple::unsafe_vector<index_t, Alloc> m_table;
+    simple::unsafe_vector<index_t, Alloc> m_list;
     index_t m_size;
     index_t m_table_mask; // = m_table.size() - 1, should be 111...111B
     F       m_hash_func;
 };
 
 // Iterator of container
-template<typename K, typename V, typename F = hash_func<K> >
+template<typename K, typename V, typename F = hash_func<K>, typename Alloc = XAlloc>
 class hash_map_iterator
 {
-    typedef hash_map<K, V, F> hash_map_type;
+    typedef hash_map<K, V, F, Alloc> hash_map_type;
     typedef typename hash_map_type::index_t index_t;
     friend hash_map_type;
 

@@ -152,7 +152,8 @@ public:
     };
 
 public:
-    static int init();
+    // Initialize/shutdown this module
+    static bool init();
     static void shutdown();
 
 private:

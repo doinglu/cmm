@@ -37,10 +37,8 @@ public:
     enum { MAX_ID_PAGES = 1024 };
 
 public:
-    // Initialize this module
-    static int init();
-
-    // Shutdown this moudule
+    // Initialize/shutdown this module
+    static bool init();
     static void shutdown();
 
 public:

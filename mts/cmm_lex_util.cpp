@@ -245,4 +245,40 @@ static CharType cmm_get_char_type(char ch)
     return CHAR_OPERATOR;
 }
 
+// Trim two side space of a string
+void cmm_trim_to(char *str, size_t size, const char *from)
+{
+    const char *p;
+    size_t n;
+
+    // Forward search
+    while (*from && isspace((unsigned char)*from))
+        from++;
+
+    if (!*from)
+    {
+        // Empty string
+        str[0] = 0;
+        return;
+    }
+
+    // Back search
+    p = from + strlen(from);
+    while (isspace((unsigned char)p[-1]))
+        p--;
+    // p must large than from since str is not an empty string
+    STD_ASSERT(p > from);
+
+    if ((size_t)(p - from) >= size)
+        // String is too long
+        n = size - 1;
+    else
+        // Full copy
+        n = p - from;
+
+    // Do copy & return string
+    memcpy(str, from, n);
+    str[n] = 0;
+}
+
 }

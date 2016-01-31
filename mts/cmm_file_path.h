@@ -22,7 +22,7 @@ public:
     typedef simple::list<MountNode> MountNodes;
 
 public:
-    /* Registration */
+    // Initialize/shutdown this module
     static bool         init();
     static void         shutdown();
 

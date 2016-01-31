@@ -14,7 +14,8 @@ namespace cmm
 {
 
 // Constructor of parameter
-SyntaxVariable::SyntaxVariable(Function *function, const String& name, ValueType type, Attrib attrib)
+SyntaxVariable::SyntaxVariable(Function *function, const String& name, ValueType type, Attrib attrib) :
+    m_default(UNDEFINED)
 {
     m_function = function;
     m_name = Program::find_or_add_string(name);
@@ -141,7 +142,7 @@ Program::FunctionEntryMap *Program::m_entry_functions = 0;
 struct std_critical_section *Program::m_program_cs = 0;
 Program::ObsoletedProgramSet *Program::m_obsoleted_programs = 0;
 
-int Program::init()
+bool Program::init()
 {
     m_string_pool = XNEW(StringPool);
     m_entry_functions = XNEW(FunctionEntryMap);
@@ -149,7 +150,7 @@ int Program::init()
     m_obsoleted_programs = XNEW(ObsoletedProgramSet);
 
     std_new_critical_section(&m_program_cs);
-    return 0;
+    return true;
 }
 
 void Program::shutdown()
@@ -763,15 +764,15 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
 
     if (function_name.m_type != ValueType::STRING)
         // Bad type of function name
-        return Value();
+        return Value(UNDEFINED);
 
     if (!get_public_callee_by_name((String *)&function_name, &callee))
         // No such function
-        return Value();
+        return Value(UNDEFINED);
 
     if (!thread->try_switch_object_by_id(thread, oid, args, n))
         // The object is not existed or just destructed
-        return Value();
+        return Value(UNDEFINED);
 
     // Call
     auto *object = Object::get_object_by_id(oid);
@@ -796,7 +797,7 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
 
     if (function_name.m_type != ValueType::STRING)
         // Bad type of function name
-        return Value();
+        return Value(UNDEFINED);
 
     // Get program of the current module
     auto *object = thread->get_this_object();
@@ -805,7 +806,7 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
 
     if (!to_program->get_self_callee_by_name((String *)&function_name, &callee))
         // No such function
-        return Value();
+        return Value(UNDEFINED);
 
     // Call
     ComponentOffset offset = m_components[component_no].offset;

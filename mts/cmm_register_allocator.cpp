@@ -5,6 +5,7 @@
 #include "cmm_lang.h"
 #include "cmm_register_allocator.h"
 
+#if 0 ////----
 namespace cmm
 {
 
@@ -92,3 +93,4 @@ void cmm_free_ret_registers(AstFunction *func)
 }
 
 }
+#endif

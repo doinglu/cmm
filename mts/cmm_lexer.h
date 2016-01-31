@@ -7,6 +7,7 @@
 #include "std_template/simple_hash_map.h"
 #include "cmm.h"
 #include "cmm_efun.h"
+#include "cmm_gc_alloc.h"
 #include "cmm_lang.h"
 #include "cmm_value.h"
 
@@ -15,10 +16,10 @@ namespace cmm
 
 #define SKIPWHITE   while (vm_isspace(*p) && (*p != '\n')) p++
 
-/* for find_or_add_ident */
+// for find_or_add_ident
 #define FOA_GLOBAL_SCOPE        0x1
 
-/* Max name length */
+// Max name length
 enum
 {
     MAX_FILE_NAME_LEN = 128,
@@ -57,7 +58,7 @@ enum IheType
     IHE_OBJECT_VAR    = 0x00040000,
     IHE_LOCAL_VAR     = 0x00020000,
     IHE_GENERATE      = 0x00010000,
-    IHE_PERMANENT     = (IHE_RESWORD | IHE_EFUN | IHE_FUN | IHE_STATIC_VAR | IHE_GLOBAL_VAR | IHE_OBJECT_VAR),
+    IHE_PERMANENT     = (IHE_RESWORD | IHE_EFUN | IHE_FUN | IHE_STATIC_VAR | IHE_OBJECT_VAR),
     IHE_UNUSED        = (IHE_STATIC_VAR),
     TOKEN_MASK        = 0x0000FFFF,
 };
@@ -65,20 +66,20 @@ enum IheType
 // Attrib of refered
 enum RefStatus
 {
-    VAR_BEEN_ASSIGNED = 0x0001,  /* Varaible is assigned */
-    VAR_BEEN_READ     = 0x0002,  /* SyntaxVariable is used     */
-    FUN_BEEN_CALLED   = 0x0004,  /* Function been called */
+    VAR_BEEN_ASSIGNED = 0x0001,  // Varaible is assigned
+    VAR_BEEN_READ     = 0x0002,  // SyntaxVariable is used    
+    FUN_BEEN_CALLED   = 0x0004,  // Function been called
 };
 
-/* Mixed ident entry */
-typedef union IdentUnit
+// Mixed ident entry
+union IdentUnit
 {
     void* info;
     struct
     {
         Function*   function;
         FunctionNo  funOffset;
-    } uf; /* User defined function (funOffset + entry pointer) */
+    } uf; // User defined function (funOffset + entry pointer)
     struct
     {
         Int32  no;
@@ -117,12 +118,6 @@ struct Keyword
     Uint32      sem_value;      // semantic value for predefined tokens
 };
 
-struct Predefine
-{
-    char* flag;
-    Predefine* next;
-} Predefine;
-
 typedef int (*LookupHandler)(IdentHashElem* ihe, void* cookie);
 
 /*
@@ -130,7 +125,7 @@ typedef int (*LookupHandler)(IdentHashElem* ihe, void* cookie);
  * automatically generated efun_arg_types[] should be used.
  */
 
-/* indicates that the instruction is only used at compile time */
+// indicates that the instruction is only used at compile time
 enum
 {
     F_ALIAS_FLAG = 1024,
@@ -138,46 +133,23 @@ enum
 
 struct Instr
 {
-    ArgNo  max_arg, min_arg;  /* Can't use char to represent -1 */
-    Uint16 type[4];           /* Need a short to hold the biggest type flag */
+    ArgNo  max_arg, min_arg;  // Can't use char to represent -1
+    Uint16 type[4];           // Need a short to hold the biggest type flag
     Uint16 Default;
     Uint16 ret_type;
     char*  name;
     ArgNo  arg_index;
 };
 
-/* The type of main field, may be basic iheNode, or recursive
- * LV_Info (must be a[xxx][..., left it combo) */
+// The type of main field, may be basic iheNode, or recursive
+// LV_Info (must be a[xxx][..., left it combo)
 enum
 {
-    LV_MAIN_TYPE_BASIC     = 1,   /* Simple nodes */
-    LV_MAIN_TYPE_RECURSIVE = 2,   /* Combo        */
+    LV_MAIN_TYPE_BASIC     = 1,   // Simple nodes
+    LV_MAIN_TYPE_RECURSIVE = 2,   // Combo       
 };
 
-enum Operator
-{
-    F_ASSIGN  = 1,
-    F_ADD_EQ  = 2,
-    F_SUB_EQ  = 3,
-    F_MULT_EQ = 4,
-    F_DIV_EQ  = 5,
-    F_AND_EQ  = 6,
-    F_OR_EQ   = 7,
-    F_XOR_EQ  = 8,
-    F_RSH_EQ  = 9,
-    F_LSH_EQ  = 10,
-    F_MOD_EQ  = 11,
-    F_RSH     = 12,
-    F_LSH     = 13,
-    F_LT      = 14,
-    F_GT      = 15,
-    F_LE      = 16,
-    F_GE      = 17,
-    F_EQ      = 18,
-    F_NE      = 19,
-};
-
-/* Return value for vm_startNewFile */
+// Return value for vm_startNewFile
 enum
 {
     START_ERROR  = -1,
@@ -190,27 +162,22 @@ enum LexerAttrib
     LEX_ATTRIB = 1, ////----
 };
 
-struct LangContext;
-struct Program;
-
-/* yacc functions */
-extern int cmm_lex(LangContext* context);
-extern int cmm_parse(LangContext* context);
-
-/* Unknown file name when not specified */
-const const char* UNKNOW_FILE_NAME = "/unknow.c";
+class Lang;
+class Program;
 
 // Line no
 typedef IntR LineNo;
 
+struct IfStatement;
+
 class Lexer
 {
-    friend class LangContext;
+    friend class Lang;
 
 public:
     enum
     {
-        DEFMAX = 12800, /* At lease MAXLINE * 3 */
+        DEFMAX = 12800, // At lease MAXLINE * 3
         MAXLINE = 4096,
         MLEN = 4096,
         NSIZE = 256,
@@ -238,7 +205,12 @@ public:
     };
 
 public:
-    Lexer();
+    // Initialize/shutdown this module
+    static bool init();
+    static void shutdown();
+
+public:
+    Lexer(Lang* context);
     ~Lexer();
 
 public:
@@ -251,16 +223,10 @@ public:
     bool        set_default_attrib(LexerAttrib attrib);
     bool        start_new_file(Program *program, IntR fd, const String& file_name);
     bool        end_new_file(bool succ);
-    IntR        lex_in();
-
-public:
-    static int  init();
-    static void shutdown();
+    int         lex_in();
 
 private:
-    void        lex_error(const char* msg);
     void        lex_errorp(const char* msg);
-    void        lex_stop(ErrorCode error_code);
     void        add_input(char* p);
     void        skip_white();
     IntR        cond_get_exp(IntR priority);
@@ -277,18 +243,34 @@ private:
     IntR        cmy_get_char();
     void        refill();
     void        refill_buffer();
-    IntR        get_char_in_cond_exp();
+    int         get_char_in_cond_exp();
     void        handle_elif(char* sp);
     void        handle_else();
     void        handle_endif();
 
 private:
     static Keyword *get_keyword(const String& name);
-    static void     trim_to(char* str, size_t size, const char* from);
+
+private:
+    typedef String(*ExpandFunc)(Lang* context);
+    typedef simple::hash_map<String, ExpandFunc> ExpandFuncMap;
+    static ExpandFuncMap *expand_builtin_macro_funcs;
+
+    static int    init_predefines();
+    static void   shutdown_predefines();
+    static void   add_predefine(String macro, ExpandFunc func);
+
+    // Predefine expansion functions
+    static String expand_file_name(Lang* context);
+    static String expand_pure_file_name(Lang* context);
+    static String expand_dir_name(Lang* context);
+    static String expand_line_no(Lang* context);
+    static String expand_function_name(Lang* context);
+    static String expand_counter(Lang* context);
 
 private:
     // Language syntax context
-    LangContext* m_lang_context;
+    Lang*        m_lang_context;
 
     // current output buffer point
     char*        m_out;
@@ -323,10 +305,7 @@ private:
     String       m_current_file_string;
     String       m_current_pure_file_string;
 
-    /* Counter of __COUNTER__ in this file */
-    Uint32       m_current_counter;
-
-    /* main source buffer */
+    // main source buffer
     LinkedBuf    m_main_buf;
 
     // Current linked buffer
@@ -339,18 +318,18 @@ private:
     CryptType    m_in_crypt_type;
     Uint8        m_in_crypt_code;
 
-    // Fatal error
-    Uint32       m_num_lex_fatal;
-
     // Is the line no should be fixed?
     LineNo       m_fixed_line;
+
+    // unique count, used to generate __COUNTER__
+    Uint32       m_unique_counter;
 
 private:
     // Keyword array in C++ source file
     static Keyword m_define_keywords[];
 
     // Keyword mapping for runtime
-    typedef simple::hash_map<String, Keyword*> KeywordMap;
+    typedef simple::hash_map<String, Keyword*, String::hash_func, GCAlloc> KeywordMap;
     static KeywordMap* m_keywords;
 
     // File name list

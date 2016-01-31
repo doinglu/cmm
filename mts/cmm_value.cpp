@@ -10,6 +10,23 @@
 namespace cmm
 {
 
+// Const value
+StringImpl* EMPTY_STRING = 0;
+BufferImpl* EMPTY_BUFFER = 0;
+
+bool Value::init()
+{
+    EMPTY_STRING = STRING_ALLOC("");
+    EMPTY_BUFFER = BUFFER_ALLOC((size_t)0);
+    return true;
+}
+
+void Value::shutdown()
+{
+    BUFFER_FREE(EMPTY_BUFFER);
+    STRING_FREE(EMPTY_STRING);
+}
+    
 // Try to bind a reference value to a domain's values list.
 // This value must be NEW one & never be binded
 void ReferenceImpl::bind_to_current_domain()
@@ -142,7 +159,7 @@ ReferenceImpl *ArrayImpl::copy_to_local(Thread *thread)
     // Bind before copy elements in case of exception when copying
 
     for (auto &it: this->a)
-        v->a.push_back(it.copy_to_local(thread));
+        v->a.push_back((ValueInContainer&)it.copy_to_local(thread));
     return v;
 }
 
@@ -158,7 +175,8 @@ ReferenceImpl *MapImpl::copy_to_local(Thread *thread)
     // Bind before copy elements in case of exception when copying
 
     for (auto &it: this->m)
-        v->m.put(it.first.copy_to_local(thread), it.second.copy_to_local(thread));
+        v->m.put((const ValueInContainer&)it.first.copy_to_local(thread),
+                 (const ValueInContainer&)it.second.copy_to_local(thread));
     return v;
 }
 
@@ -188,7 +206,7 @@ void ArrayImpl::mark(MarkValueState& state)
 {
     for (auto &it: this->a)
         if (it.m_type >= ValueType::REFERENCE_VALUE)
-            Domain::mark_value(state, it.m_reference);
+            state.mark_value(it.m_reference);
 }
 
 // Mark all elements in this container
@@ -197,10 +215,10 @@ void MapImpl::mark(MarkValueState& state)
     for (auto &it: this->m)
     {
         if (it.first.m_type >= ValueType::REFERENCE_VALUE)
-            Domain::mark_value(state, it.first.m_reference);
+            state.mark_value(it.first.m_reference);
 
         if (it.second.m_type >= ValueType::REFERENCE_VALUE)
-            Domain::mark_value(state, it.second.m_reference);
+            state.mark_value(it.second.m_reference);
     }
 }
 
@@ -402,19 +420,20 @@ Value& Value::operator [](const Value& value)
 {
     switch (m_type)
     {
-    case MAPPING: return (*m_map)[value];
-    case ARRAY: return (*m_array)[value];
+    case MAPPING: return (*m_map).index_ptr(value);
+    case ARRAY: return (*m_array).index_ptr(value);
     default: throw_error("Bad type of value to index.\n");
     }
 }
 
 // Get index from container
-Value Value::operator [](const Value& value) const
+const Value Value::operator [](const Value& value) const
 {
     switch (m_type)
     {
-    case MAPPING: return (*m_map)[value];
-    case ARRAY: return (*m_array)[value];
+    case STRING: return (*m_string).index_val(value);
+    case MAPPING: return (*m_map).index_val(value);
+    case ARRAY: return (*m_array).index_val(value);
     default: throw_error("Bad type of value to index.\n");
     }
 }

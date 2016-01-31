@@ -79,12 +79,11 @@ public:
     typedef Uint32  Id;
 
 public:
-    // Initialize this module
-    static int init();
-
-    // Shutdown this moudule
+    // Initialize/shutdown this module
+    static bool init();
     static void shutdown();
 
+public:
     // Get data binded to current thread
     static Thread *get_current_thread()
     {

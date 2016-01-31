@@ -14,14 +14,14 @@ namespace cmm
 Efun::EfunPackage *Efun::m_efun_packages = 0;
 Efun::EfunMap *Efun::m_efun_map = 0;
 
-int Efun::init()
+bool Efun::init()
 {
     m_efun_packages = XNEW(EfunPackage);
     m_efun_map = XNEW(EfunMap);
     
     // Initialize all efun modules
     init_efun_core();
-    return 0;
+    return true;
 }
 
 void Efun::shutdown()
@@ -142,16 +142,16 @@ Value Efun::invoke(Thread *thread, const Value& function_name, Value *args, ArgN
 {
     if (function_name.m_type != ValueType::STRING)
         // Bad type of function name
-        return Value();
+        return Value(UNDEFINED);
 
     if (!Program::convert_to_shared((String*)&function_name))
         // Not found name in shared string pool, no such efun
-        return Value();
+        return Value(UNDEFINED);
 
     Function *function;
     if (!m_efun_map->try_get(function_name.m_string, &function))
         // Function is not found
-        return Value();
+        return Value(UNDEFINED);
 
     auto func_entry = function->get_efun_entry();
     thread->push_call_context(thread->get_this_object(), (void *)func_entry, args, n,

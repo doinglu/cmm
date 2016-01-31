@@ -13,11 +13,11 @@ namespace cmm
 // ID->objects's entries
 Object::ObjectIdManager *Object::m_id_manager = 0;
     
-int Object::init()
+bool Object::init()
 {
     // Create the id manager
     m_id_manager = XNEW(Object::ObjectIdManager, MAX_ID_PAGES);
-    return 0;
+    return true;
 }
 
 void Object::shutdown()

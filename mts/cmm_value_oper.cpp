@@ -397,13 +397,13 @@ bool operator <=(const Value& a, const Value& b)
     return !(b < a);
 }
 
-Value::operator bool()
+bool Value::cast_bool() const
 {
     const Value& a = *this;
     return !a.is_zero();
 }
 
-Value::operator Integer()
+Integer Value::cast_int() const
 {
     const Value& a = *this;
 
@@ -430,7 +430,7 @@ Value::operator Integer()
                 Value::type_to_name(INTEGER));
 }
 
-Value::operator Real()
+Real Value::cast_real() const
 {
     const Value& a = *this;
 
@@ -457,13 +457,7 @@ Value::operator Real()
                 Value::type_to_name(REAL));
 }
 
-Value::operator const char*()
-{
-    const Value& a = *this;
-    return ((String)a).c_str();
-}
-
-Value::operator String()
+StringImpl* Value::cast_string() const
 {
     const Value& a = *this;
 
@@ -514,7 +508,7 @@ Value::operator String()
                 Value::type_to_name(STRING));
 }
 
-Value::operator Buffer()
+BufferImpl* Value::cast_buffer() const
 {
     const Value& a = *this;
 
@@ -564,7 +558,7 @@ Value::operator Buffer()
                 Value::type_to_name(BUFFER));
 }
 
-Value::operator Array()
+ArrayImpl* Value::cast_array() const
 {
     const Value& a = *this;
 
@@ -585,7 +579,7 @@ Value::operator Array()
                 Value::type_to_name(ARRAY));
 }
 
-Value::operator Map()
+MapImpl* Value::cast_map() const
 {
     const Value& a = *this;
 

@@ -20,7 +20,7 @@ size_t Thread::m_max_domain_context_level = 64; // Default
 std_tls_t Thread::m_thread_tls_id = STD_NO_TLS_ID;
 
 // Initialize this module
-int Thread::init()
+bool Thread::init()
 {
     std_allocate_tls(&m_thread_tls_id);
 
@@ -31,7 +31,7 @@ int Thread::init()
     Thread *thread = XNEW(Thread);
     thread->start();
 
-    return 0;
+    return true;
 }
 
 // Shutdown this moudule
@@ -198,7 +198,7 @@ void Thread::restore_call_stack_for_error(CallContext *to_call_context)
                m_this_domain_context->value.m_call_context > call_context)
         {
             // Back to previous domain context according the call context
-            Value unused_ret;
+            Value unused_ret(UNDEFINED);
             pop_domain_context(unused_ret);
         }
 

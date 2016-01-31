@@ -19,7 +19,7 @@ bool match_prototype(TokenState& state, Prototype *ptr_prototype)
         return false;
     }
 
-    String fun_name;
+    String fun_name(EMPTY_STRING);
     if (!match_ident_name(state, &fun_name))
     {
         state.error_msg += "Expected function name.\n";
@@ -37,7 +37,7 @@ bool match_prototype(TokenState& state, Prototype *ptr_prototype)
         return false;
 
     // Skip ;
-    String token;
+    String token(EMPTY_STRING);
     if (state.peek_token(&token) && token == ";")
         state.skip();
 
@@ -57,7 +57,7 @@ bool match_prototype(TokenState& state, Prototype *ptr_prototype)
 // Grammar match: type = int | real | .... | mixed [?]
 bool match_type(TokenState& state, Type *ptr_type)
 {
-    String token;
+    String token(EMPTY_STRING);
     if (!state.get_token(&token))
     {
         state.error_msg += "End of line, missed type.\n";
@@ -92,13 +92,13 @@ bool match_type(TokenState& state, Type *ptr_type)
 // Grammar match: [_,a-z,A-Z][_,a-z,A-Z,1-9]*
 bool match_ident_name(TokenState& state, String *ident_name)
 {
-    String word;
+    String word(EMPTY_STRING);
     if (!state.get_token(&word))
     {
         state.error_msg += "Missed ident name.\n";
         return false;
     }
-    if (!isalnum(word[0]) && word[0] != '_')
+    if (!isalnum(word.index_val(0)) && word.index_val(0) != '_')
     {
         state.error_msg += String::snprintf("Bad ident name \"%s\", expected lead by [_,a-z,A-Z].\n", 256,
                                             word.c_str());
@@ -112,7 +112,7 @@ bool match_ident_name(TokenState& state, String *ident_name)
 // Grammar match: == word
 bool match_word(TokenState& state, const String& expect_word)
 {
-    String word;
+    String word(EMPTY_STRING);
     if (!state.get_token(&word))
         return false;
 
@@ -127,7 +127,7 @@ bool match_arguments_list(TokenState& state, ArgumentsList *ptr_arguments)
 {
     ArgumentsList argument_list;
 
-    String token;
+    String token(EMPTY_STRING);
     while (state.peek_token(&token) && token != ")")
     {
         if (token == "...")
@@ -172,7 +172,7 @@ bool match_argument(TokenState& state, Argument *ptr_argument)
         return false;
     }
 
-    String name;
+    String name(EMPTY_STRING);
     if (!match_ident_name(state, &name))
     {
         state.error_msg += "Expect name for argument.\n";
@@ -180,7 +180,7 @@ bool match_argument(TokenState& state, Argument *ptr_argument)
     }
 
     bool has_default = false;
-    String token;
+    String token(EMPTY_STRING);
     if (state.peek_token(&token) && token == "=")
     {
         if (!match_constant(state))
@@ -204,7 +204,8 @@ bool match_constant(TokenState& state)
 }
 
 TokenState::TokenState(const String& prototype) :
-    words(parse_words(prototype))
+    words(parse_words(prototype)),
+    error_msg(EMPTY_STRING)
 {
     cursor = 0;
     end = words.size();

@@ -1,5 +1,6 @@
 // cmm_value_list.cpp
 
+#include "cmm.h"
 #include "cmm_value_list.h"
 #include "cmm_value.h"
 
@@ -7,7 +8,7 @@ namespace cmm
 {
 
 // Append a new value to list
-void ValueList::append_value(ReferenceImpl *value)
+void ValueList::append_value(ReferenceImpl* value)
 {
     STD_ASSERT(("The value was already owned by a list.", !value->owner));
     value->owner = this;
@@ -17,14 +18,14 @@ void ValueList::append_value(ReferenceImpl *value)
 }
 
 // Conact two memory list then clear one
-void ValueList::concat_list(ValueList *list)
+void ValueList::concat_list(ValueList* list)
 {
     if (!list->m_list)
         // Target list is empry
         return;
 
     // Update owner of the values in list
-    auto *pp = &list->m_list;
+    auto* pp = &list->m_list;
     while (*pp)
     {
         STD_ASSERT(("Bad owner of value in list when concating.", (*pp)->owner == list));
@@ -41,10 +42,10 @@ void ValueList::concat_list(ValueList *list)
 }
 
 // Remove a value from list
-void ValueList::remove(ReferenceImpl *value)
+void ValueList::remove(ReferenceImpl* value)
 {
     STD_ASSERT(("Value is not in this list.", value->owner == this));
-    auto *pp = &m_list;
+    auto* pp = &m_list;
     while (*pp != value)
         pp = &(*pp)->next;
 
@@ -56,12 +57,12 @@ void ValueList::remove(ReferenceImpl *value)
 // Free all linked values in list
 void ValueList::free()
 {
-    auto *p = m_list;
+    auto* p = m_list;
     reset();
 
     while (p)
     {
-        auto *value = p;
+        auto* value = p;
         p = p->next;
 
         // Free it
@@ -70,10 +71,16 @@ void ValueList::free()
 }
 
 // Mark value
-void MarkValueState::mark_value(ReferenceImpl *ptr_value)
+void MarkValueState::mark_value(ReferenceImpl* ptr_value)
 {
     // Try remove from set
-    if (!set.erase(ptr_value))
+    size_t index = (size_t)ptr_value->owner;
+    if (index < impl_ptrs.size() && impl_ptrs[index] == ptr_value)
+    {
+        // Got the valid pointer, erase from impl_ptrs[]
+        impl_ptrs[index] = 0;
+    } else
+////----    if (!set.erase(ptr_value))
     {
         // Not in set, is this a class pointer?
 
@@ -87,10 +94,19 @@ void MarkValueState::mark_value(ReferenceImpl *ptr_value)
             return;
 
         // Found raw BufferImpl contains this class
+        auto ptr_memory = it->second;
         class_ptrs.erase(ptr_value);
-        if (!set.erase(it->second))
+
+        index = (size_t)ptr_memory->owner;
+        if (index < impl_ptrs.size() && impl_ptrs[index] == ptr_memory)
+            // Got the valid pointer, erase from impl_ptrs[]
+            impl_ptrs[index] = 0;
+        else
             // The BufferImpl was marked, ignored
             return;
+
+        // Mark the orginal BufferImpl
+        ptr_value = ptr_memory;
     }
 
     // Put back to list

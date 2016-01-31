@@ -94,7 +94,7 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
         // In the same domain, just do normal call
         Program::CalleeInfo callee;
         if (!program->get_public_callee_by_name((String *)&function_name, &callee))
-            return Value();
+            return Value(UNDEFINED);
 
         auto *object = entry->object;
         auto component_no = callee.component_no;
@@ -109,7 +109,7 @@ inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name
 
     // Call into other domain
     if (!program)
-        return Value();
+        return Value(UNDEFINED);
 
     Value ret = program->invoke(thread, oid, function_name, args, n);
     return ret;

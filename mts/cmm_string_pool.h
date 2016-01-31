@@ -23,7 +23,7 @@ private:
     std_spin_lock_t m_lock;
 
     // Use StringImpl::hash_func to compare content of StringImpl *
-    typedef simple::hash_set<String, String::hash_func> Container;
+    typedef simple::hash_set<StringImpl *, StringImpl::hash_func> Container;
     Container m_pool;
 };
 

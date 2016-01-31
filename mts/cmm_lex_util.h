@@ -13,5 +13,6 @@ namespace cmm
 bool cmm_merge_quoted_strings(char *str);
 bool cmm_append_input_at_buffer_head(char *text, size_t size, char **ppat, const char *content);
 bool cmm_get_token(char *token, size_t size, char **ppat);
+void cmm_trim_to(char* str, size_t size, const char* from);
 
 }

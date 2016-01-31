@@ -97,12 +97,12 @@ Simulator::InstructionInfo Simulator::m_instruction_info[] =
 // Map Code to index
 Uint8 Simulator::m_code_map[256];
 
-int Simulator::init()
+bool Simulator::init()
 {
     // Build code map: code->index
     for (Uint8 i = 0; m_instruction_info[i].name != 0; i++)
         m_code_map[m_instruction_info[i].code] = i;
-    return 0;
+    return true;
 }
 
 void Simulator::shutdown()
@@ -558,27 +558,27 @@ void Simulator::xCAST()
     switch ((ValueType)p2)
     {
     case INTEGER:
-        *p1 = (Integer)*p3;
+        *p1 = p3->cast_int();
         break;
 
     case REAL:
-        *p1 = (Real)*p3;
+        *p1 = p3->cast_real();
         break;
 
     case STRING:
-        *p1 = (String)*p3;
+        *p1 = p3->cast_string();
         break;
 
     case BUFFER:
-        *p1 = (Buffer)*p3;
+        *p1 = p3->cast_buffer();
         break;
 
     case ARRAY:
-        *p1 = (Array)*p3;
+        *p1 = p3->cast_array();
         break;
 
     case MAPPING:
-        *p1 = (Map)*p3;
+        *p1 = p3->cast_map();
         break;
 
     default:
@@ -646,7 +646,7 @@ void Simulator::xRIDXXX()
                 throw_error("Index (%lld) is out of string range (%zu).\n",
                             (Int64)p3->m_int, p2->m_string->length());
             p1->m_type = INTEGER;
-            p1->m_int = (*p2->m_string)[p3->m_int];
+            p1->m_int = p2->m_string->index_val(p3->m_int);
             break;
         }
     case BUFFER:
@@ -656,7 +656,7 @@ void Simulator::xRIDXXX()
                 throw_error("Index (%lld) is out of buffer range (%zu).\n",
                             (Int64)p3->m_int, p2->m_buffer->length());
             p1->m_type = INTEGER;
-            p1->m_int = (*p2->m_buffer)[p3->m_int];
+            p1->m_int = p2->m_buffer->index_val(p3->m_int);
             break;
         }
     case ARRAY:
@@ -665,12 +665,12 @@ void Simulator::xRIDXXX()
             if (p3->m_int < 0 || p3->m_int >= (Integer)p2->m_array->size())
                 throw_error("Index (%lld) is out of array range (%zu).\n",
                             (Int64)p3->m_int, p2->m_array->size());
-            *p1 = (*p2->m_array)[p3->m_int];
+            *p1 = p2->m_array->index_val(p3->m_int);
             break;
         }
 
     case MAPPING:
-        *p1 = (*p2->m_map)[*p3];
+        *p1 = p2->m_map->index_val(*p3);
         break;
 
     default:
@@ -693,12 +693,12 @@ void Simulator::xLIDXXX()
             if (p3->m_int < 0 || p3->m_int >= (Integer)p2->m_array->size())
                 throw_error("Index (%lld) is out of array range (%zu).\n",
                             (Int64)p3->m_int, p2->m_array->size());
-            (*p2->m_array)[p3->m_int] = *p1;
+            p2->m_array->index_ptr(p3->m_int) = *p1;
             break;
         }
 
     case MAPPING:
-        (*p2->m_map)[*p3] = *p1;
+        p2->m_map->index_ptr(*p3) = *p1;
         break;
 
     default:
@@ -725,7 +725,7 @@ void Simulator::xMKIARR()
     GET_P1; GET_P2; GET_P3;
     p1->m_type = ARRAY;
     p1->m_array = XNEW(ArrayImpl, (size_t)p2->m_int);
-    p1->m_array->a.push_back_array(p3, (size_t)p2->m_int);
+    p1->m_array->push_back_array(p3, (size_t)p2->m_int);
     m_domain->bind_value(p1->m_reference);
 }
 
@@ -746,7 +746,7 @@ void Simulator::xMKIMAP()
     p1->m_map = XNEW(MapImpl, (size_t)p2->m_int);
     m_domain->bind_value(p1->m_reference);
     for (Integer i = 0; i < p2->m_int; i++)
-        p1->m_map->m.put(p3[i * 2], p3[i * 2 + 1]);
+        p1->m_map->put(p3[i * 2], p3[i * 2 + 1]);
 }
 
 void Simulator::xJMP()

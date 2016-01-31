@@ -110,6 +110,16 @@ public:
     ReferenceImpl *next;     // Next value in list
 };
 
+// Enum to values
+enum ConstantValue
+{
+    UNDEFINED = 0,
+};
+
+// Constant value
+extern StringImpl* EMPTY_STRING;
+extern BufferImpl* EMPTY_BUFFER;
+
 // VM value
 // ATTENTION:
 // This structure shouldn't has any virtual functions, either destuctor.
@@ -117,6 +127,13 @@ public:
 // correctly manually)
 class Value
 {
+friend Object;
+friend String;
+friend Array;
+friend Map;
+template <typename T>
+friend class TypedValue;
+
 public:
     // Instantiated hash routine for simple::string
     struct hash_func
@@ -128,6 +145,14 @@ public:
     };
 
 public:
+    static bool init();
+    static void shutdown();
+
+public:////----private:
+    // ATTENTION:
+    // WHY Value() is private
+    // This is to prevent declare this value as member in other container such
+    // as vector<>, map<> etc...
     Value()
     {
         m_type = NIL;
@@ -136,6 +161,7 @@ public:
 #endif
     }
 
+public:
     // ATTENTION:
     // Don't add destructor, or it may cause the poor performance.
     // We will use this class in function freqencily and the destructor
@@ -146,6 +172,13 @@ public:
     {
         m_type = type;
         m_intptr = intptr;
+    }
+
+    // Create value from constant
+    Value(ConstantValue value)
+    {
+        m_type = NIL;
+        m_intptr = 0;
     }
 
     Value(const Value& value)
@@ -242,26 +275,24 @@ public:
     Value& as_array() { return expect_type(ARRAY); }
     Value& as_map() { return expect_type(MAPPING); }
 
-    Integer      get_int() const { return as_int().m_int; }
-    Real         gets_real() const { return as_real().m_real; }
-    ObjectId     get_object() const { return as_object().m_oid; }
-
+    Integer          get_int() const { return as_int().m_int; }
+    Real             get_real() const { return as_real().m_real; }
+    ObjectId         get_object() const { return as_object().m_oid; }
     StringImpl      *get_string() const { return as_string().m_string; }
     BufferImpl      *get_buffer() const { return as_buffer().m_buffer; }
     FunctionPtrImpl *get_function() const { return as_function().m_function; }
     ArrayImpl       *get_array() const { return as_array().m_array; }
     MapImpl         *get_map() const { return as_map().m_map; }
 
+    // Operation of value
 public:
-    // Cast operators
-    operator bool();
-    operator Integer();
-    operator Real();
-    operator const char*();
-    operator String();
-    operator Buffer();
-    operator Array();
-    operator Map();
+    bool             cast_bool() const;
+    Integer          cast_int() const;
+    Real             cast_real() const;
+    StringImpl*      cast_string() const;
+    BufferImpl*      cast_buffer() const;
+    ArrayImpl*       cast_array() const;
+    MapImpl*         cast_map() const;
 
 public:
     // Type to name
@@ -324,7 +355,7 @@ public:
         return !is_zero();
     }
 
-private:
+public:////----private:
     // Check type & return this value
     const Value& expect_type(ValueType type) const
     {
@@ -369,7 +400,7 @@ public:
     Value& operator [](const Value& value);
 
     // Get index from container
-    Value operator [](const Value& value) const;
+    const Value operator [](const Value& value) const;
 
 public:
     ValueType m_type;
@@ -400,7 +431,16 @@ public:
     typedef simple::string::string_size_t string_size_t;
     static const ValueType this_type = ValueType::STRING;
 
-private:
+    // Instantiated hash routine for simple::string
+    struct hash_func
+    {
+        size_t operator()(const StringImpl* impl) const
+        {
+            return impl->hash_value();
+        }
+    };
+
+public:////----private:
     // The string can be constructed by StringImpl::new_string() only,
     // since the string data should be allocated at same time. That
     // means the operation: new StringImpl(), StringImpl xxx is invalid. We
@@ -448,11 +488,16 @@ public:
     static StringImpl *snprintf(const char *fmt, size_t n, ...);
 
 public:
-    inline int operator [](size_t index) const
+    inline int index_val(Integer index) const
     {
-        if (index > length())
+        if ((size_t)index > length())
             throw_error("Index of string is out of range.\n");
         return (int)(uchar_t)buf[index];
+    }
+
+    inline int index_val(const Value& index) const
+    {
+        return index_val(index.get_int());
     }
 
     inline bool operator <(const StringImpl& b) const
@@ -475,14 +520,14 @@ public:
         return StringImpl::compare(this, c_str) != 0;
     }
 
-private:
+public:////----private:
     string_size_t len;
     char_t buf[1]; // For count size of terminator '\x0'
 };
 
 // Macro as functions
 #define BUFFER_ALLOC(...)   BufferImpl::alloc(__FILE__, __LINE__, ##__VA_ARGS__)
-#define BUFFER_FREE(string) BufferImpl::free(__FILE__, __LINE__, string)
+#define BUFFER_FREE(buffer) BufferImpl::free(__FILE__, __LINE__, buffer)
 
 // VM value: buffer
 STD_BEGIN_ALIGNED_STRUCT(STD_BEST_ALIGN_SIZE)
@@ -517,7 +562,7 @@ public:
     // Destructor function entry
     typedef void (*DestructFunc)(void *ptr_class);
 
-private:
+public:////----private:
     BufferImpl(size_t _len)
     {
         attrib = (Attrib)0;
@@ -566,11 +611,16 @@ public:
     BufferImpl *sub_of(size_t offset, size_t len = SIZE_MAX) const;
 
 public:
-    inline int operator [](size_t index) const
+    inline int index_val(Integer index) const
     {
-        if (index > length())
+        if ((size_t)index > length())
             throw_error("Index of string is out of range.\n");
         return (int)data()[index];
+    }
+
+    inline int index_val(const Value& index) const
+    {
+        return index_val(index.get_int());
     }
 
 public:
@@ -616,8 +666,19 @@ public:
 // VM value: array
 struct ArrayImpl : public ReferenceImpl
 {
+public:////----private:
+    // Define class for container
+    class ValueInContainer : public Value
+    {
+    public:
+        ValueInContainer() :
+            Value(UNDEFINED)
+        {
+        }
+    };
+
 public:
-    typedef simple::unsafe_vector<Value> DataType;
+    typedef simple::unsafe_vector<ValueInContainer> DataType;
     static const ValueType this_type = ValueType::ARRAY;
 
 public:
@@ -649,7 +710,7 @@ public:
     ArrayImpl *sub_of(size_t offset, size_t len = SIZE_MAX) const;
 
 public:
-    Value& operator [](Integer index) const
+    Value& index_ptr(Integer index) const
     {
         if (index < 0 || index >= (Integer)a.size())
             throw_error("Index out of range to array, got %lld.\n", (Int64)index);
@@ -661,18 +722,34 @@ public:
                 throw_error("Index out of range to array, got %lld.", (Int64)index);
         }
 
-        return a[(size_t)index];
+        return a[index];
     }
 
-    Value& operator [](const Value& index) const
+    Value& index_ptr(const Value& index) const
     {
-        return (operator[])(index.m_int);
+        return index_ptr(index.get_int());
+    }
+
+    const Value index_val(Integer index) const
+    {
+        return index_ptr(index);
+    }
+
+    const Value index_val(const Value& index) const
+    {
+        return index_ptr(index.get_int());
     }
 
     // Append an element
     void push_back(const Value& value)
     {
-        a.push_back(value);
+        a.push_back((ValueInContainer&)value);
+    }
+
+    // Append an element
+    void push_back_array(const Value* value_arr, size_t count)
+    {
+        a.push_back_array((const ValueInContainer*)value_arr, count);
     }
 
     // Get size
@@ -685,11 +762,22 @@ public:
 // VM value: map
 struct MapImpl : public ReferenceImpl
 {
+public:////----private:
+    // Define class for container
+    class ValueInContainer : public Value
+    {
+    public:
+        ValueInContainer() :
+            Value(UNDEFINED)
+        {
+        }
+    };
+
 public:
     static const ValueType this_type = ValueType::MAPPING;
 
 public:
-    typedef simple::hash_map<Value, Value, Value::hash_func> DataType;
+    typedef simple::hash_map<ValueInContainer, ValueInContainer, Value::hash_func> DataType;
 
 public:
     MapImpl(size_t size_hint = 4) :
@@ -717,22 +805,27 @@ public:
     MapImpl *concat(const MapImpl *other) const;
 
 public:
-    Value& operator [](const Value& index)
+    Value& index_ptr(const Value& index)
     {
-        return m[index];
+        return m[(const ValueInContainer&)index];
     }
 
-    Value operator [](const Value& index) const
+    const Value index_val(const Value& index) const
     {
-        Value value;
-        m.try_get(index, &value);
+        ValueInContainer value;
+        m.try_get((const ValueInContainer&)index, &value);
         return value;
+    }
+
+    void put(const Value& key, const Value& value)
+    {
+        index_ptr(key) = value;
     }
 
     // Contains key?
     bool contains_key(const Value& key) const
     {
-        return m.contains_key(key);
+        return m.contains_key((const ValueInContainer&)key);
     }
 
     // Get keys
@@ -763,7 +856,7 @@ public:
     // Other constructor
     template <typename... Types>
     TypedValue(Types&&... args) :
-        Value()
+        Value(UNDEFINED)
     {
         Value value(simple::forward<Types>(args)...);
         m_type = T::this_type;
@@ -848,12 +941,16 @@ public:
 
 class String : public TypedValue<StringImpl>
 {
-public:
+public:////----private:
+    // WHY PRIVATE? See comment of Value()
     String() :
-        TypedValue("")
+        TypedValue(EMPTY_STRING)
     {
     }
 
+    // 
+    // Don't define String()
+public:
     String(const Value& value) :
         TypedValue(value)
     {
@@ -887,19 +984,13 @@ public:
         { return (*this = impl().concat(&other.impl())); }
 
     bool operator ==(const String& other)
-        { return *this == other; }
+        { return this->impl() == other.impl(); }
 
     bool operator !=(const String& other)
-        { return *this != other; }
+        { return !(this->impl() == other.impl()); }
 
-    bool operator ==(const char *other_c_str) const
-        { return impl() == other_c_str; }
-
-    bool operator !=(const char *other_c_str) const
-        { return impl() != other_c_str; }
-
-    int operator[](size_t index) const
-        { return impl()[index]; }
+    int index_val(Integer index) const
+        { return impl().index_val(index); }
 
     const char *c_str() const
         { return impl().c_str(); }
@@ -918,6 +1009,13 @@ public:
 
 class Buffer : public TypedValue<BufferImpl>
 {
+public:////----private:
+    // WHY PRIVATE? See comment of Value()
+    Buffer() :
+        TypedValue(EMPTY_BUFFER)
+    {
+    }
+
 public:
     Buffer(const Value& value) :
         TypedValue(value)
@@ -945,14 +1043,21 @@ public:
         return (*this = impl().concat(&other.impl()));
     }
 
-    int operator[](size_t index) const
+    int operator[](Integer index) const
     {
-        return impl()[index];
+        return impl().index_val(index);
     }
 };
 
 class Array : public TypedValue<ArrayImpl>
 {
+public:////----private:
+    // WHY PRIVATE? See comment of Value()
+    Array() :
+        Array(8)
+    {
+    };
+
 public:
     Array(const Value& value) :
           TypedValue(value)
@@ -964,17 +1069,30 @@ public:
     {
     }
 
-    Array(size_t size_hint = 8);
+    Array(size_t size_hint);
 
 public:
-    Value& operator [](const Value& index) const
-        { return impl()[index]; }
+    Value& index_ptr(const Value& index) const
+        { return impl().index_ptr(index); }
 
-    Value& operator [](Integer index) const
-        { return impl()[index]; }
+    Value& index_ptr(Integer index) const
+        { return impl().index_ptr(index); }
+
+    const Value index_val(const Value& index) const
+    {
+        return impl().index_ptr(index);
+    }
+
+    const Value index_val(Integer index) const
+    {
+        return impl().index_ptr(index);
+    }
 
     void push_back(const Value& value)
         { impl().push_back(value); }
+
+    void push_back_array(const Value* value_arr, size_t count)
+        { impl().push_back_array(value_arr, count); }
 
     size_t size() const { return impl().size(); }
 
@@ -987,6 +1105,13 @@ public:
 
 class Map : public TypedValue<MapImpl>
 {
+public:////----private:
+    // WHY PRIVATE? See comment of Value()
+    Map() :
+        Map(8)
+    {
+    }
+
 public:
     Map(const Value& value) :
         TypedValue(value)
@@ -998,17 +1123,17 @@ public:
     {
     }
 
-    Map(size_t size_hint = 8);
+    Map(size_t size_hint);
 
 public:
-    Value& operator [](const Value& index)
-        { return impl()[index]; }
+    Value& index_ptr(const Value& index)
+        { return impl().index_ptr(index); }
 
-    Value operator [](const Value& index) const
-        { return impl()[index]; }
+    const Value index_val(const Value& index) const
+        { return impl().index_val(index); }
 
     void put(const Value& key, const Value& value)
-        { impl()[key] = value; }
+        { impl().put(key, value); }
 
     Value keys() const
         { return impl().keys(); }

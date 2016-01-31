@@ -21,7 +21,7 @@ public:
 
 public:
     // Bind value to list
-    void append_value(ReferenceImpl *value);
+    void append_value(ReferenceImpl* value);
 
     // Concat two lists
     void concat_list(ValueList *list);
@@ -33,10 +33,10 @@ public:
     size_t get_count() { return m_count; }
 
     // Return the head of list
-    ReferenceImpl *get_list() { return m_list; }
+    ReferenceImpl* get_list() { return m_list; }
 
     // Remove a value
-    void remove(ReferenceImpl *value);
+    void remove(ReferenceImpl* value);
 
     // Reset the list (don't free linked values)
     void reset()
@@ -47,7 +47,7 @@ public:
 
 private:
     // List of all reference values
-    ReferenceImpl *m_list;
+    ReferenceImpl* m_list;
     size_t m_count;
 };
 
@@ -55,31 +55,31 @@ private:
 struct MarkValueState
 {
 public:
-    simple::hash_set<ReferenceImpl *> set;
-    simple::hash_map<void *, BufferImpl *> class_ptrs;
+    simple::unsafe_vector<ReferenceImpl*> impl_ptrs;
+    simple::hash_map<void*, BufferImpl*> class_ptrs;
     ValueList *list;
     void *low;      // Low bound of all pointers
     void *high;     // High bound of all pointers 
 
 public:
     MarkValueState(ValueList *_list) :
-        set(_list->get_count()),
+        impl_ptrs(_list->get_count()),
         class_ptrs(_list->get_count())
     {
         list = _list;
     }
 
 public:
-    // Is the pointer possible be a valid ReferenceImpl *?
-    bool is_possible_pointer(void *p)
+    // Is the pointer possible be a valid ReferenceImpl* ?
+    bool is_possible_pointer(void* p)
     {
         // For all valid pointer, the last N bits should be zero
-        const IntPtr mask = sizeof(void *) - 1;
-        return (((IntPtr)p & mask) == 0 && p >= low && p <= high);
+        const IntR mask = sizeof(void*) - 1;
+        return (((IntR)p & mask) == 0 && p >= low && p <= high);
     }
 
     // Mark the possible pointer
-    void mark_value(ReferenceImpl *ptr_value);
+    void mark_value(ReferenceImpl* ptr_value);
 };
 
 } // End of namespace: cmm

@@ -25,11 +25,8 @@ public:
 
     string(size_t size)
     {
-        m_len = (string_size_t) size;
-        // Allocate memory for long string
-        if (is_dynamic_allocated())
-            m_alloc = XNEWN(char_t, m_len + 1);
-        *data_ptr() = 0;
+        set_length(size);
+        data_ptr()[0] = 0;
     }
 
     string(const char *c_str = "", size_t len = SIZE_MAX)
@@ -37,11 +34,7 @@ public:
         size_t str_length = strlen(c_str);
         if (len > str_length)
             len = str_length;
-        m_len = (string_size_t)len;
-
-        // Allocate memory for long string
-        if (is_dynamic_allocated())
-            m_alloc = XNEWN(char_t, m_len + 1);
+        set_length(len);
 
         memcpy(data_ptr(), c_str, m_len * sizeof(char_t));
         data_ptr()[m_len] = 0; // Append terminator
@@ -49,17 +42,8 @@ public:
 
 	string(const string& s)
 	{
-		m_len = s.m_len;
-
-		// Allocate memory for long string
-		if (is_dynamic_allocated())
-		{
-			m_alloc = XNEWN(char_t, m_len + 1);
-			memcpy(data_ptr(), s.data_ptr(), (m_len + 1) * sizeof(char_t));
-		} else
-		{
-			memcpy(m_buf, s.m_buf, sizeof(m_buf));
-		}
+        set_length(s.m_len);
+		memcpy(data_ptr(), s.data_ptr(), (m_len + 1) * sizeof(char_t));
     }
 
     string(string&& s)
@@ -91,12 +75,7 @@ public:
         if (is_dynamic_allocated())
             XDELETEN(m_alloc);
 
-        m_len = s.m_len;
-
-        // Allocate memory for long string
-        if (is_dynamic_allocated())
-            m_alloc = XNEWN(char_t, m_len + 1);
-
+        set_length(s.m_len);
         memcpy(data_ptr(), s.data_ptr(), (m_len + 1) * sizeof(char_t));
         return *this;
     }
@@ -119,6 +98,18 @@ public:
             memcpy(data_ptr(), s.data_ptr(), (m_len + 1) * sizeof(char_t));
 
         return *this;
+    }
+
+    // Concat
+    string operator + (const string& s) const
+    {
+        size_t new_len = this->m_len + s.m_len;
+        string new_str(new_len);
+
+        char_t *new_p = new_str.data_ptr();
+        memcpy(new_p, this->data_ptr(), this->m_len * sizeof(char_t));
+        memcpy(new_p + this->m_len, s.data_ptr(), (s.m_len + 1) * sizeof(char_t));
+        return simple::move(new_str);
     }
 
     char_t operator [](size_t index) const
@@ -173,6 +164,15 @@ private:
     char_t *data_ptr() const
     {
         return is_dynamic_allocated() ? m_alloc : (char_t *) m_buf;
+    }
+
+    // Reserve space & set length to specified size
+    void set_length(size_t size)
+    {
+        m_len = (string_size_t)size;
+        // Allocate memory for long string
+        if (is_dynamic_allocated())
+            m_alloc = XNEWN(char_t, m_len + 1);
     }
 
 private:

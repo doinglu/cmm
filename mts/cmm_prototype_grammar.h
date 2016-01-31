@@ -73,19 +73,25 @@ struct Argument
     Type type;
     bool has_default;
     String name;
+
+    Argument() :
+        name(EMPTY_STRING)
+    {
+    }
 };
 
 // Arguments list
 struct ArgumentsList
 {
-    ArgumentsList()
+    // Use GC allocator for this ////---- More to be added
+    simple::vector<Argument> args; // Array of Argument
+    bool is_va_arg;
+
+    ArgumentsList() :
+        args((size_t)0)
     {
         is_va_arg = false;
     }
-
-public:
-    simple::vector<Argument> args;
-    bool is_va_arg;
 };
 
 // Prototype
@@ -94,6 +100,11 @@ struct Prototype
     String fun_name;
     Type ret_type;
     ArgumentsList arguments_list;
+
+    Prototype() :
+        fun_name(EMPTY_STRING)
+    {
+    }
 };
 
 // Parse text to words array

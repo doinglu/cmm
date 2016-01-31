@@ -5,6 +5,7 @@
 
 #include "std_template/simple_hash_map.h"
 #include "cmm.h"
+#include "cmm_gc_alloc.h"
 #include "cmm_object.h"
 #include "cmm_string_pool.h"
 #include "cmm_typedef.h"
@@ -318,7 +319,8 @@ public:
     };
 
 public:
-    static int init();
+    // Initialize/shutdown this module
+    static bool init();
     static void shutdown();
 
 public:
@@ -556,7 +558,7 @@ private:
     ValueList m_list;
 
     // All constants
-    simple::unsafe_vector<Value> m_constants;
+    simple::unsafe_vector<Value, GCAlloc> m_constants;
 
     // All functions defined this program (those defined in component not included) 
     simple::unsafe_vector<Function *> m_functions;

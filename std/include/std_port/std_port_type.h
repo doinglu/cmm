@@ -13,8 +13,10 @@
  *
  ***** Copyright 2001, doing reserved *****************************/
 
-#ifndef __STD_PORT_tYPE_H__
-#define __STD_PORT_tYPE_H__
+#ifndef __STD_PORT_TYPE_H__
+#define __STD_PORT_TYPE_H__
+
+#include "std_port_platform.h"
 
 #ifndef Int8
 #define Int8    char                

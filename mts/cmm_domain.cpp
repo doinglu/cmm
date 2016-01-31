@@ -21,7 +21,7 @@ Domain *Domain::m_domain_0 = 0;
 struct std_critical_section *Domain::m_domain_cs = 0;
 
 // Initialize this module
-int Domain::init()
+bool Domain::init()
 {
     std_new_critical_section(&m_domain_cs);
 
@@ -31,7 +31,7 @@ int Domain::init()
     // Create the domain 0
     m_all_domains = XNEW(DomainIdMap);
     m_domain_0 = XNEW(Domain, "Zero");
-    return 0;
+    return true;
 }
 
 // Shutdown this moudule
@@ -39,7 +39,7 @@ void Domain::shutdown()
 {
     // Clear all domains
     auto domains = m_all_domains->values();
-    for (auto &it: domains)
+    for (auto& it: domains)
         XDELETE(it);
     STD_ASSERT(("All domains should be freed.", m_all_domains->size() == 0));
     XDELETE(m_all_domains);
@@ -66,7 +66,7 @@ Domain::Domain(const char *name)
     std_create_event(&m_event_id);
 
     // Assign an id
-    auto *entry = m_id_manager->allocate_id();
+    auto* entry = m_id_manager->allocate_id();
     m_id = entry->gid;
 
     // Store the domain name
@@ -90,7 +90,7 @@ Domain::~Domain()
 {
     // Remove all objects
     auto objects = m_objects.to_array();
-    for (auto &it: objects)
+    for (auto& it: objects)
         XDELETE(it);
     STD_ASSERT(("There are still alive objects in domain.", m_objects.size() == 0));
 
@@ -147,10 +147,11 @@ void Domain::gc()
 
     auto b = std_get_current_us_counter();////----
 
-    auto *thread = Thread::get_current_thread();
+    auto* thread = Thread::get_current_thread();
     if (thread)
         thread->update_end_sp_of_current_domain_context();
 
+    auto b1 = std_get_current_us_counter();////----
     MarkValueState state(&m_value_list);
 
     // Mask of valid pointer
@@ -158,7 +159,7 @@ void Domain::gc()
     const IntPtr mask = sizeof(void *) - 1;
 
     // Put all values into the map
-    auto *p = m_value_list.get_list();
+    auto* p = m_value_list.get_list();
     state.low = p;
     state.high = p;
     while (p)
@@ -172,13 +173,18 @@ void Domain::gc()
 
         STD_ASSERT((((IntPtr) p) & mask) == 0);
 
+        // Use owner to save offset
+        p->owner = (ValueList*)state.impl_ptrs.size();
+        state.impl_ptrs.push_back(p);
+#if 0 ////----
         // Add to set
         state.set.put(p);
+#endif
 
         // For BufferImpl with classes, put the class pointer into set
         if (p->get_type() == BUFFER)
         {
-            auto *buffer_impl = (BufferImpl *)p;
+            auto* buffer_impl = (BufferImpl *)p;
             if (buffer_impl->attrib & BufferImpl::CONTAIN_CLASS)
             {
                 // This buffer contains class (or array of class)
@@ -189,33 +195,36 @@ void Domain::gc()
         p = p->next;
     }
     m_value_list.reset();
+    auto e1 = std_get_current_us_counter();////----
+    printf("GC mark: %zuus.\n", (size_t)(e1 - b1));////----
 
     // Scan all thread contexts of this domain
-    for (auto &context: m_context_list)
+    for (auto& context: m_context_list)
     {
         // Mark all values
-        auto *p = (ReferenceImpl **)context.m_start_sp;
-        while (--p > (ReferenceImpl **)context.m_end_sp)
+        auto* p = (ReferenceImpl**)context.m_start_sp;
+        while (--p > (ReferenceImpl**)context.m_end_sp)
             if (state.is_possible_pointer(*p))
                 state.mark_value(*p);
     }
 
     // Scan all member objects in this domain
-    for (auto &object: m_objects)
+    for (auto& object: m_objects)
     {
-        auto *p_end = (ReferenceImpl **)object;
+        auto* p_end = (ReferenceImpl**)object;
         size_t size = object->get_program()->get_entire_object_size();
-        auto *p = (ReferenceImpl **)(((char *)p_end) + size);
+        auto* p = (ReferenceImpl**)(((char *)p_end) + size);
         while (--p >= p_end)
             if (state.is_possible_pointer(*p))
                 state.mark_value(*p);
     }
 
     // Free all non-refered values & regenerate value list
-    for (auto &it: state.set)
+    for (auto& it: state.impl_ptrs)
     {
         // Value is not refered, free it
-        XDELETE(it);
+        if (it != 0)
+            XDELETE(it);
     }
 
     // Reset gc counter
@@ -223,11 +232,11 @@ void Domain::gc()
     if (m_gc_counter < 256)
         m_gc_counter = 256;
     else
-    if (m_gc_counter > 1024)
-        m_gc_counter = 1024;
+    if (m_gc_counter > 4*1024*1024)
+        m_gc_counter = 4*1024*1024;
 
     auto e = std_get_current_us_counter();
-    ////----printf("GC cost: %zuus.\n", (size_t) (e - b));////----
+    printf("GC cost: %zuus.\n", (size_t) (e - b));////----
 }
 
 // Let object join in domain

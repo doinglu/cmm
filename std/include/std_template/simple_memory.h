@@ -16,16 +16,16 @@ namespace simple
 
 // new
 template <typename T, typename... Types>
-inline T *xnew(const char *file, int line, Types&&... args)
+inline T* xnew(const char* file, int line, Types&&... args)
 {
-    T *p = (T *)std_allocate_memory(sizeof(T), "simple", file, line);
+    T* p = (T*)std_allocate_memory(sizeof(T), "simple", file, line);
     new (p) T(simple::forward<Types>(args)...);
     return p;
 }
 
 // delete
 template <typename T>
-inline void xdelete(const char *file, int line, T *p)
+inline void xdelete(const char* file, int line, T* p)
 {
     p->~T();
     std_free_memory(p, "x", file, line);
@@ -36,25 +36,25 @@ enum { RESERVE_STAMP = 0x19770531 };
 
 // new[]
 template <typename T>
-T *xnew_arr(const char *file, int line, size_t n)
+T* xnew_arr(const char* file, int line, size_t n)
 {
     STD_ASSERT(("Invalid RESERVE_FOR_ARRAY, too small.", RESERVE_FOR_ARRAY >= sizeof(size_t) * 2));
-    char *b = (char *)std_allocate_memory(RESERVE_FOR_ARRAY + n * sizeof(T), "simple", file, line);
-    ((size_t *) b)[0] = n;
-    ((size_t *) b)[1] = RESERVE_STAMP;
-    T *p = (T *)(b + RESERVE_FOR_ARRAY);
+    char* b = (char*)std_allocate_memory(RESERVE_FOR_ARRAY + n * sizeof(T), "simple", file, line);
+    ((size_t*) b)[0] = n;
+    ((size_t*) b)[1] = RESERVE_STAMP;
+    T* p = (T*)(b + RESERVE_FOR_ARRAY);
     for (size_t i = 0; i < n; i++, p++)
         new (p) T();
-    return (T *)(b + RESERVE_FOR_ARRAY);
+    return (T*)(b + RESERVE_FOR_ARRAY);
 }
 
 // delete[]
 template <typename T>
-void xdelete_arr(const char *file, int line, T *p)
+void xdelete_arr(const char* file, int line, T* p)
 {
-    char *b = ((char *)p) - RESERVE_FOR_ARRAY;
-    STD_ASSERT(("Bad stamp of allocated array.", ((size_t *)b)[1] == RESERVE_STAMP));
-    size_t n = ((size_t *)b)[0];
+    char* b = ((char*)p) - RESERVE_FOR_ARRAY;
+    STD_ASSERT(("Bad stamp of allocated array.", ((size_t*)b)[1] == RESERVE_STAMP));
+    size_t n = ((size_t*)b)[0];
     for (size_t i = 0; i < n; i++, p++)
         p->~T();
     std_free_memory(b, "simple", file, line);

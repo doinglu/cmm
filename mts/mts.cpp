@@ -17,6 +17,8 @@
 #include "cmm_buffer_new.h"
 #include "cmm_domain.h"
 #include "cmm_efun.h"
+#include "cmm_lang.h"
+#include "cmm_lexer.h"
 #include "cmm_memory.h"
 #include "cmm_object.h"
 #include "cmm_program.h"
@@ -154,14 +156,41 @@ public:
 
 int main_body(int argn, char *argv[]);
 
+void test_gc()
+{
+    Value m = Map();
+    auto b = std_get_current_us_counter();
+    for (int i = 0; i < 1000000; i++)
+    {
+        char str[32];
+        snprintf(str, sizeof(str), "i = %d", i);
+        m[i] = str;
+    }
+    auto e = std_get_current_us_counter();
+    printf("Total Cost = %dus.\n\n", (int)(e - b));
+}
+
 int main(int argn, char *argv[])
 {
+    Value::init();
+
     Domain::init();
     Object::init();
     Thread::init();
+#if 0
     Program::init();
     Simulator::init();
     Efun::init();
+    Lang::init();
+    Lexer::init();
+#endif
+
+    auto* d = Thread::get_current_thread_domain();
+
+    test_gc();
+    d->gc();
+    d->gc();
+    getchar();
 
     ////----    auto *thread = Thread::get_current_thread();
 ////----    thread->update_start_sp_of_start_domain_context(&argn);
@@ -177,12 +206,30 @@ int main(int argn, char *argv[])
         Thread::get_current_thread()->restore_call_stack_for_error(try_context);
     }
 
+    Lexer::shutdown();
+    Lang::shutdown();
     Efun::shutdown();
     Simulator::shutdown();
     Program::shutdown();
     Thread::shutdown();
     Domain::shutdown();
     Object::shutdown();
+
+    Value::shutdown();
+}
+
+void compile()
+{
+    FILE *fp;
+
+    /* Create compile context */
+    auto* context = BUFFER_NEW(Lang);
+
+    /* Start new file in lex */
+    fp = fopen("z:/doing/Project/mts/script.c", "r");
+    context->m_lexer.start_new_file(NULL, (IntR)fp, "script.c");
+    
+    fclose(fp);
 }
 
 int main_body(int argn, char *argv[])
@@ -233,10 +280,12 @@ int main_body(int argn, char *argv[])
 	    }
     }
 
+    compile();
+
 #if 1
 
 #if 1
-    Value _v1;
+    Value _v1(UNDEFINED);
     Value _v2(88);
     Value _v3(99.77);
     ObjectId oid;
@@ -245,9 +294,9 @@ int main_body(int argn, char *argv[])
     Value _v5("abc");
     Value _v6(BUFFER_ALLOC(&maxThreadCount, 8));
     Array _v7(XNEW(ArrayImpl, 3));
-    _v7.m_array->a.push_back("a1");
-    _v7.m_array->a.push_back("b3");
-    _v7.m_array->a.push_back("c7");
+    _v7.m_array->push_back("a1");
+    _v7.m_array->push_back("b3");
+    _v7.m_array->push_back("c7");
     Map _v8(XNEW(MapImpl, 5));
     _v8["name"] = "doing";
     _v8["age"] = 38;
@@ -280,8 +329,8 @@ int main_body(int argn, char *argv[])
 
     auto *a1 = BUFFER_NEW(AAA, 888);
     auto *a2 = BUFFER_NEWN(AAA, 3);
-    auto *a11 = BUFFER_ALLOC(a1);
-    auto *a21 = BUFFER_ALLOC(a2);
+    auto *a11 = BUFFER_ALLOC(a1, sizeof(*a1));
+    auto *a21 = BUFFER_ALLOC(a2, sizeof(*a2));
     BUFFER_DELETE(a1);
     BUFFER_DELETEN(a2);
     a11->bind_to_current_domain();
