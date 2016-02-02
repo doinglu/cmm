@@ -3,6 +3,7 @@
 #pragma once
 
 #include "cmm.h"
+#include "cmm_output.h"
 #include "cmm_value.h"
 
 namespace cmm
@@ -11,14 +12,15 @@ namespace cmm
 // Node type
 enum AstNodeType
 {
-    AST_ROOT = 1,
-
+    AST_ROOT,
     AST_CASE,
-    AST_DECLARE,
+    AST_DECLARATION,
+    AST_DECLARATIONS,
     AST_DECLARE_FUNCTION,
     AST_DO_WHILE,
     AST_EXPR_ASSIGN,
     AST_EXPR_BINARY,
+    AST_EXPR_CLOSURE,
     AST_EXPR_CAST,
     AST_EXPR_CONSTANT,
     AST_EXPR_CREATE_ARRAY,
@@ -47,12 +49,10 @@ enum AstNodeType
     AST_REGISTER,
     AST_RETURN,
     AST_WHILE_LOOP,
+    AST_STATEMENTS,
     AST_SWITCH_CASE,
     AST_VAR_TYPE,
 };
-
-// Enum to string
-const char* AstNodeTypeToString(AstNodeType nodeType);
 
 // Type of goto/break/continue/switch-case
 enum AstGotoType
@@ -140,7 +140,7 @@ enum Op
 };
 
 // Type of variant
-enum VarAttrib
+enum AstVarAttrib
 {
     AST_VAR_REF_ARGUMENT = 0x01,
     AST_VAR_MAY_NULL = 0x02,
@@ -209,16 +209,6 @@ T* tf_get(T* list, size_t index)
     return p;
 }
 
-// Forward declaration
-struct AstNode;
-struct AstExpr;
-struct AstFunctionArg;
-struct AstLValue;
-struct AstPrototype;
-struct AstRegister;
-
-AstNode *append_sibling_node(AstNode *node, AstNode *next);
-
 // Source location
 struct SourceLocation
 {
@@ -235,11 +225,38 @@ struct SourceLocation
 };
 
 // Variable type
-struct VarType
+struct AstVarType
 {
     ValueType basic_var_type;       // basic variable type
     Uint8     var_attrib;           // variable attribute
 };
+
+// Forward declaration
+struct AstNode;
+struct AstExpr;
+struct AstFunction;
+struct AstFunctionArg;
+struct AstLValue;
+struct AstPrototype;
+struct AstRegister;
+
+// Concat ast nodes list
+AstNode *append_sibling_node(AstNode *node, AstNode *next);
+
+// Function attrib to string
+String ast_function_attrib_to_string(AstFunctionAttrib attrib);
+
+// Enum to string
+const char* ast_node_type_to_string(AstNodeType nodeType);
+
+// Operator to string
+String ast_op_to_string(Uint32 op);
+
+// VarType to string
+String ast_var_type_to_string(AstVarType var_type);
+
+// basic value to string
+const char* value_type_to_string(ValueType value_type);
 
 // The AST nodes
 // AST node: abstract type
@@ -286,14 +303,15 @@ struct AstNode
         tf_append(&sibling, one);
     }
 
-    // Collect children from an array of pointer to AstNode
+    // Collect array of single node as children
+    // ATTENTION: the node should not have sibling
     void collect_children_at(AstNode** array, size_t count)
     {
-        sibling = 0;
+        children = 0;
         for (size_t i = 0; i < count; i++)
         {
             STD_ASSERT(!array[i] || !array[i]->sibling);
-            append_sibling(array[i]);
+            add_child(array[i]);
         }
     }
 
@@ -311,13 +329,13 @@ struct AstNode
     }
 
     // Output for thie AstNode
-    virtual simple::string to_string()
+    virtual String to_string()
     {
-        return AstNodeTypeToString(get_node_type());
+        return EMPTY_STRING;
     }
 };
 
-// AST node: root
+// Root
 struct AstRoot : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_ROOT; }
@@ -329,17 +347,17 @@ struct AstCase : AstNode
     virtual AstNodeType get_node_type() { return AstNodeType::AST_CASE; }
     AstExpr* case_value;
     bool     is_default;
-    IntR     label_id;
     AstNode* block;
 
     virtual void collect_children()
     {
-        collect_children_of(block);
+        collect_children_of(case_value, block);
     }
+
+    virtual String to_string();
 
     AstCase() :
         is_default(false),
-        label_id(0),
         block(0)
     {
     }
@@ -347,11 +365,11 @@ struct AstCase : AstNode
 
 // Variable declaration
 // No child
-struct AstDeclare : AstNode
+struct AstDeclaration : AstNode
 {
-    virtual AstNodeType get_node_type() { return AstNodeType::AST_DECLARE; }
+    virtual AstNodeType get_node_type() { return AstNodeType::AST_DECLARATION; }
+    AstVarType var_type; // variable type
     String     name;     // variable name
-    VarType    var_type; // variable type
     AstExpr*   expr;     // assign expression
 
     virtual void collect_children()
@@ -359,9 +377,30 @@ struct AstDeclare : AstNode
         collect_children_of(expr);
     }
 
-    AstDeclare() :
+    virtual String to_string();
+
+    AstDeclaration() :
         name(EMPTY_STRING),
         expr(0)
+    {
+    }
+};
+
+// Variable declaration
+// No child
+struct AstDeclarations : AstNode
+{
+    virtual AstNodeType get_node_type() { return AstNodeType::AST_DECLARATIONS; }
+    AstVarType      var_type;   // variable type
+    AstDeclaration* decl_list;
+
+    virtual void collect_children()
+    {
+        children = decl_list;
+    }
+
+    AstDeclarations() :
+        decl_list(0)
     {
     }
 };
@@ -416,6 +455,9 @@ struct AstExprAssign : AstExpr
         collect_children_of(expr1, expr2);
     }
 
+    // eg. *=
+    virtual String to_string();
+
     AstExprAssign() :
         op(0),
         expr1(0),
@@ -437,12 +479,51 @@ struct AstExprBinary : AstExpr
         collect_children_of(expr1, expr2);
     }
 
+    // eg. +
+    virtual String to_string();
+
     AstExprBinary() :
         op(0),
         expr1(0),
         expr2(0)
     {
+    }
+};
 
+// Cast expression
+struct AstExprCast : AstExpr
+{
+    virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CAST; }
+    AstVarType var_type;  // Type to cast
+    AstExpr*   expr1;     // To be operated
+
+    virtual void collect_children()
+    {
+        collect_children_of(expr1);
+    }
+
+    virtual String to_string();
+
+    AstExprCast() :
+        expr1(0)
+    {
+    }
+};
+
+// Closure
+struct AstExprClosure : AstExpr
+{
+    virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CLOSURE; }
+    AstFunction* function;
+
+    virtual void collect_children()
+    {
+        collect_children_of(function);
+    }
+
+    AstExprClosure() :
+        function(0)
+    {
     }
 };
 
@@ -451,6 +532,12 @@ struct AstExprConstant : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CONSTANT; }
     Value   value;          // Value
+
+    virtual String to_string()
+    {
+        Output output;
+        return output.type_value(&value);
+    }
 
     AstExprConstant() :
         value(UNDEFINED)
@@ -465,6 +552,11 @@ struct AstExprCreateArray : AstExpr
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CREATE_ARRAY; }
     AstExpr* expr_list;
 
+    virtual void collect_children()
+    {
+        children = expr_list;
+    }
+
     AstExprCreateArray()
     {
     }
@@ -476,6 +568,11 @@ struct AstExprCreateFunction : AstExpr
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CREATE_FUNCTION; }
     String   name;
     AstExpr* expr_list;
+
+    virtual void collect_children()
+    {
+        children = expr_list;
+    }
 
     AstExprCreateFunction() :
         name(EMPTY_STRING)
@@ -489,25 +586,12 @@ struct AstExprCreateMapping : AstExpr
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CREATE_MAPPING; }
     AstExpr* expr_list;
 
-    AstExprCreateMapping()
-    {
-    }
-};
-
-// Cast expression
-struct AstExprCast : AstExpr
-{
-    virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CAST; }
-    VarType  var_type;  // Type to cast
-    AstExpr* expr1;     // To be operated
-
     virtual void collect_children()
     {
-        collect_children_of(expr1);
+        children = expr_list;
     }
 
-    AstExprCast() :
-        expr1(0)
+    AstExprCreateMapping()
     {
     }
 };
@@ -523,8 +607,10 @@ struct AstExprFunctionCall : AstExpr
     virtual void collect_children()
     {
         // The arguments is a list
-        children = arguments;
+        children = append_sibling_node(target, arguments);
     }
+
+    virtual String to_string();
 
     AstExprFunctionCall() :
         callee_name(EMPTY_STRING),
@@ -568,6 +654,8 @@ struct AstExprIndex : AstExpr
         collect_children_of(container, index_from, index_to);
     }
 
+    virtual String to_string();
+
     AstExprIndex() :
         container(0),
         index_from(0),
@@ -597,8 +685,8 @@ struct AstExprIsRef : AstExpr
 struct AstExprRuntimeValue : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_RUNTIME_VALUE; }
-    VarType var_type;
-    Uint16  value_id;
+    AstVarType var_type;
+    Uint16     value_id;
 
     AstExprRuntimeValue() :
         value_id(0)
@@ -657,6 +745,9 @@ struct AstExprTernary : AstExpr
         collect_children_of(expr1, expr2, expr3);
     }
 
+    // eg. ?
+    virtual String to_string();
+
     AstExprTernary() :
         op(0),
         expr1(0),
@@ -678,6 +769,9 @@ struct AstExprUnary : AstExpr
         collect_children_of(expr1);
     }
 
+    // eg. --
+    virtual String to_string();
+
     AstExprUnary() :
         op(0),
         expr1(0)
@@ -690,6 +784,8 @@ struct AstExprVariable : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_VARIABLE; }
     String name;   // Variable name
+
+    virtual String to_string();
 
     AstExprVariable() :
         name(EMPTY_STRING)
@@ -732,7 +828,7 @@ struct AstFunction : AstNode
     AstNode* body;
 
     // All local variable declaration
-    AstDeclare* local_vars;
+    AstDeclaration* local_vars;
 
     // All registers
     AstRegister* registers;
@@ -762,13 +858,15 @@ struct AstFunctionArg : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_FUNCTION_ARG; }
     String     name;            // function argument name
-    VarType    var_type;        // argument variable type
+    AstVarType var_type;        // argument variable type
     AstExpr*   default_value;   // default argument value
 
     virtual void collect_children()
     {
         collect_children_of(default_value);
     }
+
+    virtual String to_string();
 
     AstFunctionArg() :
         name(EMPTY_STRING),
@@ -784,6 +882,8 @@ struct AstGoto : AstNode
     virtual AstNodeType get_node_type() { return AstNodeType::AST_GOTO; }
     Int16  goto_type;
     String target_label;     // Label to jmp
+
+    virtual String to_string();
 
     AstGoto() :
         target_label(EMPTY_STRING)
@@ -819,6 +919,8 @@ struct AstLabel : AstNode
     virtual AstNodeType get_node_type() { return AstNodeType::AST_LABEL; }
     String name;
 
+    virtual String to_string();
+
     AstLabel() :
         name(EMPTY_STRING)
     {
@@ -828,7 +930,7 @@ struct AstLabel : AstNode
 // Loop-Each
 struct AstLoopEach : AstNode
 {
-    virtual AstNodeType get_node_type() { return AstNodeType::AST_FOR_LOOP; }
+    virtual AstNodeType get_node_type() { return AstNodeType::AST_LOOP_EACH; }
     AstNode* decl_or_variable;
     AstExpr* container;
 
@@ -847,20 +949,24 @@ struct AstLoopEach : AstNode
 // Loop-Range
 struct AstLoopRange : AstNode
 {
-    virtual AstNodeType get_node_type() { return AstNodeType::AST_FOR_LOOP; }
+    virtual AstNodeType get_node_type() { return AstNodeType::AST_LOOP_RANGE; }
     AstNode* decl_or_variable;
     AstExpr* begin;
     AstExpr* to;
+    int      direction; // 1(upto) or -1(downto)
 
     virtual void collect_children()
     {
         collect_children_of(decl_or_variable, begin, to);
     }
 
+    virtual String to_string();
+
     AstLoopRange() :
         decl_or_variable(0),
         begin(0),
-        to(0)
+        to(0),
+        direction(0)
     {
     }
 };
@@ -903,7 +1009,7 @@ struct AstPrototype : AstNode
     Uint16 attrib;
 
     // Return type
-    VarType ret_var_type;
+    AstVarType ret_var_type;
 
     // Argument list
     AstFunctionArg* arg_list;
@@ -913,8 +1019,10 @@ struct AstPrototype : AstNode
 
     virtual void collect_children()
     {
-        collect_children_of(arg_list);
+        children = arg_list;
     }
+
+    virtual String to_string();
 
     AstPrototype() :
         name(EMPTY_STRING),
@@ -955,6 +1063,12 @@ struct AstReturn : AstNode
     }
 };
 
+// Statements
+struct AstStatements : AstNode
+{
+    virtual AstNodeType get_node_type() { return AstNodeType::AST_STATEMENTS; }
+};
+
 // Switch-Case
 struct AstSwitchCase : AstNode
 {
@@ -965,7 +1079,7 @@ struct AstSwitchCase : AstNode
     virtual void collect_children()
     {
         // The cases is a list
-        sibling = cases;
+        children = append_sibling_node(expr, cases);
     }
 
     AstSwitchCase() :

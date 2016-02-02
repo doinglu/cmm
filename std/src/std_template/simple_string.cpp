@@ -40,11 +40,12 @@ string& string::snprintf(const char *fmt, size_t n, ...)
 }
 
 // BKDR Hash Function
-string::string_hash_t string::hash_string(const char_t *c_str)
+string::string_hash_t string::hash_string(const char_t *c_str, size_t maxn)
 {
     string_hash_t seed = 131; // 31 131 1313 13131 131313 etc..
     string_hash_t hash = 0;
-    int maxn = 64;
+    if (maxn > 64)
+        maxn = 64;
 
     while (*c_str && maxn--)
         hash = hash * seed + (*c_str++);

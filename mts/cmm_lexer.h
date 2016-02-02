@@ -9,7 +9,7 @@
 #include "cmm_efun.h"
 #include "cmm_gc_alloc.h"
 #include "cmm_lang.h"
-#include "cmm_value.h"
+#include "cmm_mmm_value.h"
 
 namespace cmm
 {
@@ -91,7 +91,7 @@ union IdentUnit
 struct IdentInfo
 {
     IdentUnit v;
-    String context;
+    MMMString context;
     Uint32 old_token;
     Uint16 refered;
     Uint16 unused;
@@ -100,7 +100,7 @@ struct IdentInfo
 
 struct IdentHashElem
 {
-    String name;
+    MMMString name;
     Uint32 token;         // only flags
     Uint32 sem_value;     // for these, a count of the ambiguity
     IdentInfo ii;
@@ -253,7 +253,7 @@ private:
 
 private:
     typedef String(*ExpandFunc)(Lang* context);
-    typedef simple::hash_map<String, ExpandFunc> ExpandFuncMap;
+    typedef simple::hash_map<MMMString, ExpandFunc> ExpandFuncMap;
     static ExpandFuncMap *expand_builtin_macro_funcs;
 
     static int    init_predefines();
@@ -288,7 +288,7 @@ private:
     IfStatement* m_if_top;
 
     // Current file path
-    String       m_current_file_path;
+    MMMString    m_current_file_path;
 
     // Current file handle
     IntR         m_in_file_fd;
@@ -301,9 +301,9 @@ private:
     LineNo       m_current_line_saved;////----
 
     // For __FILE__, __LINE__
-    String       m_current_dir_string;
-    String       m_current_file_string;
-    String       m_current_pure_file_string;
+    MMMString    m_current_dir_string;
+    MMMString    m_current_file_string;
+    MMMString    m_current_pure_file_string;
 
     // main source buffer
     LinkedBuf    m_main_buf;
@@ -329,7 +329,7 @@ private:
     static Keyword m_define_keywords[];
 
     // Keyword mapping for runtime
-    typedef simple::hash_map<String, Keyword*, String::hash_func, GCAlloc> KeywordMap;
+    typedef simple::hash_map<MMMString, Keyword*, String::hash_func> KeywordMap;
     static KeywordMap* m_keywords;
 
     // File name list

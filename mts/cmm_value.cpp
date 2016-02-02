@@ -18,6 +18,9 @@ bool Value::init()
 {
     EMPTY_STRING = STRING_ALLOC("");
     EMPTY_BUFFER = BUFFER_ALLOC((size_t)0);
+
+    EMPTY_STRING->attrib |= ReferenceImpl::CONSTANT;
+    EMPTY_BUFFER->attrib |= ReferenceImpl::CONSTANT;
     return true;
 }
 
@@ -159,7 +162,7 @@ ReferenceImpl *ArrayImpl::copy_to_local(Thread *thread)
     // Bind before copy elements in case of exception when copying
 
     for (auto &it: this->a)
-        v->a.push_back((ValueInContainer&)it.copy_to_local(thread));
+        v->a.push_back((ValueInContainer&&)it.copy_to_local(thread));
     return v;
 }
 
@@ -175,15 +178,15 @@ ReferenceImpl *MapImpl::copy_to_local(Thread *thread)
     // Bind before copy elements in case of exception when copying
 
     for (auto &it: this->m)
-        v->m.put((const ValueInContainer&)it.first.copy_to_local(thread),
-                 (const ValueInContainer&)it.second.copy_to_local(thread));
+        v->m.put((ValueInContainer&&)it.first.copy_to_local(thread),
+                 (ValueInContainer&&)it.second.copy_to_local(thread));
     return v;
 }
 
 // Mark all elements in buffer value
 void BufferImpl::mark(MarkValueState& state)
 {
-    if (!(attrib & CONTAIN_CLASS))
+    if (!(buffer_attrib & CONTAIN_CLASS))
         // Not contains classes, ignored
         return;
 
@@ -275,20 +278,14 @@ void StringImpl::free(const char *file, int line, StringImpl *string)
 BufferImpl::~BufferImpl()
 {
     // Destruct the class
-    if (attrib & CONTAIN_1_CLASS)
-    {
-        // Destruct the single class
-        STD_ASSERT(("Not found destructor for buffer class.", destructor != 0));
-        destructor(data());
-    } else
-    if (attrib & CONTAIN_N_CLASS)
+    if (buffer_attrib & CONTAIN_CLASS)
     {
         // Destruct the n class
         STD_ASSERT(("Not found destructor for buffer class.", destructor != 0));
         auto *info = (ArrInfo *)data();
         size_t n = info->n;
         size_t size = info->size;
-        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_ARR_STAMP));
+        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_1_STAMP || info->stamp == CLASS_N_STAMP));
         STD_ASSERT(("Bad n or size of buffer to contain class[].", size * n + RESERVE_FOR_CLASS_ARR == len));
         Uint8 *ptr_class = data() + RESERVE_FOR_CLASS_ARR;
         for (size_t i = 0; i < n; i++, ptr_class += size)
@@ -323,13 +320,7 @@ BufferImpl *BufferImpl::alloc(const char *file, int line, const BufferImpl *othe
     buffer->attrib = other->attrib;
     buffer->constructor = other->constructor;
     buffer->destructor = other->destructor;
-    if (buffer->attrib & CONTAIN_1_CLASS)
-    {
-        // Contruct the class
-        STD_ASSERT(("Not found constructor for buffer class.", buffer->constructor != 0));
-        buffer->constructor(buffer->data(), other->data());
-    } else
-    if (buffer->attrib & CONTAIN_N_CLASS)
+    if (buffer->buffer_attrib & CONTAIN_CLASS)
     {
         // Copy reserved part
         memcpy(buffer->data(), other->data(), RESERVE_FOR_CLASS_ARR);
@@ -337,7 +328,7 @@ BufferImpl *BufferImpl::alloc(const char *file, int line, const BufferImpl *othe
         auto *info = (ArrInfo *)buffer->data();
         size_t n = info->n;
         size_t size = info->size;
-        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_ARR_STAMP));
+        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_1_STAMP || info->stamp == CLASS_N_STAMP));
         STD_ASSERT(("Bad n or size of buffer to contain class[].",
                    size * n + RESERVE_FOR_CLASS_ARR == buffer->len));
         Uint8 *ptr_class = buffer->data() + RESERVE_FOR_CLASS_ARR;
@@ -356,20 +347,14 @@ void BufferImpl::free(const char *file, int line, BufferImpl *buffer)
 {
     buffer->unbind();
 
-    if (buffer->attrib & CONTAIN_1_CLASS)
-    {
-        // Contruct the class
-        STD_ASSERT(("Not found constructor for buffer class.", buffer->destructor != 0));
-        buffer->destructor(buffer->data());
-    } else
-    if (buffer->attrib & CONTAIN_N_CLASS)
+    if (buffer->buffer_attrib & CONTAIN_CLASS)
     {
         // Copy reserved part
         STD_ASSERT(("Not found constructor for buffer class.", buffer->destructor != 0));
         auto *info = (ArrInfo *)buffer->data();
         size_t n = info->n;
         size_t size = info->size;
-        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_ARR_STAMP));
+        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_1_STAMP || info->stamp == CLASS_N_STAMP));
         STD_ASSERT(("Bad n or size of buffer to contain class[].",
                    size * n + RESERVE_FOR_CLASS_ARR == buffer->len));
         Uint8 *ptr_class = buffer->data() + RESERVE_FOR_CLASS_ARR;

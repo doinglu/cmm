@@ -161,10 +161,12 @@ void test_gc()
     Value m = Map();
     auto b = std_get_current_us_counter();
     for (int i = 0; i < 1000000; i++)
-    {
-        char str[32];
-        snprintf(str, sizeof(str), "i = %d", i);
-        m[i] = str;
+    {   
+        auto s = BUFFER_NEW(std::string);
+        char str[100];
+        snprintf(str, 100, "i = %d", i);
+        *s = str;
+        m[i] = s->c_str();
     }
     auto e = std_get_current_us_counter();
     printf("Total Cost = %dus.\n\n", (int)(e - b));
@@ -177,7 +179,7 @@ int main(int argn, char *argv[])
     Domain::init();
     Object::init();
     Thread::init();
-#if 0
+#if 1
     Program::init();
     Simulator::init();
     Efun::init();
@@ -190,7 +192,7 @@ int main(int argn, char *argv[])
     test_gc();
     d->gc();
     d->gc();
-    getchar();
+////----    getchar();
 
     ////----    auto *thread = Thread::get_current_thread();
 ////----    thread->update_start_sp_of_start_domain_context(&argn);
@@ -202,7 +204,6 @@ int main(int argn, char *argv[])
     }
     catch (...)
     {
-//        printf("Exception: %s\n", msg);
         Thread::get_current_thread()->restore_call_stack_for_error(try_context);
     }
 
@@ -226,9 +227,14 @@ void compile()
     auto* context = BUFFER_NEW(Lang);
 
     /* Start new file in lex */
-    fp = fopen("z:/doing/Project/mts/script.c", "r");
+    fp = fopen("../script.c", "r");
+    if (fp == 0)
+        fp = fopen("z:/doing/Project/mts/script.c", "r");
     context->m_lexer.start_new_file(NULL, (IntR)fp, "script.c");
-    
+    auto ret = context->parse();
+    auto root = context->m_root;
+    printf("ret = %d.\n", (int)ret);
+
     fclose(fp);
 }
 

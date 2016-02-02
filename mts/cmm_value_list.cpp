@@ -12,30 +12,32 @@ void ValueList::append_value(ReferenceImpl* value)
 {
     STD_ASSERT(("The value was already owned by a list.", !value->owner));
     value->owner = this;
-    value->next = m_list;
-    m_list = value;
-    ++m_count;
+    value->offset = get_count();
+    m_list.push_back(value);
+
+    if (m_high < value)
+        m_high = value;
+    if (m_low > value)
+        m_low = value;
 }
 
 // Conact two memory list then clear one
 void ValueList::concat_list(ValueList* list)
 {
-    if (!list->m_list)
+    size_t list_count = list->get_count();
+    if (!list_count)
         // Target list is empry
         return;
 
-    // Update owner of the values in list
-    auto* pp = &list->m_list;
-    while (*pp)
+    // Concat list to my list
+    auto* head_address = list->get_head_address();
+    size_t offset = this->get_count();
+    for (size_t i = 0; i < list_count; i++)
     {
-        STD_ASSERT(("Bad owner of value in list when concating.", (*pp)->owner == list));
-        (*pp)->owner = this;
-        pp = &(*pp)->next;
+        STD_ASSERT(("Bad owner of value in list when concating.", (head_address[i])->owner == list));
+        head_address[i]->offset = offset++;
     }
-
-    *pp = m_list;
-    m_list = list->m_list;
-    m_count += list->m_count;
+    m_list.push_back_array(head_address, list_count);
 
     // Clear target list
     list->reset();
@@ -45,76 +47,73 @@ void ValueList::concat_list(ValueList* list)
 void ValueList::remove(ReferenceImpl* value)
 {
     STD_ASSERT(("Value is not in this list.", value->owner == this));
-    auto* pp = &m_list;
-    while (*pp != value)
-        pp = &(*pp)->next;
+    STD_ASSERT(("Value offset is invalid.", value->offset < get_count()));
+    STD_ASSERT(("Value is not in the specified offset.", m_list[value->offset] == value));
 
-    // Take off me from list
-    (*pp)->owner = 0;
-    *pp = value->next;
+    // Replace with tail element & shrink
+    auto value_offset = value->offset;
+    auto tail_offset = get_count() - 1;
+    m_list[value_offset] = m_list[tail_offset];
+    m_list[value_offset]->offset = value_offset;
+    m_list[tail_offset] = 0;
+    m_list.shrink(tail_offset);
+
+    // Remove owner
+    value->owner = 0;
 }
 
 // Free all linked values in list
 void ValueList::free()
 {
-    auto* p = m_list;
-    reset();
+    auto* p = get_head_address();
+    auto list_count = get_count();
+    for (size_t i = 0; i < list_count; i++)
+        XDELETE(p[i]);
+    m_list.clear();
+}
 
-    while (p)
-    {
-        auto* value = p;
-        p = p->next;
-
-        // Free it
-        XDELETE(value);
-    }
+// Constructor
+MarkValueState::MarkValueState(ValueList* _list) :
+    list(_list),
+    impl_ptrs_address(_list->get_head_address()),
+    impl_ptrs_count(_list->get_count())
+{
+    low = (void*)list->m_low;
+    high = (void*)((char*)list->m_high + sizeof(BufferImpl) + BufferImpl::RESERVE_FOR_CLASS_ARR);
 }
 
 // Mark value
 void MarkValueState::mark_value(ReferenceImpl* ptr_value)
 {
     // Try remove from set
-    size_t index = (size_t)ptr_value->owner;
-    if (index < impl_ptrs.size() && impl_ptrs[index] == ptr_value)
+    size_t offset = ptr_value->offset;
+    if (offset < impl_ptrs_count && impl_ptrs_address[offset] == ptr_value)
     {
-        // Got the valid pointer, erase from impl_ptrs[]
-        impl_ptrs[index] = 0;
-    } else
-////----    if (!set.erase(ptr_value))
-    {
-        // Not in set, is this a class pointer?
-
-        if (!class_ptrs.size())
-            // Class pointer map is empty
+        // Got the valid pointer
+        if (!ptr_value->owner)
+            // Already marked
             return;
 
-        auto it = class_ptrs.find(ptr_value);
-        if (it == class_ptrs.end())
-            // Not found in class pointer map
-            return;
-
-        // Found raw BufferImpl contains this class
-        auto ptr_memory = it->second;
-        class_ptrs.erase(ptr_value);
-
-        index = (size_t)ptr_memory->owner;
-        if (index < impl_ptrs.size() && impl_ptrs[index] == ptr_memory)
-            // Got the valid pointer, erase from impl_ptrs[]
-            impl_ptrs[index] = 0;
-        else
-            // The BufferImpl was marked, ignored
-            return;
-
-        // Mark the orginal BufferImpl
-        ptr_value = ptr_memory;
+        // set owner to 0 means marked already
+        ptr_value->owner = 0;
+        ptr_value->mark(*this);
+        return;
     }
 
-    // Put back to list
-    ptr_value->owner = 0;
-    list->append_value(ptr_value);
+    // Not valid pointer, is this a class pointer?
+    auto* buffer_impl = (BufferImpl *)(((char*)ptr_value) - BufferImpl::RESERVE_FOR_CLASS_ARR - sizeof(BufferImpl));
+    offset = buffer_impl->offset;
+    if (offset < impl_ptrs_count && impl_ptrs_address[offset] == buffer_impl)
+    {
+        // Got the valid pointer
+        if (!buffer_impl->owner)
+            // Already marked
+            return;
 
-    // Let the ReferenceImpl mark
-    ptr_value->mark(*this);
+        // set owner to 0 means marked already
+        buffer_impl->owner = 0;
+        buffer_impl->mark(*this);
+    }
 }
 
 } // End of namespace: cmm

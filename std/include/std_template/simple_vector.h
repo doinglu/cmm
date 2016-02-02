@@ -37,7 +37,7 @@ public:
     {
         m_space = count;
         m_size = count;
-        m_array = Alloc::newn<T>(__FILE__, __LINE__, count);
+        m_array = Alloc::template newn<T>(__FILE__, __LINE__, count);
         for (size_t i = 0; i < count; i++)
             m_array[i] = arr[i];
     }
@@ -48,14 +48,14 @@ public:
         if (capacity < 1)
             capacity = 1;
         m_space = capacity;
-        m_array = Alloc::newn<T>(__FILE__, __LINE__, m_space);
+        m_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
         m_size = 0;
     }
 
     ~vector()
     {
         if (m_array)
-            Alloc::deleten<T>(__FILE__, __LINE__, m_array);
+            Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
         STD_DEBUG_SET_NULL(m_array);
     }
 
@@ -64,9 +64,9 @@ public:
         if (m_space < vec.size())
         {
             // Reallocate array
-            Alloc::deleten<T>(__FILE__, __LINE__, m_array);
+            Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
             m_space = vec.size();
-            m_array = Alloc::newn<T>(__FILE__, __LINE__, m_space);
+            m_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
         }
 
         m_size = vec.size();
@@ -79,7 +79,7 @@ public:
     vector& operator = (vector&& vec)
     {
         if (m_array)
-            Alloc::deleten<T>(__FILE__, __LINE__, m_array);
+            Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
 
         // Steal m_array from vec
         m_space = vec.m_space;
@@ -114,10 +114,10 @@ public:
     {
         T *new_array;
         m_space *= 2;
-        new_array = Alloc::newn<T>(__FILE__, __LINE__, m_space);
+        new_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
         for (size_t i = 0; i < m_size; i++)
             new_array[i] = simple::move(m_array[i]);
-        Alloc::deleten<T>(__FILE__, __LINE__, m_array);
+        Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
         m_array = new_array;
     }
 
@@ -137,11 +137,35 @@ public:
 
         T *new_array;
         m_space = to;
-        new_array = Alloc::newn<T>(__FILE__, __LINE__, m_space);
+        new_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
         for (size_t i = 0; i < m_size; i++)
             new_array[i] = simple::move(m_array[i]);
-        Alloc::deleten<T>(__FILE__, __LINE__, m_array);
+        Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
         m_array = new_array;
+    }
+
+    // Shrink size
+    void shrink(size_t to)
+    {
+        if (to > m_size)
+        {
+            // Do nothing
+            STD_ASSERT(("Shrink size is bigger than existed size.\n", 0));
+            return;
+        }
+
+        m_size = to;
+        if (m_space > 32 && to < m_space / 2)
+        {
+            // Resize
+            T *new_array;
+            m_space = to;
+            new_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
+            for (size_t i = 0; i < m_size; i++)
+                new_array[i] = simple::move(m_array[i]);
+            Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
+            m_array = new_array;
+        }
     }
 
     // Find element in vector

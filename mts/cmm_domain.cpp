@@ -151,53 +151,9 @@ void Domain::gc()
     if (thread)
         thread->update_end_sp_of_current_domain_context();
 
-    auto b1 = std_get_current_us_counter();////----
     MarkValueState state(&m_value_list);
 
-    // Mask of valid pointer
-    // For all valid pointer, the last N bits should be zero
-    const IntPtr mask = sizeof(void *) - 1;
-
-    // Put all values into the map
-    auto* p = m_value_list.get_list();
-    state.low = p;
-    state.high = p;
-    while (p)
-    {
-        // Reset bound of valid pointers
-        if (p < state.low)
-            state.low = p;
-        else
-        if (p > state.high)
-            state.high = p;
-
-        STD_ASSERT((((IntPtr) p) & mask) == 0);
-
-        // Use owner to save offset
-        p->owner = (ValueList*)state.impl_ptrs.size();
-        state.impl_ptrs.push_back(p);
-#if 0 ////----
-        // Add to set
-        state.set.put(p);
-#endif
-
-        // For BufferImpl with classes, put the class pointer into set
-        if (p->get_type() == BUFFER)
-        {
-            auto* buffer_impl = (BufferImpl *)p;
-            if (buffer_impl->attrib & BufferImpl::CONTAIN_CLASS)
-            {
-                // This buffer contains class (or array of class)
-                // Map first class pointer -> this buffer impl
-                state.class_ptrs.put(buffer_impl->class_ptr(), buffer_impl);
-            }
-        }
-        p = p->next;
-    }
-    m_value_list.reset();
-    auto e1 = std_get_current_us_counter();////----
-    printf("GC mark: %zuus.\n", (size_t)(e1 - b1));////----
-
+    auto b1 = std_get_current_us_counter();////----
     // Scan all thread contexts of this domain
     for (auto& context: m_context_list)
     {
@@ -218,25 +174,37 @@ void Domain::gc()
             if (state.is_possible_pointer(*p))
                 state.mark_value(*p);
     }
+    auto e1 = std_get_current_us_counter();////----
+    ////----printf("GC mark: %zuus.\n", (size_t)(e1 - b1));////----
 
     // Free all non-refered values & regenerate value list
-    for (auto& it: state.impl_ptrs)
+    ReferenceImpl** head_address = state.list->get_head_address();
+    size_t offset = 0;
+    for (auto& it: state.list->get_list())
     {
-        // Value is not refered, free it
-        if (it != 0)
+        // If owner is not set to null means value is not refered, free it
+        if (it->owner != 0)
+        {
             XDELETE(it);
+            continue;
+        }
+        it->owner = state.list;
+        it->offset = offset;
+        head_address[offset] = it;
+        offset++;
     }
+    state.list->get_list().shrink(offset);
 
     // Reset gc counter
     m_gc_counter = m_value_list.get_count();
-    if (m_gc_counter < 256)
-        m_gc_counter = 256;
+    if (m_gc_counter < 1024)
+        m_gc_counter = 1024;
     else
     if (m_gc_counter > 4*1024*1024)
         m_gc_counter = 4*1024*1024;
 
     auto e = std_get_current_us_counter();
-    printf("GC cost: %zuus.\n", (size_t) (e - b));////----
+    ////----printf("GC cost: %zuus.\n", (size_t) (e - b));////----
 }
 
 // Let object join in domain

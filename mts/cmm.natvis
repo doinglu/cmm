@@ -10,11 +10,11 @@
             <Item Name="[m_domain]">m_domain</Item>
             <Item Name="[m_program]">m_program</Item>
             <CustomListItems MaxItemsPerView="100">
-                <SyntaxVariable Name="prog_name" InitialValue="(char *)0" />
-                <SyntaxVariable Name="prog_index" InitialValue="0" />
-                <SyntaxVariable Name="prog_ptr" InitialValue="(cmm::Program*)0" />
-                <SyntaxVariable Name="offset" InitialValue="0"/>
-                <SyntaxVariable Name="abstract_component_ptr" InitialValue="(cmm::AbstractComponent*)0"/>
+                <Variable Name="prog_name" InitialValue="(char *)0" />
+                <Variable Name="prog_index" InitialValue="0" />
+                <Variable Name="prog_ptr" InitialValue="(cmm::Program*)0" />
+                <Variable Name="offset" InitialValue="0"/>
+                <Variable Name="abstract_component_ptr" InitialValue="(cmm::AbstractComponent*)0"/>
                 <Loop Condition="prog_index &lt; m_program-&gt;m_components.m_size">
                     <Exec>prog_ptr=m_program->m_components.m_array[prog_index].program</Exec>
                     <Exec>offset=m_program->m_components.m_array[prog_index].offset</Exec>
@@ -31,8 +31,8 @@
         <Expand HideRawView="true">
             <Item Name="[m_program]">m_program</Item>
             <CustomListItems MaxItemsPerView="100">
-                <SyntaxVariable Name="i" InitialValue="0" />
-                <SyntaxVariable Name="name" InitialValue="(char *)0" />
+                <Variable Name="i" InitialValue="0" />
+                <Variable Name="name" InitialValue="(char *)0" />
                 <Size>m_program->m_members.m_size</Size>
                 <Loop>
                     <Exec>name=m_program->m_members[i]->m_name->buf</Exec>

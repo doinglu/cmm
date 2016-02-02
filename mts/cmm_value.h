@@ -52,6 +52,7 @@ public:
         attrib(0),
         hash_cache(0),
         owner(0),
+        offset(0),
         next(0)
 	{
 	}
@@ -107,6 +108,7 @@ public:
     Uint attrib;             // 32bits only (Don't use enum)
     mutable Uint hash_cache; // Cache of hash value
     ValueList *owner;        // Owned by domain or thread
+    size_t offset;           // Offset in owner value list
     ReferenceImpl *next;     // Next value in list
 };
 
@@ -148,7 +150,7 @@ public:
     static bool init();
     static void shutdown();
 
-public:////----private:
+private:
     // ATTENTION:
     // WHY Value() is private
     // This is to prevent declare this value as member in other container such
@@ -177,6 +179,7 @@ public:
     // Create value from constant
     Value(ConstantValue value)
     {
+        // UNDEFINED only now
         m_type = NIL;
         m_intptr = 0;
     }
@@ -219,11 +222,11 @@ public:
         m_oid = oid;
     }
 
-    Value(Object *ob);
+    Value(Object* ob);
 
     // Contruct from reference values
     // The ReferenceImpl should be allocated without been binded
-    Value(ReferenceImpl *v, ValueType type = NIL)
+    Value(ReferenceImpl* v, ValueType type = NIL)
     {
         if (type == NIL)
             type = v->get_type();
@@ -233,20 +236,20 @@ public:
         m_reference->bind_to_current_domain();
     }
 
-    Value(const StringImpl *v) :
-        Value((ReferenceImpl *)v, STRING) {}
+    Value(StringImpl* const v) :
+        Value((ReferenceImpl*)v, STRING) {}
 
-    Value(BufferImpl *v) :
-        Value((ReferenceImpl *)v, BUFFER) {}
+    Value(BufferImpl* v) :
+        Value((ReferenceImpl*)v, BUFFER) {}
 
-    Value(FunctionPtrImpl *v) :
-        Value((ReferenceImpl *)v, FUNCTION) {}
+    Value(FunctionPtrImpl* v) :
+        Value((ReferenceImpl*)v, FUNCTION) {}
 
-    Value(ArrayImpl *v) :
-        Value((ReferenceImpl *)v, ARRAY) {}
+    Value(ArrayImpl* v) :
+        Value((ReferenceImpl*)v, ARRAY) {}
 
-    Value(MapImpl *v) :
-        Value((ReferenceImpl *)v, MAPPING) {}
+    Value(MapImpl* v) :
+        Value((ReferenceImpl*)v, MAPPING) {}
 
     // Construct for string
     Value(const char *c_str, size_t len = SIZE_MAX);
@@ -543,7 +546,11 @@ public:
         CONTAIN_CLASS = CONTAIN_1_CLASS | CONTAIN_N_CLASS,
     } Attrib;
 
-    enum { CLASS_ARR_STAMP = 0x19801126 };
+    enum
+    {
+        CLASS_1_STAMP = 0x19770531,
+        CLASS_N_STAMP = 0x19801126
+    };
 
     // Head structure for buffer to store class[] 
     STD_BEGIN_ALIGNED_STRUCT(STD_BEST_ALIGN_SIZE)
@@ -565,7 +572,7 @@ public:
 public:////----private:
     BufferImpl(size_t _len)
     {
-        attrib = (Attrib)0;
+        buffer_attrib = (Attrib)0;
         constructor = 0;
         destructor = 0;
         len = _len;
@@ -589,17 +596,10 @@ public:
     // Get single or class array pointer
     void *class_ptr(size_t index = 0) const
     {
-        if (attrib & CONTAIN_1_CLASS)
-        {
-            STD_ASSERT(("Index out of range of class_ptr.", index == 0));
-            return data();
-        }
-        if (attrib & CONTAIN_N_CLASS)
-        {
-            auto info = (ArrInfo *)(this + 1);
-            STD_ASSERT(("Index out of range of class_ptr.", index < info->n));
-            return data() + RESERVE_FOR_CLASS_ARR + index * info->size;
-        }
+        STD_ASSERT(("Buffer doesn't contain any class.", (buffer_attrib & CONTAIN_CLASS)));
+        auto info = (ArrInfo *)(this + 1);
+        STD_ASSERT(("Index out of range of class_ptr.", index < info->n));
+        return data() + RESERVE_FOR_CLASS_ARR + index * info->size;
         throw_error("This buffer doesn't not contain any class.\n");
     }
 
@@ -639,7 +639,7 @@ public:
     static int compare(const BufferImpl *a, const BufferImpl *b);
 
 public:
-    Attrib attrib;
+    Attrib buffer_attrib;
     ConstructFunc constructor;
     DestructFunc destructor;
     size_t len;
@@ -663,20 +663,19 @@ public:
     virtual void mark(MarkValueState& value_map);
 };
 
+// Define Value class for container use only
+class ValueInContainer : public Value
+{
+public:
+    ValueInContainer() :
+        Value(UNDEFINED)
+    {
+    }
+};
+
 // VM value: array
 struct ArrayImpl : public ReferenceImpl
 {
-public:////----private:
-    // Define class for container
-    class ValueInContainer : public Value
-    {
-    public:
-        ValueInContainer() :
-            Value(UNDEFINED)
-        {
-        }
-    };
-
 public:
     typedef simple::unsafe_vector<ValueInContainer> DataType;
     static const ValueType this_type = ValueType::ARRAY;
@@ -762,17 +761,6 @@ public:
 // VM value: map
 struct MapImpl : public ReferenceImpl
 {
-public:////----private:
-    // Define class for container
-    class ValueInContainer : public Value
-    {
-    public:
-        ValueInContainer() :
-            Value(UNDEFINED)
-        {
-        }
-    };
-
 public:
     static const ValueType this_type = ValueType::MAPPING;
 
@@ -832,7 +820,7 @@ public:
     Value keys() const
     {
         auto vec = m.keys();
-        return XNEW(ArrayImpl, (ArrayImpl::DataType &&)simple::move(vec));
+        return XNEW(ArrayImpl, (ArrayImpl::DataType&&)simple::move(vec));
     }
 
     // Get size
@@ -842,7 +830,7 @@ public:
     Value values() const
     {
         auto vec = m.values();
-        return XNEW(ArrayImpl, (ArrayImpl::DataType &&)simple::move(vec));
+        return XNEW(ArrayImpl, (ArrayImpl::DataType&&)simple::move(vec));
     }
 
 public:
@@ -941,7 +929,7 @@ public:
 
 class String : public TypedValue<StringImpl>
 {
-public:////----private:
+private:
     // WHY PRIVATE? See comment of Value()
     String() :
         TypedValue(EMPTY_STRING)

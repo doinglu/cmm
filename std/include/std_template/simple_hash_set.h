@@ -11,11 +11,11 @@
 namespace simple
 {
 
-template <typename K, typename F>
+template <typename K, typename F, typename Alloc>
 class hash_set_iterator;
 
 // hash set
-template <typename K, typename F = hash_func<K> >
+template <typename K, typename F = hash_func<K>, typename Alloc = XAlloc>
 class hash_set
 {
     enum { MinCapacity = 4 };
@@ -23,7 +23,7 @@ class hash_set
     typedef unsigned int index_t;
 
 public:
-    typedef hash_set_iterator<K, F> iterator;
+    typedef hash_set_iterator<K, F, Alloc> iterator;
     friend iterator;
 
 public:
@@ -97,6 +97,27 @@ public:
         return iterator(*this, index);
     }
 
+    // Find the iterator by key of other class type with methods:
+    //   hash_value(),
+    //   equals(const K&)
+    template <typename KK>
+    iterator find_ex(const KK& key)
+    {
+        index_t hash_value = (index_t)key.hash_value() & m_table_mask;
+        index_t element_index = m_table[hash_value];
+        while (element_index != BadIndex)
+        {
+            // Get element's key & compare
+            const K& element_key = m_keys[element_index];
+            if (key.equals(element_key))
+                return iterator(*(hash_set*)this, element_index);
+
+            // Try to compare next element
+            element_index = m_list[element_index];
+        }
+        return ((hash_set*)this)->end();
+    }
+
     // Put key pair into map, replace if existed
     index_t put(const K& key)
     {
@@ -117,9 +138,9 @@ public:
 
 public:
     // Generate vector of keys
-    vector<K> to_array()
+    vector<K, Alloc> to_array()
     {
-        vector<K> vec(m_size);
+        vector<K, Alloc> vec(m_size);
         // Lookup entire table to add all keys
         for (size_t i = 0; i < m_size; i++)
             vec.push_back(m_keys[i]);
@@ -274,19 +295,19 @@ public:
 
 private:
     // hash table
-    simple::unsafe_vector<K> m_keys;
-    simple::unsafe_vector<index_t> m_table;
-    simple::unsafe_vector<index_t> m_list;
+    simple::unsafe_vector<K, Alloc> m_keys;
+    simple::unsafe_vector<index_t, Alloc> m_table;
+    simple::unsafe_vector<index_t, Alloc> m_list;
     index_t m_size;
     index_t m_table_mask; // = m_table.size() - 1, should be 111...111B
     F       m_hash_func;
 };
 
 // Iterator of container
-template<typename K, typename F = hash_func<K> >
+template<typename K, typename F = hash_func<K>, typename Alloc = XAlloc>
 class hash_set_iterator
 {
-    typedef hash_set<K, F> hash_set_type;
+    typedef hash_set<K, F, Alloc> hash_set_type;
     typedef typename hash_set_type::index_t index_t;
     friend hash_set_type;
 

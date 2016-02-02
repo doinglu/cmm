@@ -36,7 +36,22 @@ Lang::Lang() :
     m_in_function = NULL;
     m_entry_function = BUFFER_NEW(AstFunction);
     m_entry_function->prototype = BUFFER_NEW(AstPrototype);
+    m_root = 0;
     m_current_attrib = 0;
+}
+
+// Parse & generate AST
+ErrorCode Lang::parse()
+{
+    auto ret = (ErrorCode)cmm_lang_parse(this);
+    if (ret != (ErrorCode)0)
+        // Got error
+        return ret;
+
+    // Collect children
+    collect_children(m_root);
+    print_ast(m_root, 0);
+    return ErrorCode::OK;
 }
 
 void Lang::set_current_attrib(Uint32 attrib)
@@ -144,10 +159,10 @@ void Lang::syntax_warns(Lang* context, const char *format, ...)
 }
 
 // Stop compile 
-void Lang::syntax_stop(Lang* context, IntR ret)
+void Lang::syntax_stop(Lang* context, ErrorCode ret)
 {
     // long jump 
-    longjmp(context->m_jmp_buf, (int) ret);
+    longjmp(context->m_jmp_buf, (int)ret);
 }
 
 // Echo when compiling 
@@ -193,6 +208,36 @@ String Lang::syntax_add_back_slash_for_quote(const String& str)
     }
     STD_ASSERT(buf[k] == 0);
     return new_string;
+}
+
+// Collect children to create tree
+void Lang::collect_children(AstNode* node)
+{
+    if (!node)
+        return;
+
+    // Collect children of this node
+    node->collect_children();
+
+    // Collect recursive in children
+    for (auto p = node->children; p != 0; p = p->sibling)
+        collect_children(p);
+}
+
+// Print the tree
+void Lang::print_ast(AstNode* node, int level)
+{
+    if (!node)
+        return;
+
+    for (auto i = 0; i < level; i++)
+        printf("  ");
+    printf("%s: %s\n", ast_node_type_to_string(node->get_node_type()), node->to_string().c_str());
+
+    // Collect recursive in children
+    level++;
+    for (auto p = node->children; p != 0; p = p->sibling)
+        print_ast(p, level);
 }
 
 }

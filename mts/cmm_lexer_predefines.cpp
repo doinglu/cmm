@@ -61,7 +61,7 @@ String Lexer::expand_dir_name(Lang* context)
 String Lexer::expand_line_no(Lang* context)
 {
     char temp[16];
-    snprintf(temp, sizeof(temp), "%u", (Uint32)context->m_lexer.m_current_line);
+    snprintf(temp, sizeof(temp), "%zu", (size_t)context->m_lexer.m_current_line);
     return temp;
 }
 
@@ -84,7 +84,7 @@ String Lexer::expand_function_name(Lang* context)
 String Lexer::expand_counter(Lang* context)
 {
     char temp[16];
-    snprintf(temp, sizeof(temp), "%u", (Uint32)context->m_lexer.m_unique_counter++);
+    snprintf(temp, sizeof(temp), "%zu", (size_t)context->m_lexer.m_unique_counter++);
     return temp;
 }
 

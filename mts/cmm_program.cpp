@@ -252,10 +252,23 @@ StringImpl *Program::find_or_add_string(const String& string)
     return m_string_pool->find_or_insert(string);
 }
 
+// Find or add a string into pool
+StringImpl *Program::find_or_add_string(const char* c_str)
+{
+    // Not found, create new string
+    return m_string_pool->find_or_insert(c_str, strlen(c_str));
+}
+
 // Find string in pool (return 0 if not found)
 StringImpl *Program::find_string(const String& string)
 {
     return m_string_pool->find(string);
+}
+
+// Find string in pool (return 0 if not found)
+StringImpl *Program::find_string(const char* c_str)
+{
+    return m_string_pool->find(c_str, strlen(c_str));
 }
 
 // Find a program by name (shared string)

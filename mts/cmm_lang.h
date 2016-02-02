@@ -61,8 +61,12 @@ public:
     static void shutdown();
 
 public:
-    // This class is created by 
+    // Constructor
     Lang();
+
+public:
+    // Do parse
+    ErrorCode parse();
 
 public:
     // Export to YACC
@@ -70,10 +74,11 @@ public:
     static void         syntax_errors(Lang* context, const char* format, ...);
     static void         syntax_warn(Lang* context, const char* msg);
     static void         syntax_warns(Lang* context, const char* format, ...);
-    static void         syntax_stop(Lang* context, IntR ret);
+    static void         syntax_stop(Lang* context, ErrorCode ret);
     static void         syntax_echo(Lang* context, const char* msg);
 
 public:
+    // Parse utility functions
     void                syntax_add_component(const String& component);
     SyntaxContextState* syntax_get_context_state();
     String              syntax_add_back_slash_for_quote(const String& str);
@@ -104,6 +109,9 @@ public: // Exporse to yyparse
     // object entry function
     AstFunction* m_entry_function;
 
+    // AST root
+    AstNode* m_root;
+
 #if 0
     // all the members variables declaration
     AstDeclares m_member_vars;
@@ -113,19 +121,17 @@ public: // Exporse to yyparse
 
 #endif
     // All components
-    Array m_components;
-
-    // entry source
-    char* m_entry;
-
-    // asm source of current compiling program
-    char* m_source;
+    simple::vector<MMMString> m_components;
 
     // long jump buffer
     jmp_buf m_jmp_buf;
 
     // The attribute for the file being compiled, from #pragma
     Uint32 m_current_attrib;
+
+private:
+    static void collect_children(AstNode* node);
+    static void print_ast(AstNode* node, int level);
 };
 
 // Internal routines

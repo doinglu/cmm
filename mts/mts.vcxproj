@@ -196,6 +196,7 @@
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_grammar.h" />
     <ClInclude Include="cmm_memory.h" />
+    <ClInclude Include="cmm_mmm_value.h" />
     <ClInclude Include="cmm_shell.h" />
     <ClInclude Include="cmm_vm.h" />
     <ClInclude Include="std_os_socket.h" />

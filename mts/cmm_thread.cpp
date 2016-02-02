@@ -19,13 +19,15 @@ size_t Thread::m_max_domain_context_level = 64; // Default
 
 std_tls_t Thread::m_thread_tls_id = STD_NO_TLS_ID;
 
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
 // Initialize this module
 bool Thread::init()
 {
     std_allocate_tls(&m_thread_tls_id);
 
     // Set handler - This is only to prevent optimization
-    m_get_stack_pointer_func = (GetStackPointerFunc)([]() { void *p = (void *)&p; return p; });
+    m_get_stack_pointer_func = (GetStackPointerFunc)([]() { void *p; p = &p; return (void*)p; });
 
     // Start current thread
     Thread *thread = XNEW(Thread);
@@ -33,6 +35,7 @@ bool Thread::init()
 
     return true;
 }
+#pragma GCC pop_options
 
 // Shutdown this moudule
 void Thread::shutdown()
@@ -77,14 +80,7 @@ Thread::~Thread()
         printf("There %zu valus still alive in thread %s.\n",
                m_value_list.get_count(),
                m_name);
-        auto *p = m_value_list.get_list();
-        while (p)
-        {
-            auto *current = p;
-            p = p->next;
-            XDELETE(current);
-        }
-        m_value_list.reset();
+        m_value_list.free();
     }
 }
 

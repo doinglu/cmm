@@ -13,6 +13,11 @@ struct ReferenceImpl;
 // Values list for thread/domain, using by GC
 class ValueList
 {
+friend struct MarkValueState;
+
+public:
+    typedef simple::unsafe_vector<ReferenceImpl*> ListType;
+
 public:
     ValueList()
     {
@@ -30,44 +35,46 @@ public:
     void free();
 
     // Return the count of total values
-    size_t get_count() { return m_count; }
+    size_t get_count() { return m_list.size(); }
+
+    // Return the address of values
+    ReferenceImpl** get_head_address() { return m_list.get_array_address(0); }
 
     // Return the head of list
-    ReferenceImpl* get_list() { return m_list; }
+    ListType& get_list() { return m_list; }
 
     // Remove a value
     void remove(ReferenceImpl* value);
 
-    // Reset the list (don't free linked values)
+private:
+    // Reset without free
     void reset()
     {
-        m_list = 0;
-        m_count = 0;
+        m_list.clear();
+        m_high = 0;
+        m_low = (ReferenceImpl*)(size_t)-1;
     }
 
 private:
     // List of all reference values
-    ReferenceImpl* m_list;
-    size_t m_count;
+    ListType m_list;
+    ReferenceImpl* m_high;
+    ReferenceImpl* m_low;
 };
 
 // Strcuture using by GC
 struct MarkValueState
 {
 public:
-    simple::unsafe_vector<ReferenceImpl*> impl_ptrs;
+    ReferenceImpl** impl_ptrs_address;
+    size_t impl_ptrs_count;
     simple::hash_map<void*, BufferImpl*> class_ptrs;
-    ValueList *list;
-    void *low;      // Low bound of all pointers
-    void *high;     // High bound of all pointers 
+    ValueList* list;
+    void* low;      // Low bound of all pointers
+    void* high;     // High bound of all pointers 
 
 public:
-    MarkValueState(ValueList *_list) :
-        impl_ptrs(_list->get_count()),
-        class_ptrs(_list->get_count())
-    {
-        list = _list;
-    }
+    MarkValueState(ValueList* _list);
 
 public:
     // Is the pointer possible be a valid ReferenceImpl* ?

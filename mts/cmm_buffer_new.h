@@ -51,11 +51,18 @@ template <typename T, typename... Types>
 BufferImpl *buffer_new(const char *file, int line, Types&&... args)
 {
     // Allocate a size buffer & bind it
-    auto *buffer = BUFFER_ALLOC(sizeof(T));
+    auto *buffer = BUFFER_ALLOC(BufferImpl::RESERVE_FOR_CLASS_ARR + sizeof(T));
     buffer->bind_to_current_domain();
 
+    // Build array info head
+    auto *info = (BufferImpl::ArrInfo *)buffer->data();
+    info->n = 1;
+    info->size = (Uint32)sizeof(T);
+    info->stamp = BufferImpl::CLASS_1_STAMP;
+
     // Construct the class T
-    new (buffer->data())T(simple::forward<Types>(args)...);
+    Uint8 *ptr_class = (Uint8 *)(info + 1);
+    new (ptr_class)T(simple::forward<Types>(args)...);
 
     // Save constructor/destructor
     void (*constructor)(T *, const T *) = [](T *me, const T *other) { new (me) T(*other); };
@@ -64,7 +71,7 @@ BufferImpl *buffer_new(const char *file, int line, Types&&... args)
     buffer->destructor = (BufferImpl::DestructFunc)destructor;
 
     // Mark attrib
-    buffer->attrib = BufferImpl::CONTAIN_1_CLASS;
+    buffer->buffer_attrib = BufferImpl::CONTAIN_1_CLASS;
 
     // Return the buffer
     return buffer;
@@ -75,7 +82,7 @@ inline void buffer_delete(const char *file, int line, BufferImpl *buffer)
 {
     // Verify attrib & free the buffer - destructor will be invoked in free()
     STD_ASSERT(("Bad buffer class pointer to delete.",
-               buffer->attrib & BufferImpl::CONTAIN_1_CLASS));
+               buffer->buffer_attrib & BufferImpl::CONTAIN_1_CLASS));
     BufferImpl::free(file, line, buffer);
 }
 
@@ -90,7 +97,7 @@ BufferImpl *buffer_new_arr(const char *file, int line, size_t n)
     auto *info = (BufferImpl::ArrInfo *)buffer->data();
     info->n = (Uint32)n;
     info->size = (Uint32)sizeof(T);
-    info->stamp = BufferImpl::CLASS_ARR_STAMP;
+    info->stamp = BufferImpl::CLASS_N_STAMP;
 
     // Construct all class
     Uint8 *ptr_class = (Uint8 *) (info + 1);
@@ -104,7 +111,7 @@ BufferImpl *buffer_new_arr(const char *file, int line, size_t n)
     buffer->destructor = (BufferImpl::DestructFunc)destructor;
 
     // Mark attribute
-    buffer->attrib = BufferImpl::CONTAIN_N_CLASS;
+    buffer->buffer_attrib = BufferImpl::CONTAIN_N_CLASS;
 
     // Return the buffer
     return buffer;
@@ -115,7 +122,7 @@ inline void buffer_delete_arr(const char *file, int line, BufferImpl *buffer)
 {
     // Verify attrib & free the buffer - destructor will be invoked in free()
     STD_ASSERT(("Bad buffer class array pointer to delete.",
-               buffer->attrib & BufferImpl::CONTAIN_N_CLASS));
+               buffer->buffer_attrib & BufferImpl::CONTAIN_N_CLASS));
     BufferImpl::free(file, line, buffer);
 }
 
@@ -129,8 +136,8 @@ inline void buffer_delete_arr(const char *file, int line, BufferImpl *buffer)
 
 // Return/delete the class inside BufferImpl
 #define BUFFER_NEW(T, ...)          (T*)buffer_new<T>(__FILE__, __LINE__, ##__VA_ARGS__)->class_ptr()
-#define BUFFER_DELETE(p)            buffer_delete(__FILE__, __LINE__, (BufferImpl *)(((char*)p) - sizeof(BufferImpl)))
+#define BUFFER_DELETE(p)            buffer_delete(__FILE__, __LINE__, (BufferImpl *)(((char*)p) - BufferImpl::RESERVE_FOR_CLASS_ARR - sizeof(BufferImpl)))
 #define BUFFER_NEWN(T, n)           (T*)buffer_new_arr<T>(__FILE__, __LINE__, n)->class_ptr()
-#define BUFFER_DELETEN(p)           buffer_delete_arr(__FILE__, __LINE__, (BufferImpl *)(((char*)p) - BufferImpl::RESERVE_FOR_CLASS_ARR- sizeof(BufferImpl)))
+#define BUFFER_DELETEN(p)           buffer_delete_arr(__FILE__, __LINE__, (BufferImpl *)(((char*)p) - BufferImpl::RESERVE_FOR_CLASS_ARR - sizeof(BufferImpl)))
 
 }

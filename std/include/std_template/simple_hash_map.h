@@ -95,9 +95,30 @@ public:
     {
         index_t index;
         if (!try_get_index(key, &index))
-            return ((hash_map *)this)->end();
+            return ((hash_map*)this)->end();
 
-        return iterator(*(hash_map *)this, index);
+        return iterator(*(hash_map*)this, index);
+    }
+
+    // Find the iterator by key of other class type with methods:
+    //   hash_value(),
+    //   equals(const K&)
+    template <typename KK>
+    iterator find_ex(const KK& key)
+    {
+        index_t hash_value = (index_t)key.hash_value() & m_table_mask;
+        index_t element_index = m_table[hash_value];
+        while (element_index != BadIndex)
+        {
+            // Get element's key & compare
+            const K& element_key = m_pairs[element_index].first;
+            if (key.equals(element_key))
+                return iterator(*(hash_map*)this, element_index);
+
+            // Try to compare next element
+            element_index = m_list[element_index];
+        }
+        return ((hash_map*)this)->end();
     }
 
     // Put key-value pair into map, replace if existed

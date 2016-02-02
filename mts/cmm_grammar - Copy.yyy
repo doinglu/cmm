@@ -241,7 +241,7 @@ all:
             }
             else
             {
-                printf("Total %d errors %d warning.\n", (int)context->m_num_errors, (int)context->m_num_warnings);
+                printf("Total %d errors %d warning.\n", context->m_num_errors, context->m_num_warnings);
             }
         }
     ;
@@ -868,7 +868,7 @@ loop_init:
             node->decl_or_variable = $1;
             node->begin = 0;
             node->to = $3;
-            node->direction = (int)$2;
+            node->direction = $2;
             $$ = node;
 		}
 	|
@@ -1503,33 +1503,6 @@ element:
         catch
         {
             $$ = $1;
-        }
-    |
-        '(' arguments_ex ')'
-        {
-            auto* prototype = BUFFER_NEW(AstPrototype);
-            prototype->ret_var_type.basic_var_type = MIXED;
-            prototype->ret_var_type.var_attrib = 0;
-            prototype->attrib = AST_RANDOM_ARG;
-            prototype->name = EMPTY_STRING;
-            prototype->arg_list = $2.arg_list;
-            if ($2.ddd)
-                prototype->attrib |= AST_RANDOM_ARG;
-
-            auto* prev = context->m_in_function;
-            context->m_in_function = prototype;
-            $<prototype>1 = prev;
-        }
-        '{' statements '}'
-        {
-            auto* function = BUFFER_NEW(AstFunction);
-            function->prototype = context->m_in_function;
-            function->body = $6;
-            context->m_in_function = $<prototype>1;
-
-            auto* node = BUFFER_NEW(AstExprClosure);
-            node->function = function;
-            $$ = node;
         }
     ;
 

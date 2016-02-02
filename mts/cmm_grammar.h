@@ -127,18 +127,17 @@ typedef union YYSTYPE
 
     AstNode*            node;
     AstCase*            cases;
-    AstDeclare*         declares;
+    AstDeclaration*     declares;
     AstExpr*            expression;
     AstExpr*            expr_list;
     AstFunction*        function;
     AstFunctionArg*     argument;
     AstFunctionArgsEx   arguments_ex;
-    AstLValue*          lvalue;
     AstPrototype*       prototype;
 
     ValueType           basic_var_type;
     Uint8               var_attrib;
-    VarType             var_type;
+    AstVarType          var_type;
 
     bool                bool_flag;
     Uint32              uint32_val;
@@ -146,7 +145,7 @@ typedef union YYSTYPE
 
 
 /* Line 1676 of yacc.c  */
-#line 150 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.hpp"
+#line 149 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.hpp"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

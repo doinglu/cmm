@@ -4,7 +4,6 @@
 #pragma once
 
 #include "std_template/simple_list.h"
-#include "std_template/simple_list.h"
 #include "cmm.h"
 
 namespace cmm

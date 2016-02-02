@@ -153,7 +153,7 @@ public:
 
 public:
     // Hash a c_str
-    static unsigned int hash_string(const char_t *c_str);
+    static unsigned int hash_string(const char_t *c_str, size_t maxn = 64);
 
 private:
     bool is_dynamic_allocated() const

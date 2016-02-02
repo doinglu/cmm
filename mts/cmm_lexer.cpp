@@ -702,9 +702,9 @@ void Lexer::generate_file_dir_name()
 
     if (!m_current_file_path.length())
     {
-        m_current_file_string = "\"/Unknown File\"";
-        m_current_pure_file_string = "\"Unknown File\"";
-        m_current_dir_string = "\"/\"";
+        m_current_file_string = String("\"/Unknown File\"");
+        m_current_pure_file_string = String("\"Unknown File\"");
+        m_current_dir_string = String("\"/\"");
         return;
     }
 
@@ -717,7 +717,7 @@ void Lexer::generate_file_dir_name()
     memcpy(buf + 1, file_c_str, len);
     buf[len + 1] = '"';
     buf[len + 2] = 0;
-    m_current_file_string = buf;
+    m_current_file_string = String(buf);
 
     if ((tmp = strrchr(file_c_str, PATH_SEPARATOR)) == NULL &&
         (tmp = strrchr(file_c_str, '\\')) == NULL)
@@ -734,7 +734,7 @@ void Lexer::generate_file_dir_name()
     memcpy(buf + 1, file, len);
     buf[len + 1] = '"';
     buf[len + 2] = 0;
-    m_current_pure_file_string = buf;
+    m_current_pure_file_string = String(buf);
 
     // Fetch directory
     if (tmp == m_current_file_path.c_str())
@@ -753,7 +753,7 @@ void Lexer::generate_file_dir_name()
         buf[len + 1] = '"';
         buf[len + 2] = 0;
     }
-    m_current_dir_string = buf;
+    m_current_dir_string = String(buf);
 }
 
 void Lexer::del_trail(char *sp)
@@ -830,7 +830,7 @@ void Lexer::refill_buffer()
 
     // Read data from file                
     STD_ASSERT(p + MAXLINE + 5 <= end);
-    size = fread(p, MAXLINE, 1, (FILE *)this->m_in_file_fd);////----
+    size = fread(p, 1, MAXLINE, (FILE *)this->m_in_file_fd);////----
 
     // Is end of file?
     is_end_of_file = (size < MAXLINE);
@@ -1697,7 +1697,6 @@ int Lexer::lex_in()
                 char oldC;
                 char *oldOut;
 
-#if 1
                 // Get Identifier, counting on '.'
                 yyp = this->m_text;
                 oldOut = this->m_out;
@@ -1712,37 +1711,21 @@ int Lexer::lex_in()
                         continue;
                     }
 
-                    if (c == '.')
-                    {
-                        // Check next character
-                        if (isalnum(*this->m_out) || (*this->m_out) == '_')
-                        {
-                            SAVEC;
-                            continue;
-                        }
-                    }
-                    
+                    // Return the last char
+                    this->m_out--;
                     break;
                 }
                 *yyp = 0;
 
                 // Got an identifier may contain '.', treat the whole string as identifier
-                yylval.string = String(this->m_text).ptr();
-                return L_IDENTIFIER;
-#endif
-
-                // Other possibilities
-                this->m_out--;
-                        
-                // look up identifier
-                auto word = String(this->m_text).ptr();
+                auto* word = String(this->m_text).ptr();
 
                 // 1.lookup key word
                 {
                     Keyword* keyword = get_keyword(word);
                     if (keyword != NULL)
                     {
-                        yylval.number = keyword->sem_value; 
+                        yylval.number = keyword->sem_value;
                         return keyword->token & TOKEN_MASK;
                     }
                 }
@@ -1787,8 +1770,7 @@ StringImpl* Lexer::add_file_name(const String& file_name)
 #endif
     } while (0);
 
-    String name = STRING_ALLOC(regular_name);
-    StringImpl *string_in_pool = Program::find_or_add_string(name);
+    StringImpl *string_in_pool = Program::find_or_add_string(regular_name);
 
     // Put into list
     std_enter_critical_section(m_cs);

@@ -314,14 +314,14 @@ public:
     void append(const T& element)
     {
         node *p = XNEW(node, element);
-        append_node(p);
+        this->append_node(p);
     }
 
     // Append element @ tail
     void append(T&& element)
     {
         node *p = XNEW(node, simple::move(element));
-        append_node(p);
+        this->append_node(p);
     }
 
     // Remove an element @ index
@@ -330,13 +330,13 @@ public:
         if (index >= base::m_size)
             throw "Element is out of range when remove from list.\n";
 
-        remove(iterator(*this, index));
+        this->remove(iterator(*this, index));
     }
 
     // Remove an element @ it
     void remove(iterator& it)
     {
-        delete remove_node(it.m_cursor_ptr);
+        delete this->remove_node(it.m_cursor_ptr);
     }
 };
 

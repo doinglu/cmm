@@ -6,10 +6,10 @@
 #include "std_template/simple_hash_map.h"
 #include "cmm.h"
 #include "cmm_gc_alloc.h"
+#include "cmm_mmm_value.h"
 #include "cmm_object.h"
 #include "cmm_string_pool.h"
 #include "cmm_typedef.h"
-#include "cmm_value.h"
 #include "cmm_value_list.h"
 
 namespace cmm
@@ -335,8 +335,14 @@ public:
     // Find or add a string into pool
     static StringImpl *find_or_add_string(const String& string);
 
+    // Find or add a string into pool
+    static StringImpl *find_or_add_string(const char* c_str);
+
     // Find string in pool (return 0 if not found)
     static StringImpl *find_string(const String& string);
+
+    // Find string in pool (return 0 if not found)
+    static StringImpl *find_string(const char* c_str);
 
     // Find a program by name (shared string)
     // The string.m_string would be updated if found in pool
@@ -558,7 +564,7 @@ private:
     ValueList m_list;
 
     // All constants
-    simple::unsafe_vector<Value, GCAlloc> m_constants;
+    simple::unsafe_vector<MMMValue> m_constants;
 
     // All functions defined this program (those defined in component not included) 
     simple::unsafe_vector<Function *> m_functions;
