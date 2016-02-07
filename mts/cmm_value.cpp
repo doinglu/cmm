@@ -270,7 +270,7 @@ StringImpl *StringImpl::alloc(const char *file, int line, const StringImpl *othe
 // Free a string
 void StringImpl::free(const char *file, int line, StringImpl *string)
 {
-    string->unbind();
+    string->~StringImpl();
     std_free_memory(string, "cpp", file, line);
 }
 
@@ -345,22 +345,7 @@ BufferImpl *BufferImpl::alloc(const char *file, int line, const BufferImpl *othe
 // Free a buffer
 void BufferImpl::free(const char *file, int line, BufferImpl *buffer)
 {
-    buffer->unbind();
-
-    if (buffer->buffer_attrib & CONTAIN_CLASS)
-    {
-        // Copy reserved part
-        STD_ASSERT(("Not found constructor for buffer class.", buffer->destructor != 0));
-        auto *info = (ArrInfo *)buffer->data();
-        size_t n = info->n;
-        size_t size = info->size;
-        STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_1_STAMP || info->stamp == CLASS_N_STAMP));
-        STD_ASSERT(("Bad n or size of buffer to contain class[].",
-                   size * n + RESERVE_FOR_CLASS_ARR == buffer->len));
-        Uint8 *ptr_class = buffer->data() + RESERVE_FOR_CLASS_ARR;
-        for (size_t i = 0; i < n; i++, ptr_class += size)
-            buffer->destructor(ptr_class);
-    }
+    buffer->~BufferImpl();
 
     std_free_memory(buffer, "cpp", file, line);
 }

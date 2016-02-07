@@ -75,14 +75,19 @@ public:
             gc();
     }
 
-    // Garbage collect
-    void gc();
-
     // Is this value in my value list?
     const ValueList *get_value_list()
     {
         return &m_value_list;
     }
+
+public:
+    // Garbage collect
+    void gc();
+
+private:
+    // Internal routine called by gc()
+    void gc_internal();
 
 public:
     // Let object join in domain

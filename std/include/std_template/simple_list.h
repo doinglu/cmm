@@ -192,7 +192,7 @@ protected:
     size_t m_size;
 };
 
-template <typename T>
+template <typename T, typename Alloc = XAlloc>
 class list : public manual_list<T>
 {
     typedef manual_list<T> base;
@@ -273,7 +273,7 @@ public:
         {
             node *this_node = p;
             p = p->next;
-            delete(this_node);
+            Alloc::template delete1<node>(__FILE__, __LINE__, this_node);
         }
 
         // Reset list
@@ -285,42 +285,42 @@ public:
     // Insert before
     void insert_before(iterator it, const T& element)
     {
-        node *p = XNEW(node, element);
+        node *p = Alloc::template new1<node>(__FILE__, __LINE__, element);
         insert_node_before(it, p);
     }
 
     // Insert before
     void insert_before(iterator it, T&& element)
     {
-        node *p = XNEW(node, simple::move(element));
+        node *p = Alloc::template new1<node>(__FILE__, __LINE__, simple::move(element));
         insert_node_before(it, p);
     }
 
     // Insert after
     void insert_after(iterator it, const T& element)
     {
-        node *p = XNEW(node, element);
+        node *p = Alloc::template new1<node>(__FILE__, __LINE__, element);
         insert_node_after(it, p);
     }
 
     // Insert after
     void insert_after(iterator it, T&& element)
     {
-        node *p = XNEW(node, simple::move(element));
+        node *p = Alloc::template new1<node>(__FILE__, __LINE__, simple::move(element));
         insert_node_after(it, p);
     }
 
     // Append element @ tail
     void append(const T& element)
     {
-        node *p = XNEW(node, element);
+        node *p = Alloc::template new1<node>(__FILE__, __LINE__, element);
         this->append_node(p);
     }
 
     // Append element @ tail
     void append(T&& element)
     {
-        node *p = XNEW(node, simple::move(element));
+        node *p = Alloc::template new1<node>(__FILE__, __LINE__, simple::move(element));
         this->append_node(p);
     }
 
@@ -336,7 +336,7 @@ public:
     // Remove an element @ it
     void remove(iterator& it)
     {
-        delete this->remove_node(it.m_cursor_ptr);
+        Alloc::template delete1<node>(__FILE__, __LINE__, this->remove_node(it.get_node()));
     }
 };
 
@@ -348,7 +348,6 @@ class list_iterator
     typedef T value_type;
     typedef list_node<T> node;
     friend list_type;
-    friend list<T>;
 
 public:
     list_iterator() :
@@ -362,7 +361,7 @@ public:
     }
 
 private:
-    // Construct iterator by mapping & type (Begin, End)
+    // Construct iterator by list & type (Begin, End)
     list_iterator(list_type& the_list, size_t index, node *p)
     {
 #ifdef _DEBUG
@@ -417,6 +416,11 @@ public:
     }
 
 public:
+    node* get_node() const
+    {
+        return m_cursor_ptr;
+    }
+
     size_t get_index() const
     {
         return m_index;

@@ -119,7 +119,7 @@ typedef union YYSTYPE
 {
 
 /* Line 1676 of yacc.c  */
-#line 113 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 117 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
 
     Integer             number;
     Real                real;
@@ -139,8 +139,8 @@ typedef union YYSTYPE
     Uint8               var_attrib;
     AstVarType          var_type;
 
-    bool                bool_flag;
-    Uint32              uint32_val;
+    int                 int_val;
+    Op                  op;
 
 
 

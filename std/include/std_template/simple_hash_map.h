@@ -36,7 +36,7 @@ public:
         m_size(0),
         m_table(round_to_2n(capacity))
     {
-        m_table_mask = (index_t) round_to_2n(capacity) - 1;
+        m_table_mask = (index_t)round_to_2n(capacity) - 1;
         m_table.push_backs(BadIndex, m_table_mask + 1);
     }
 
@@ -62,6 +62,19 @@ public:
     {
         index_t index;
         return try_get_index(key, &index);
+    }
+
+    // Erase pair by iterator
+    void erase(iterator& it)
+    {
+        STD_ASSERT(it.m_size == size());
+        STD_ASSERT(it.m_index < size());
+        erase(it.m_cursor_ptr->first);
+
+#ifdef _DEBUG
+        // Update m_size
+        it.m_size = (index_t)size();
+#endif
     }
 
     // Erase pair by key
@@ -192,7 +205,7 @@ private:
     // Get index
     index_t hash_key(const K& key) const
     {
-        index_t hash_value = (index_t) m_hash_func(key) & m_table_mask;
+        index_t hash_value = (index_t)m_hash_func(key) & m_table_mask;
         return hash_value;
     }
 
@@ -247,7 +260,7 @@ private:
     void free_node(index_t index)
     {
         m_size--;
-        index_t last_index = (index_t) m_size;
+        index_t last_index = (index_t)m_size;
         if (index != last_index)
         {
             // Not last one, swap with the tail pair
@@ -367,7 +380,7 @@ private:
     {
 #ifdef _DEBUG
         m_map = &m;
-        m_size = (index_t) m.size();
+        m_size = (index_t)m.size();
 #endif
         m_index = index;
         m_cursor_ptr = m.m_pairs.get_array_address(index);

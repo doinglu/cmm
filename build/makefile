@@ -1,14 +1,14 @@
 UNAME := $(shell uname)
 
 ifeq ($(UNAME),Linux)
-CPPFLAGS_MACRO = -Wno-multichar -Wno-invalid-offsetof -fomit-frame-pointer -foptimize-register-move -finline-functions
+CPPFLAGS_MACRO = -Wno-invalid-offsetof -fomit-frame-pointer -foptimize-register-move -finline-functions
 LINK_PLATFORM = -lrt -pthread
 CC = gcc
 CPPC = g++
 endif
 
 ifeq ($(UNAME),Darwin)
-CPPFLAGS_MACRO = -Wno-multichar -Wno-invalid-offsetof -fomit-frame-pointer -finline-functions
+CPPFLAGS_MACRO = -Wno-invalid-offsetof -fomit-frame-pointer -finline-functions
 LINK_PLATFORM =
 CC = gcc
 CPPC = g++

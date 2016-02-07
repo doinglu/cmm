@@ -17,7 +17,7 @@ namespace cmm
         {
             Program *program = XNEW(Program, "/clone/entity", Program::COMPILED_TO_NATIVE);
 
-            program->define_member("id", INTEGER);
+            program->define_object_var("id", INTEGER);
 
             program->add_component("/clone/entity");
             program->add_component("/feature/name");

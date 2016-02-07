@@ -161,14 +161,14 @@ private:
     inline int get_parameter_imm(int index);
 
 private:
-    Value *m_args;      // All arguments
-    Value *m_locals;    // All local variables & registers
-    Value *m_constants; // All constants in program
-    Value *m_members;   // All members in this object
+    Value *m_args;          // All arguments
+    Value *m_locals;        // All local variables & registers
+    Value *m_constants;     // All constants in program
+    Value *m_object_vars;   // All object vars in this object
     ArgNo  m_argn;
     LocalNo m_localn;
     ConstantIndex m_constantn;
-    MemberIndex   m_membern;
+    VariableNo    m_object_varn;
 
 private:
     Thread   *m_thread;

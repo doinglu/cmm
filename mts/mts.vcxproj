@@ -278,6 +278,9 @@
     <ClCompile Include="cmm_efun_core.cpp" />
     <ClCompile Include="cmm_error.cpp" />
     <ClCompile Include="cmm_grammar.cpp" />
+    <ClCompile Include="cmm_lang_pass1.cpp" />
+    <ClCompile Include="cmm_lang_pass2.cpp" />
+    <ClCompile Include="cmm_lang_symbols.cpp" />
     <ClCompile Include="cmm_memory.cpp" />
     <ClCompile Include="cmm_shell.cpp" />
     <ClCompile Include="cmm_value_oper.cpp" />

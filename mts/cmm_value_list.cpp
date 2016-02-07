@@ -6,7 +6,6 @@
 
 namespace cmm
 {
-
 // Append a new value to list
 void ValueList::append_value(ReferenceImpl* value)
 {
@@ -68,7 +67,11 @@ void ValueList::free()
     auto* p = get_head_address();
     auto list_count = get_count();
     for (size_t i = 0; i < list_count; i++)
+    {
+        // Set owner to 0 to prevent unbind when destructing
+        p[i]->owner = 0;
         XDELETE(p[i]);
+    }
     m_list.clear();
 }
 

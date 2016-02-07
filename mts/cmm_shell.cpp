@@ -32,7 +32,7 @@ void cmm_vprintf(const char *format, va_list args)
 {
     char buf[4096];
     vsnprintf(buf, sizeof(buf), format, args);
-    puts(buf);
+    printf("%s", buf);
 }
 
 }

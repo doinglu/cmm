@@ -21,7 +21,7 @@ typedef Uint32 ComponentOffset;     // Offset of component in class Object
 typedef Uint32 FunctionNo;          // Number of function in a program
 typedef Uint16 LocalNo;             // Local variables count/no
 typedef Uint32 MapOffset;           // MapImpl offset for component no map
-typedef Uint32 MemberIndex;         // Index of member in AbstractClass object
+typedef Uint32 VariableNo;          // Index of member in AbstractClass object
 
 #else
 typedef size_t ArgNo;               // Argument count/no
@@ -31,7 +31,7 @@ typedef size_t ComponentOffset;     // Offset of component in class Object
 typedef size_t FunctionNo;          // Number of function in a program
 typedef size_t LocalNo;             // Local variables count/no
 typedef size_t MapOffset;           // MapImpl offset for component no map
-typedef size_t MemberOffset;        // Offset of member in class object
+typedef size_t VariableNo;          // Index of member in AbstractClass object
 #endif
 
 enum ValueType
@@ -47,8 +47,9 @@ enum ValueType
     ARRAY = 12,         // ArrayImpl
     MAPPING = 13,       // Mapping
     TVOID = 98,         // Void
-    MIXED = 99,         // Any type
-    BAD_TYPE = 255,     // Bad type
+    MIXED = 99,         // mixed type
+    ANY_TYPE = 254,     // Any type     - Not for value, for compile use only
+    BAD_TYPE = 255,     // Bad type     - Not for value
 };
 
 enum

@@ -125,12 +125,12 @@ void Function::set_byte_codes(Instruction *codes, size_t len)
     m_byte_codes.push_back_array(codes, len);
 }
 
-Member::Member(Program *program, const String& name)
+ObjectVar::ObjectVar(Program *program, const String& name)
 {
     m_program = program;
     m_name = Program::find_or_add_string(name);
     m_type = (ValueType)0;
-    m_index = 0;
+    m_no = 0;
 }
 
 // StringImpl pool of all programs
@@ -198,7 +198,7 @@ Program::Program(const String& name, Attrib attrib)
 
     // Set default object's size
     m_entire_object_size = 0;
-    m_this_component_size = offsetof(AbstractComponent, m_members);
+    m_this_component_size = offsetof(AbstractComponent, m_object_vars);
 
     m_attrib = attrib;
 }
@@ -210,8 +210,8 @@ Program::~Program()
     for (auto &it: m_functions)
         XDELETE(it);
 
-    // Destruct all members
-    for (auto &it: m_members)
+    // Destruct all object vars
+    for (auto &it: m_object_vars)
         XDELETE(it);
 
     // Destruct all constants
@@ -372,17 +372,17 @@ Function *Program::define_function(const String& name,
     return function;
 }
 
-// Create member in this program
-Member *Program::define_member(const String& name, ValueType type)
+// Create object var in this program
+ObjectVar *Program::define_object_var(const String& name, ValueType type)
 {
-    auto *member = XNEW(Member, this, name);
-    member->m_type = type;
-    member->m_index = (MemberIndex)m_members.size();
-    m_members.push_back(member);
+    auto *object_var = XNEW(ObjectVar, this, name);
+    object_var->m_type = type;
+    object_var->m_no = (VariableNo)m_object_vars.size();
+    m_object_vars.push_back(object_var);
 
     // Calcuate object size for using interpreter
     m_this_component_size += sizeof(Value);
-    return member;
+    return object_var;
 }
 
 // Add a function to callee map
@@ -424,7 +424,7 @@ private:
 
 # "..._impl" means this is an implmentation class.
 # "public Object" means it was derived from Object (All implementation should be).
-# The members are components in this class.
+# The object_vars are components in this class.
 # The name suffix "2" means there is already a component with same name (pure file name).
 # The next component with same name is "3", "4" and so on.
 
@@ -434,7 +434,7 @@ static Program *__clone_entity_ob::create_program()
 {
     Program *program = new Program("/object/entity");
 
-    program->define_member(...);
+    program->define_object_var(...);
     ...
 
     program->add_component("/feature/name");
@@ -600,7 +600,7 @@ void Program::add_component(const String& program_name)
 // Update program after all programs are loaded
 void Program::update_program()
 {
-    m_this_component_size = offsetof(AbstractComponent, m_members) + m_members.size() * sizeof(Value);
+    m_this_component_size = offsetof(AbstractComponent, m_object_vars) + m_object_vars.size() * sizeof(Value);
 
     // Lookup program by name
     for (auto &it: m_components)
@@ -617,7 +617,7 @@ void Program::update_program()
     //    component 1 : Values x N1
     //    component 2 : Values x N2
     //    ...
-    size_t entire_object_size = offsetof(Object, m_members);
+    size_t entire_object_size = offsetof(Object, m_object_vars);
     for (auto &it : m_components)
     {
         auto *program = it.program;
@@ -753,12 +753,12 @@ Object *Program::new_instance(Domain *domain)
             auto *p = (AbstractComponent*)(((Uint8 *)ob) + it.offset);
             p->m_program = it.program;
             // Initial all types
-            for (auto &member : it.program->m_members)
+            for (auto &object_var : it.program->m_object_vars)
             {
-                auto type = member->m_type;
+                auto type = object_var->m_type;
                 if (type == ValueType::MIXED)
                     type = ValueType::NIL;
-                p->m_members[member->m_index].m_type = type;
+                p->m_object_vars[object_var->m_no].m_type = type;
             }
         }
         ob->assign_oid();

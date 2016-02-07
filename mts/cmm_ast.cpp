@@ -2,10 +2,20 @@
 
 #include "cmm.h"
 #include "cmm_ast.h"
+#include "cmm_lang.h"
 
 namespace cmm
 {
 
+AstNode::AstNode(Lang* context) :
+    sibling(0),
+    children(0)
+{
+    location.file = context->m_lexer.get_current_file_name();
+    location.line = context->m_lexer.get_current_line();
+    in_function_no = context->m_in_function ? context->m_in_function->no : 0;
+}
+    
 // Append node to list
 AstNode *append_sibling_node(AstNode *node, AstNode *next)
 {
@@ -60,7 +70,7 @@ String ast_function_attrib_to_string(AstFunctionAttrib attrib)
 }
 
 // Enum to string
-const char* ast_node_type_to_string(AstNodeType nodeType)
+const char* ast_node_type_to_c_str(AstNodeType nodeType)
 {
     switch (nodeType)
     {
@@ -109,16 +119,13 @@ const char* ast_node_type_to_string(AstNodeType nodeType)
 }
 
 // Operator to string
-String ast_op_to_string(Uint32 op)
+String ast_op_to_string(Op op)
 {
-    char str[sizeof(Uint32) + 1];
-    for (auto i = 0; i < sizeof(Uint32); i++)
-        str[i] = (char)(op >> (24 - i * 8));
-    str[sizeof(Uint32)] = 0;
-    for (auto i = 0; i < sizeof(Uint32); i++)
-        if (str[i] != 0)
-            return str + i;
-    return str + 3;
+    char str[sizeof(Op) + 1];
+    for (auto i = 0; i < sizeof(Op); i++)
+        str[i] = (char)((op >> (i * 8)) & 0xFF);
+    str[sizeof(Op)] = 0;
+    return str;
 }
 
 // VarType to string
@@ -131,12 +138,6 @@ String ast_var_type_to_string(AstVarType var_type)
     if (var_type.var_attrib & AstVarAttrib::AST_VAR_CONST)
     {
         strncpy(p, "const|", e - p);
-        p += strlen(p);
-    }
-
-    if (var_type.var_attrib & AstVarAttrib::AST_VAR_MAY_NULL)
-    {
-        strncpy(p, "may_null|", e - p);
         p += strlen(p);
     }
 
@@ -156,17 +157,23 @@ String ast_var_type_to_string(AstVarType var_type)
     if (p > buf)
         *(p - 1) = ' ';
 
-    strncpy(p, value_type_to_string(var_type.basic_var_type), e - p);
+    strncpy(p, value_type_to_c_str(var_type.basic_var_type), e - p);
+    p += strlen(p);
+
+    // Add '?' if may null
+    if (var_type.var_attrib & AstVarAttrib::AST_VAR_MAY_NIL)
+        strncpy(p, "?", e - p);
+
     return buf;
 }
 
 // Value type
-const char* value_type_to_string(ValueType value_type)
+const char* value_type_to_c_str(ValueType value_type)
 {
     switch (value_type)
     {
     case NIL:       return "nil";
-    case INTEGER:   return "integer";
+    case INTEGER:   return "int";
     case REAL:      return "real";
     case STRING:    return "string";
     case BUFFER:    return "buffer";
@@ -192,19 +199,31 @@ String AstCase::to_string()
 // eg. int x
 String AstDeclaration::to_string()
 {
-    return ast_var_type_to_string(var_type) + " " + name;
+    char buf[16];
+    snprintf(buf, sizeof(buf), " %s@%d",
+             ident_type == IDENT_LOCAL_VAR ? "local" :
+             ident_type == IDENT_OBJECT_VAR ? "object_var" : "", no);
+    return ast_var_type_to_string(var_type) + " " + name + buf;
+}
+
+String AstExpr::to_string()
+{
+    String str = ast_var_type_to_string(var_type);
+    if (is_constant)
+        str += " (constant)";
+    return str;
 }
 
 // eg. *=
 String AstExprAssign::to_string()
 {
-    return ast_op_to_string(op);
+    return AstExpr::to_string() + " " + ast_op_to_string(op);
 }
 
 // eg. +
 String AstExprBinary::to_string()
 {
-    return ast_op_to_string(op);
+    return AstExpr::to_string() + " " + ast_op_to_string(op);
 }
 
 // eg. (int)
@@ -216,19 +235,19 @@ String AstExprCast::to_string()
 // eg. ?
 String AstExprTernary::to_string()
 {
-    return ast_op_to_string(op);
+    return AstExpr::to_string() + " " + ast_op_to_string(op);
 }
 
 // eg. --
 String AstExprUnary::to_string()
 {
-    return ast_op_to_string(op);
+    return AstExpr::to_string() + " " + ast_op_to_string(op);
 }
 
 // eg. i
 String AstExprVariable::to_string()
 {
-    return name;
+    return AstExpr::to_string() + " " + name;
 }
 
 // eg. write
@@ -241,7 +260,7 @@ String AstExprFunctionCall::to_string()
 String AstExprIndex::to_string()
 {
     char buf[16];
-    if (index_type == AST_INDEX_SINGLE)
+    if (op == OP_IDX)
     {
         // []
         snprintf(buf, sizeof(buf), "[%s]", is_reverse_from ? "<" : "");
@@ -254,6 +273,15 @@ String AstExprIndex::to_string()
                  is_reverse_to ? "<" : "");
     }
     return buf;
+}
+
+// eg. mixed func() @1
+String AstFunction::to_string()
+{
+    char buf[16];
+    snprintf(buf, sizeof(buf), "() @%d", (int)no);
+    return ast_var_type_to_string(prototype->ret_var_type) + " " +
+           prototype->name + buf;
 }
 
 // eg. int x
@@ -271,14 +299,11 @@ String AstGoto::to_string()
     case AST_DIRECT_JMP:
         return target_label;
 
-    case AST_BREAK_LOOP:
-        return "<break loop>";
+    case AST_BREAK:
+        return "<break>";
 
-    case AST_BREAK_CASE:
-        return "<break case>";
-
-    case AST_CONTINUE_LOOP:
-        return "<continue loop>";
+    case AST_CONTINUE:
+        return "<continue>";
     }
 }
 

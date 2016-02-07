@@ -44,67 +44,12 @@ enum DefType
     DEF_IS_UNFINALIZE = 0x8000,
 };
 
-// To speed up cleaning the hash table, and identify the union
-enum IheType
-{
-    IHE_RESWORD       = 0x80000000,
-    IHE_EFUN          = 0x40000000,
-    IHE_UNFINALIZE    = 0x20000000,
-    IHE_HALF_FINALIZE = 0x10000000,
-    IHE_FUN           = 0x08000000,
-    IHE_OS_FUN        = 0x04000000,
-    IHE_INHERITED     = 0x02000000,
-    IHE_STATIC_VAR    = 0x00100000,
-    IHE_OBJECT_VAR    = 0x00040000,
-    IHE_LOCAL_VAR     = 0x00020000,
-    IHE_GENERATE      = 0x00010000,
-    IHE_PERMANENT     = (IHE_RESWORD | IHE_EFUN | IHE_FUN | IHE_STATIC_VAR | IHE_OBJECT_VAR),
-    IHE_UNUSED        = (IHE_STATIC_VAR),
-    TOKEN_MASK        = 0x0000FFFF,
-};
-
 // Attrib of refered
 enum RefStatus
 {
     VAR_BEEN_ASSIGNED = 0x0001,  // Varaible is assigned
     VAR_BEEN_READ     = 0x0002,  // SyntaxVariable is used    
     FUN_BEEN_CALLED   = 0x0004,  // Function been called
-};
-
-// Mixed ident entry
-union IdentUnit
-{
-    void* info;
-    struct
-    {
-        Function*   function;
-        FunctionNo  funOffset;
-    } uf; // User defined function (funOffset + entry pointer)
-    struct
-    {
-        Int32  no;
-        Uint8  attrib;
-    } value;
-    Int32   stackOffset;
-};
-
-struct IdentInfo
-{
-    IdentUnit v;
-    MMMString context;
-    Uint32 old_token;
-    Uint16 refered;
-    Uint16 unused;
-    IdentInfo* next;
-};
-
-struct IdentHashElem
-{
-    MMMString name;
-    Uint32 token;         // only flags
-    Uint32 sem_value;     // for these, a count of the ambiguity
-    IdentInfo ii;
-    DefinedName dn;
 };
 
 struct Keyword
@@ -118,55 +63,16 @@ struct Keyword
     Uint32      sem_value;      // semantic value for predefined tokens
 };
 
-typedef int (*LookupHandler)(IdentHashElem* ihe, void* cookie);
-
 /*
  * Information about all instructions. This is not really needed as the
  * automatically generated efun_arg_types[] should be used.
  */
 
-// indicates that the instruction is only used at compile time
-enum
-{
-    F_ALIAS_FLAG = 1024,
-};
-
-struct Instr
-{
-    ArgNo  max_arg, min_arg;  // Can't use char to represent -1
-    Uint16 type[4];           // Need a short to hold the biggest type flag
-    Uint16 Default;
-    Uint16 ret_type;
-    char*  name;
-    ArgNo  arg_index;
-};
-
-// The type of main field, may be basic iheNode, or recursive
-// LV_Info (must be a[xxx][..., left it combo)
-enum
-{
-    LV_MAIN_TYPE_BASIC     = 1,   // Simple nodes
-    LV_MAIN_TYPE_RECURSIVE = 2,   // Combo       
-};
-
-// Return value for vm_startNewFile
-enum
-{
-    START_ERROR  = -1,
-    START_SOURCE = 0,
-    START_BINARY = 1,
-};
-
-enum LexerAttrib
-{
-    LEX_ATTRIB = 1, ////----
-};
-
 class Lang;
 class Program;
 
 // Line no
-typedef IntR LineNo;
+typedef int LineNo;
 
 struct IfStatement;
 
@@ -218,9 +124,10 @@ public:
     StringImpl* find_file_name(const String& file_name);
     StringImpl* find_file_name_not_exact_match(const String& file_name);
     void        destruct_file_names();
+    String      get_current_file_name();
     LineNo      get_current_line();
-    LexerAttrib get_default_attrib();
-    bool        set_default_attrib(LexerAttrib attrib);
+    Uint32      get_default_attrib();
+    bool        set_default_attrib(Uint32 attrib);
     bool        start_new_file(Program *program, IntR fd, const String& file_name);
     bool        end_new_file(bool succ);
     int         lex_in();
@@ -282,13 +189,13 @@ private:
     char*        m_last_new_line;
 
     // Default attribute of compiler
-    LexerAttrib  m_default_attrib;
+    Uint32       m_default_attrib;
 
     // For #if/#else/#endif processing
     IfStatement* m_if_top;
 
     // Current file path
-    MMMString    m_current_file_path;
+    String       m_current_file_name;
 
     // Current file handle
     IntR         m_in_file_fd;
@@ -301,9 +208,9 @@ private:
     LineNo       m_current_line_saved;////----
 
     // For __FILE__, __LINE__
-    MMMString    m_current_dir_string;
-    MMMString    m_current_file_string;
-    MMMString    m_current_pure_file_string;
+    String       m_current_dir_string;
+    String       m_current_file_string;
+    String       m_current_pure_file_string;
 
     // main source buffer
     LinkedBuf    m_main_buf;

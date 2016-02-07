@@ -30,8 +30,8 @@ struct Instruction;
 class AbstractComponent
 {
 public:
-    Program *m_program; // The relative program
-    Value m_members[1]; // Members start from here
+    Program *m_program;  // The relative program
+    Value m_object_vars[1]; // Object vars start from here
 };
 
 // SyntaxVariable of function
@@ -276,19 +276,19 @@ private:
     Entry       m_entry;
 };
 
-// Member of program
-class Member
+// Object var of program
+class ObjectVar
 {
 friend Program;
 
 public:
-    Member(Program *program, const String& name);
+    ObjectVar(Program *program, const String& name);
 
 private:
     StringImpl  *m_name;
     Program     *m_program;
     ValueType    m_type;
-    MemberIndex  m_index;
+    VariableNo   m_no;
 };
 
 // Program of object
@@ -381,8 +381,8 @@ public:
                               ArgNo min_arg_no = 0, ArgNo max_arg_no = 0,
                               Function::Attrib attrib = (Function::Attrib)0);
 
-    // Create member definition in this program
-    Member *define_member(const String& name, ValueType type);
+    // Create object var definition in this program
+    ObjectVar *define_object_var(const String& name, ValueType type);
 
 public:
     // Add a function to public callee map
@@ -447,16 +447,16 @@ public:
         return mapped_component_no;
     }
 
-    // Get member by index
-    const Member *get_member(MemberIndex index) const
+    // Get object var by index
+    const ObjectVar *get_object_var(VariableNo no) const
     {
-        return m_members[index];
+        return m_object_vars[no];
     }
 
-    // Get member count
-    MemberIndex get_members_count() const
+    // Get object vars count
+    VariableNo get_object_vars_count() const
     {
-        return (MemberIndex)m_members.size();
+        return (VariableNo)m_object_vars.size();
     }
 
     // Get name
@@ -569,8 +569,8 @@ private:
     // All functions defined this program (those defined in component not included) 
     simple::unsafe_vector<Function *> m_functions;
 
-    // All members defined this program (those defined in component not included) 
-    simple::unsafe_vector<Member *> m_members;
+    // All object vars defined this program (those defined in component not included) 
+    simple::unsafe_vector<ObjectVar *> m_object_vars;
 
     // Callees map by function name
     typedef simple::hash_map<StringImpl *, CalleeInfo> CalleInfoMap;

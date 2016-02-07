@@ -19,8 +19,11 @@ size_t Thread::m_max_domain_context_level = 64; // Default
 
 std_tls_t Thread::m_thread_tls_id = STD_NO_TLS_ID;
 
+#if defined(__GNUC__)
+// Disable optimization to compile GetStackPointerFunc
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
+#endif
 // Initialize this module
 bool Thread::init()
 {
@@ -35,7 +38,9 @@ bool Thread::init()
 
     return true;
 }
+#if defined(__GNUC__)
 #pragma GCC pop_options
+#endif
 
 // Shutdown this moudule
 void Thread::shutdown()

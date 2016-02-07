@@ -59,7 +59,7 @@ public:
 
     virtual ~ReferenceImpl()
     {
-        // Let derived class do destroy work
+        unbind();
     }
 
 public:

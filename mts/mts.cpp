@@ -160,7 +160,7 @@ void test_gc()
 {
     Value m = Map();
     auto b = std_get_current_us_counter();
-    for (int i = 0; i < 1000000; i++)
+    for (int i = 0; i < 10000; i++)
     {   
         auto s = BUFFER_NEW(std::string);
         char str[100];
@@ -170,6 +170,14 @@ void test_gc()
     }
     auto e = std_get_current_us_counter();
     printf("Total Cost = %dus.\n\n", (int)(e - b));
+}
+
+void tgc()
+{
+    typedef simple::vector<int, GCAlloc> VVV;
+    auto* p = XNEW(MapImpl);
+    Value v = Value(p);
+    XDELETE(p);
 }
 
 int main(int argn, char *argv[])
@@ -198,13 +206,13 @@ int main(int argn, char *argv[])
 ////----    thread->update_start_sp_of_start_domain_context(&argn);
 
     auto *try_context = Thread::get_current_thread()->get_this_call_context();
-    try
+////----    try
     {
         auto ret = main_body(argn, argv);
     }
-    catch (...)
+////-----    catch (...)
     {
-        Thread::get_current_thread()->restore_call_stack_for_error(try_context);
+////----        Thread::get_current_thread()->restore_call_stack_for_error(try_context);
     }
 
     Lexer::shutdown();
@@ -219,6 +227,8 @@ int main(int argn, char *argv[])
     Value::shutdown();
 }
 
+void ttt();
+
 void compile()
 {
     FILE *fp;
@@ -226,14 +236,17 @@ void compile()
     /* Create compile context */
     auto* context = BUFFER_NEW(Lang);
 
-    /* Start new file in lex */
+    /* Start new file in lex */ 
     fp = fopen("../script.c", "r");
     if (fp == 0)
         fp = fopen("z:/doing/Project/mts/script.c", "r");
     context->m_lexer.start_new_file(NULL, (IntR)fp, "script.c");
     auto ret = context->parse();
     auto root = context->m_root;
+
     printf("ret = %d.\n", (int)ret);
+    // Debug output
+    context->print_ast(context->m_root, 0);
 
     fclose(fp);
 }

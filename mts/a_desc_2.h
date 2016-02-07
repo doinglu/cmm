@@ -16,7 +16,7 @@ public:
     {
         Program *program = XNEW(Program, "/feature/desc", Program::COMPILED_TO_NATIVE);
 
-        program->define_member("desc", STRING);
+        program->define_object_var("desc", STRING);
 
         program->add_component("/feature/desc");
         program->add_component("/feature/name");

@@ -33,7 +33,7 @@ public:
 //        Value __local[] = { };
         StringImpl* &name = __args[0].m_string;
 
-        StringImpl* &m_name = this->m_members[0].m_string;
+        StringImpl* &m_name = this->m_object_vars[0].m_string;
         m_name = name;
         return Value(UNDEFINED);
     }
@@ -44,7 +44,7 @@ public:
         if (__n != 0)
             throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
-        StringImpl* &m_name = this->m_members[0].m_string;
+        StringImpl* &m_name = this->m_object_vars[0].m_string;
         return m_name;
     }
 

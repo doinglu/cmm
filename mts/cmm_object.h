@@ -103,11 +103,11 @@ public:
     }
 
 private:
-                            // [virtual table]
-    ObjectId m_oid;         // Object's ID
-    Domain  *m_domain;      // Belong to
-    Program *m_program;     // Program of this object
-    Value    m_members[1];  // Members start here
+                                // [virtual table]
+    ObjectId m_oid;             // Object's ID
+    Domain  *m_domain;          // Belong to
+    Program *m_program;         // Program of this object
+    Value    m_object_vars[1];  // Members start here
 
 private:
     typedef GlobalIdManager<Entry> ObjectIdManager;

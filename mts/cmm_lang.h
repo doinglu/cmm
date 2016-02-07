@@ -10,6 +10,7 @@
 #include "std_template/simple_list.h"
 #include "cmm.h"
 #include "cmm_ast.h"
+#include "cmm_lang_symbols.h"
 #include "cmm_lex_util.h"
 #include "cmm_lexer.h"
 #include "cmm_value.h"
@@ -18,20 +19,6 @@ namespace cmm
 {
 
 // the state of context
-struct SyntaxContextState
-{
-    Int16 context_type;  // current context type (loop / switch)
-    bool  is_in_loop;    // is in loop block (while / for / if / loop)
-    bool  is_in_switch;  // is in switch block
-
-    SyntaxContextState() :
-        context_type(0),
-        is_in_loop(false),
-        is_in_switch(false)
-    {
-    }
-};
-
 // #if state
 struct IfStatement
 {
@@ -54,11 +41,17 @@ struct IfStatement
 class Lang
 {
     friend class Lexer;
+    friend class LangSymbols;
 
 public:
     // Initialize/shutdown this module
     static bool init();
     static void shutdown();
+
+private:
+    // Sub initialization routines of this module
+    static bool init_expr_op_type();
+    static void destruct_expr_op_type();
 
 public:
     // Constructor
@@ -76,17 +69,54 @@ public:
     static void         syntax_warns(Lang* context, const char* format, ...);
     static void         syntax_stop(Lang* context, ErrorCode ret);
     static void         syntax_echo(Lang* context, const char* msg);
+    static void         print_ast(AstNode* node, int level);
 
 public:
     // Parse utility functions
-    void                syntax_add_component(const String& component);
-    SyntaxContextState* syntax_get_context_state();
-    String              syntax_add_back_slash_for_quote(const String& str);
+    String              add_back_slash_for_quote(const String& str);
+    void                add_component(const String& component);
+    int                 get_frame_tag();
+    AstNode*            get_loop_switch(int level);
+    AstNode*            get_node_for_break();
+    AstNode*            get_node_for_continue();
+    bool                is_in_entry_function();
+    bool                is_in_top_frame();
+    void                pop_loop_switch(int level);
+    int                 push_loop_switch(AstNode* node);
     void                set_current_attrib(Uint32 attrib);
 
-public: // Exporse to yyparse
+private:
+    // Pass1 - Collect object var & functions
+    bool pass1();
+    void init_symbol_table();
+    void lookup_and_map_identifiers(AstNode *node);
+    void lookup_expr_types(AstNode *node);
+
+private:
+    // Pass2 - Create final result
+    bool pass2();
+
+private:
+    // Pass utilty functions
+    bool       are_expr_list_constant(AstExpr* expr);
+    ValueType  derive_type_of_op(AstExprOp* node, Op op, ValueType operand_type1, ValueType operand_type2, ValueType operand_type3);
+    bool       check_lvalue(AstExpr* node);
+    bool       try_map_assign_op_to_op(Op assign_op, Op* out_op);
+
+    // Frame relative functions
+private:
+    void create_new_frame();
+    void destruct_current_frame();
+
+private:
+    static void collect_children(AstNode* node);
+
+public:
     // Lexer
     Lexer m_lexer;
+
+    // Symbol manager
+    LangSymbols m_symbols;
 
     // number of errors
     Uint32 m_num_errors;
@@ -98,13 +128,13 @@ public: // Exporse to yyparse
     bool m_will_treat_warnings_as_errors;
 
     // context state
-    SyntaxContextState m_context_state;
+    simple::vector<AstNode*, GCAlloc> m_loop_switches;
 
     // the depth of loop
     Uint32 m_loop_depth;
 
     // current compiling function
-    AstPrototype* m_in_function;
+    AstFunction* m_in_function;
 
     // object entry function
     AstFunction* m_entry_function;
@@ -112,14 +142,12 @@ public: // Exporse to yyparse
     // AST root
     AstNode* m_root;
 
-#if 0
-    // all the members variables declaration
-    AstDeclares m_member_vars;
+    // Program's object var variables
+    simple::vector<AstDeclaration*> m_object_vars;
 
-    // all the member methods
-    AstFunctions m_methods;
+    // Program's method function
+    simple::vector<AstFunction*> m_functions;
 
-#endif
     // All components
     simple::vector<MMMString> m_components;
 
@@ -130,8 +158,11 @@ public: // Exporse to yyparse
     Uint32 m_current_attrib;
 
 private:
-    static void collect_children(AstNode* node);
-    static void print_ast(AstNode* node, int level);
+    // Error code during compiling
+    ErrorCode m_error_code;
+
+    // Tag to declare new definition in symbol table
+    int m_frame_tag;
 };
 
 // Internal routines

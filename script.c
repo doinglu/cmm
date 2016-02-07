@@ -1,9 +1,8 @@
-//component "name.c";
-//1+2*3;
-private mixed init(string name, const mapping dbase, ...)
+for (;;)
 {
-    a = 888;
+    do
+    {
+    };
 
-    mixed f = (string msg){ return a; };
+    continue;
 }
-;

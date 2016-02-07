@@ -58,9 +58,8 @@ enum AstNodeType
 enum AstGotoType
 {
     AST_DIRECT_JMP = 0,
-    AST_BREAK_LOOP = 1,
-    AST_BREAK_CASE = 2,
-    AST_CONTINUE_LOOP = 3,
+    AST_BREAK      = 12,
+    AST_CONTINUE   = 37,
 };
 
 // Function attrib
@@ -70,6 +69,8 @@ enum AstFunctionAttrib
     AST_OVERRIDE = 0x0002,
     AST_RANDOM_ARG = 0x0004,
     AST_UNMASKABLE = 0x0008,
+    AST_ANONYMOUS_CLOSURE = 0x0010,
+    AST_MEMBER_METHOD = 0x0020,
     AST_PUBLIC = 0x1000         // For AST node use only
 };
 
@@ -83,13 +84,6 @@ enum AstFunctionType
     AST_OBJECT_FUN = 5,
 };
 
-// Type of Index
-enum AstIndexType
-{
-    AST_INDEX_SINGLE = 0,     // x[index]
-    AST_INDEX_RANGE = 25,     // x[index..to]
-};
-
 // Runtime value id
 enum AstRuntimeValueId
 {
@@ -97,53 +91,72 @@ enum AstRuntimeValueId
     AST_RV_INPUT_ARGUMENTS_COUNT,
 };
 
+// Define 4 chars as an integer
+#define MULTI_CHARS(c1, c2, c3, c4) ((c1) | ((c2) << 8) | ((c3) << 16) | ((c4) << 24))
+
 // Operator
 enum Op
 {
-    OP_ADD = '+',
-    OP_SUB = '-',
-    OP_MUL = '*',
-    OP_DIV = '/',
-    OP_MOD = '%',
-    OP_LSH = '<<',
-    OP_RSH = '>>',
-    OP_AND = '&',
-    OP_OR = '|',
-    OP_XOR = '^',
-    OP_EQ = '==',
-    OP_NE = '!=',
-    OP_GE = '>=',
-    OP_GT = '>',
-    OP_LE = '<=',
-    OP_LT = '<',
-    OP_LAND = '&&',
-    OP_LOR = '||',
-    OP_REV = '~',
-    OP_NOT = '!',
-    OP_NEG = '0-',
-    OP_INC_PRE = '++()',
-    OP_DEC_PRE = '--()',
-    OP_INC_POST = '()++',
-    OP_DEC_POST = '()++',
-    OP_ASSIGN = '=',
-    OP_ADD_EQ = '+=',
-    OP_SUB_EQ = '-=',
-    OP_MULT_EQ = '*=',
-    OP_DIV_EQ = '/=',
-    OP_MOD_EQ = '%=',
-    OP_AND_EQ = '&=',
-    OP_OR_EQ = '|=',
-    OP_XOR_EQ = '^=',
-    OP_RSH_EQ = '>>=',
-    OP_LSH_EQ = '<<=',
-    OP_IF_REF = 'iref',
+    // Unary operator
+    OP_REV      = MULTI_CHARS('~', 0,   0,   0),
+    OP_NOT      = MULTI_CHARS('!', 0,   0,   0),
+    OP_NEG      = MULTI_CHARS('0', '-', 0,   0),
+    OP_INC_PRE  = MULTI_CHARS('+', '+', '(', ')'),
+    OP_DEC_PRE  = MULTI_CHARS('-', '-', '(', ')'),
+    OP_INC_POST = MULTI_CHARS('(', ')', '+', '+'),
+    OP_DEC_POST = MULTI_CHARS('(', ')', '+', '+'),
+    OP_IF_REF   = MULTI_CHARS('i', 'r', 'e', 'f'),
+    OP_CAST     = MULTI_CHARS('c', 'a', 's', 't'),
+
+    // Binary operator
+    OP_ADD      = MULTI_CHARS('+', 0,   0,   0),
+    OP_SUB      = MULTI_CHARS('-', 0,   0,   0),
+    OP_MUL      = MULTI_CHARS('*', 0,   0,   0),
+    OP_DIV      = MULTI_CHARS('/', 0,   0,   0),
+    OP_MOD      = MULTI_CHARS('%', 0,   0,   0),
+    OP_LSH      = MULTI_CHARS('<', '<', 0,   0),
+    OP_RSH      = MULTI_CHARS('>', '>', 0,   0),
+    OP_AND      = MULTI_CHARS('&', 0,   0,   0),
+    OP_OR       = MULTI_CHARS('|', 0,   0,   0),
+    OP_XOR      = MULTI_CHARS('^', 0,   0,   0),
+    OP_DOLLAR   = MULTI_CHARS('$', 0,   0,   0),
+    OP_EQ       = MULTI_CHARS('=', '=', 0,   0),
+    OP_NE       = MULTI_CHARS('!', '=', 0,   0),
+    OP_GE       = MULTI_CHARS('>', '=', 0,   0),
+    OP_GT       = MULTI_CHARS('>', 0,   0,   0),
+    OP_LE       = MULTI_CHARS('<', '=', 0,   0),
+    OP_LT       = MULTI_CHARS('<', 0,   0,   0),
+    OP_LAND     = MULTI_CHARS('&', '&', 0,   0),
+    OP_LOR      = MULTI_CHARS('|', '|', 0,   0),
+    OP_ASSIGN   = MULTI_CHARS('=', 0,   0,   0),
+    OP_ADD_EQ   = MULTI_CHARS('+', '=', 0,   0),
+    OP_SUB_EQ   = MULTI_CHARS('-', '=', 0,   0),
+    OP_MUL_EQ   = MULTI_CHARS('*', '=', 0,   0),
+    OP_DIV_EQ   = MULTI_CHARS('/', '=', 0,   0),
+    OP_MOD_EQ   = MULTI_CHARS('%', '=', 0,   0),
+    OP_AND_EQ   = MULTI_CHARS('&', '=', 0,   0),
+    OP_OR_EQ    = MULTI_CHARS('|', '=', 0,   0),
+    OP_XOR_EQ   = MULTI_CHARS('^', '=', 0,   0),
+    OP_QMARK_EQ = MULTI_CHARS('?', '=', 0,   0),
+    OP_RSH_EQ   = MULTI_CHARS('>', '>', '=', 0),
+    OP_LSH_EQ   = MULTI_CHARS('<', '<', '=', 0),
+
+    // Ternary operator
+    OP_QMARK    = MULTI_CHARS('?', ':', 0,   0),
+
+    // Subscript index
+    OP_IDX      = MULTI_CHARS('[', ']', 0,   0),
+    OP_IDX_RANGE= MULTI_CHARS('[', '.', '.', ']'),
+
+    // Imply LT/LE/GT/GE, for coding convenience
+    OP_ORDER    = MULTI_CHARS('<', '>', '=', 0),
 };
 
 // Type of variant
 enum AstVarAttrib
 {
     AST_VAR_REF_ARGUMENT = 0x01,
-    AST_VAR_MAY_NULL = 0x02,
+    AST_VAR_MAY_NIL = 0x02,
     AST_VAR_NO_SAVE = 0x04,
     AST_VAR_CONST = 0x08,
 };
@@ -229,9 +242,23 @@ struct AstVarType
 {
     ValueType basic_var_type;       // basic variable type
     Uint8     var_attrib;           // variable attribute
+
+    // Get value type (MIXED if accept null, like int?)
+    ValueType get_value_type()
+    {
+        if (var_attrib & AST_VAR_MAY_NIL)
+            return MIXED;
+    }
+
+    // Is this a const (readonly) varaible
+    bool is_const()
+    {
+        return (var_attrib & AST_VAR_CONST) ? true : false;
+    }
 };
 
 // Forward declaration
+class Lang;
 struct AstNode;
 struct AstExpr;
 struct AstFunction;
@@ -247,16 +274,16 @@ AstNode *append_sibling_node(AstNode *node, AstNode *next);
 String ast_function_attrib_to_string(AstFunctionAttrib attrib);
 
 // Enum to string
-const char* ast_node_type_to_string(AstNodeType nodeType);
+const char* ast_node_type_to_c_str(AstNodeType nodeType);
 
 // Operator to string
-String ast_op_to_string(Uint32 op);
+String ast_op_to_string(Op op);
 
 // VarType to string
 String ast_var_type_to_string(AstVarType var_type);
 
 // basic value to string
-const char* value_type_to_string(ValueType value_type);
+const char* value_type_to_c_str(ValueType value_type);
 
 // The AST nodes
 // AST node: abstract type
@@ -266,12 +293,9 @@ struct AstNode
     AstNode* sibling;
     AstNode* children;
     SourceLocation location;
+    FunctionNo in_function_no;
 
-    AstNode() :
-        sibling(0),
-        children(0)
-    {
-    }
+    AstNode(Lang* context);
 
     // Get count of my sibling
     size_t get_sibling_count()
@@ -328,6 +352,14 @@ struct AstNode
     {
     }
 
+    // Does this node contain new frame definition?
+    // For those node like block: '{' statements '}', they will increase
+    // tag to accept new local declarartion in node.
+    virtual bool contains_new_frame()
+    {
+        return false;
+    }
+
     // Output for thie AstNode
     virtual String to_string()
     {
@@ -339,6 +371,11 @@ struct AstNode
 struct AstRoot : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_ROOT; }
+
+    AstRoot(Lang* context) :
+        AstNode(context)
+    {
+    }
 };
 
 // Switch - case
@@ -356,7 +393,8 @@ struct AstCase : AstNode
 
     virtual String to_string();
 
-    AstCase() :
+    AstCase(Lang* context) :
+        AstNode(context),
         is_default(false),
         block(0)
     {
@@ -368,9 +406,16 @@ struct AstCase : AstNode
 struct AstDeclaration : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_DECLARATION; }
-    AstVarType var_type; // variable type
-    String     name;     // variable name
-    AstExpr*   expr;     // assign expression
+    AstVarType  var_type;   // variable type
+    String      name;       // variable name
+    Uint32      ident_type; // IdentType: identifier type, local or object
+    union
+    {
+        LocalNo     local_var_no;   // Number of var as local
+        VariableNo object_var_no;  // Number of var in object
+        int         no;
+    };
+    AstExpr*    expr;     // assign expression
 
     virtual void collect_children()
     {
@@ -379,8 +424,10 @@ struct AstDeclaration : AstNode
 
     virtual String to_string();
 
-    AstDeclaration() :
+    AstDeclaration(Lang* context) :
+        AstNode(context),
         name(EMPTY_STRING),
+        no(0),
         expr(0)
     {
     }
@@ -399,7 +446,8 @@ struct AstDeclarations : AstNode
         children = decl_list;
     }
 
-    AstDeclarations() :
+    AstDeclarations(Lang* context) :
+        AstNode(context),
         decl_list(0)
     {
     }
@@ -417,10 +465,21 @@ struct AstDoWhile : AstNode
         collect_children_of(block, cond);
     }
 
-    AstDoWhile() :
+    virtual bool contains_new_frame()
+    {
+        return true;
+    }
+
+    AstDoWhile(Lang* context) :
+        AstNode(context),
         block(0),
         cond(0)
     {
+    }
+
+    ~AstDoWhile()
+    {
+        printf("~AstDoWhile() %p.\n", this);////----
     }
 };
 
@@ -428,26 +487,39 @@ struct AstDoWhile : AstNode
 // Abstract node
 struct AstExpr : AstNode
 {
-    ValueType type;          // expression return type
-    Uint8  attrib;           // Attribute of expression
-    bool   is_constant;      // if this is a constant expression
-    Int32  reg_index;        // expression output register index
+    AstVarType var_type;    // Value type of this expression
+    bool   is_constant;     // if this is a constant expression
+    Int32  reg_index;       // expression output register index
 
-    AstExpr() :
-        type(MIXED),
-        attrib(0),
+    virtual String to_string();
+
+    AstExpr(Lang* context) :
+        AstNode(context),
         is_constant(false),
         reg_index(0)
+    {
+        var_type.basic_var_type = MIXED;
+        var_type.var_attrib = 0;
+    }
+};
+
+// Operator - abstract class
+struct AstExprOp : AstExpr
+{
+    Op op;
+
+    AstExprOp(Lang* context) :
+        AstExpr(context),
+        op((Op)0)
     {
     }
 };
 
 // Assgin-op expression
-struct AstExprAssign : AstExpr
+struct AstExprAssign : AstExprOp
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_ASSIGN; }
-    Uint32     op;      // Expression operation
-    AstLValue* expr1;   // Left expression
+    AstExpr*   expr1;   // Left expression
     AstExpr*   expr2;   // Right expression
 
     virtual void collect_children()
@@ -458,8 +530,8 @@ struct AstExprAssign : AstExpr
     // eg. *=
     virtual String to_string();
 
-    AstExprAssign() :
-        op(0),
+    AstExprAssign(Lang* context) :
+        AstExprOp(context),
         expr1(0),
         expr2(0)
     {
@@ -467,10 +539,9 @@ struct AstExprAssign : AstExpr
 };
 
 // Binary-op expression
-struct AstExprBinary : AstExpr
+struct AstExprBinary : AstExprOp
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_BINARY; }
-    Uint32   op;        // Expression operation
     AstExpr* expr1;     // Left expression
     AstExpr* expr2;     // Right expression
 
@@ -482,8 +553,8 @@ struct AstExprBinary : AstExpr
     // eg. +
     virtual String to_string();
 
-    AstExprBinary() :
-        op(0),
+    AstExprBinary(Lang* context) :
+        AstExprOp(context),
         expr1(0),
         expr2(0)
     {
@@ -491,7 +562,7 @@ struct AstExprBinary : AstExpr
 };
 
 // Cast expression
-struct AstExprCast : AstExpr
+struct AstExprCast : AstExprOp
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CAST; }
     AstVarType var_type;  // Type to cast
@@ -504,7 +575,8 @@ struct AstExprCast : AstExpr
 
     virtual String to_string();
 
-    AstExprCast() :
+    AstExprCast(Lang* context) :
+        AstExprOp(context),
         expr1(0)
     {
     }
@@ -521,7 +593,8 @@ struct AstExprClosure : AstExpr
         collect_children_of(function);
     }
 
-    AstExprClosure() :
+    AstExprClosure(Lang* context) :
+        AstExpr(context),
         function(0)
     {
     }
@@ -539,7 +612,8 @@ struct AstExprConstant : AstExpr
         return output.type_value(&value);
     }
 
-    AstExprConstant() :
+    AstExprConstant(Lang* context) :
+        AstExpr(context),
         value(UNDEFINED)
     {
         is_constant = true;
@@ -557,7 +631,8 @@ struct AstExprCreateArray : AstExpr
         children = expr_list;
     }
 
-    AstExprCreateArray()
+    AstExprCreateArray(Lang* context) :
+        AstExpr(context)
     {
     }
 };
@@ -574,7 +649,8 @@ struct AstExprCreateFunction : AstExpr
         children = expr_list;
     }
 
-    AstExprCreateFunction() :
+    AstExprCreateFunction(Lang* context) :
+        AstExpr(context),
         name(EMPTY_STRING)
     {
     }
@@ -591,7 +667,8 @@ struct AstExprCreateMapping : AstExpr
         children = expr_list;
     }
 
-    AstExprCreateMapping()
+    AstExprCreateMapping(Lang* context) :
+        AstExpr(context)
     {
     }
 };
@@ -612,7 +689,8 @@ struct AstExprFunctionCall : AstExpr
 
     virtual String to_string();
 
-    AstExprFunctionCall() :
+    AstExprFunctionCall(Lang* context) :
+        AstExpr(context),
         callee_name(EMPTY_STRING),
         arguments(0)
     {
@@ -631,22 +709,22 @@ struct AstExprFunctionCallEx : AstExpr
         children = arguments;
     }
 
-    AstExprFunctionCallEx() :
+    AstExprFunctionCallEx(Lang* context) :
+        AstExpr(context),
         arguments(0)
     {
     }
 };
 
 // Get/Assign Index
-struct AstExprIndex : AstExpr
+struct AstExprIndex : AstExprOp
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_INDEX; }
-    AstExpr* container;         // container
-    AstExpr* index_from;        // from index
-    AstExpr* index_to;          // to index
-    Int16    index_type;        // type of index
-    bool     is_reverse_from;   // is from index reverse
-    bool     is_reverse_to;     // is to index reverse
+    AstExpr*     container;         // container
+    AstExpr*     index_from;        // from index
+    AstExpr*     index_to;          // to index
+    bool         is_reverse_from;   // is from index reverse
+    bool         is_reverse_to;     // is to index reverse
 
     virtual void collect_children()
     {
@@ -656,11 +734,11 @@ struct AstExprIndex : AstExpr
 
     virtual String to_string();
 
-    AstExprIndex() :
+    AstExprIndex(Lang* context) :
+        AstExprOp(context),
         container(0),
         index_from(0),
         index_to(0),
-        index_type(0),  // AST_INDEX_SINGLE
         is_reverse_from(false),
         is_reverse_to(false)
     {
@@ -674,7 +752,8 @@ struct AstExprIsRef : AstExpr
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_IS_REF; }
     String name;
 
-    AstExprIsRef() :
+    AstExprIsRef(Lang* context) :
+        AstExpr(context),
         name(EMPTY_STRING)
     {
 
@@ -688,13 +767,14 @@ struct AstExprRuntimeValue : AstExpr
     AstVarType var_type;
     Uint16     value_id;
 
-    AstExprRuntimeValue() :
+    AstExprRuntimeValue(Lang* context) :
+        AstExpr(context),
         value_id(0)
     {
     }
 };
 
-// Segement to
+// Segment .
 struct AstExprSegment : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_SEGMENT; }
@@ -707,7 +787,8 @@ struct AstExprSegment : AstExpr
         collect_children_of(expr);
     }
 
-    AstExprSegment() :
+    AstExprSegment(Lang* context) :
+        AstExpr(context),
         name(EMPTY_STRING),
         expr(0)
     {
@@ -725,17 +806,17 @@ struct AstExprSingleValue : AstExpr
         children = expr_list;
     }
 
-    AstExprSingleValue() :
+    AstExprSingleValue(Lang* context) :
+        AstExpr(context),
         expr_list(0)
     {
     }
 };
 
 // Ternary-op expression
-struct AstExprTernary : AstExpr
+struct AstExprTernary : AstExprOp
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_TERNARY; }
-    Uint32   op;        // Expression operation
     AstExpr* expr1;     // 1st expression
     AstExpr* expr2;     // 2nd expression
     AstExpr* expr3;     // 3rd expression
@@ -748,8 +829,8 @@ struct AstExprTernary : AstExpr
     // eg. ?
     virtual String to_string();
 
-    AstExprTernary() :
-        op(0),
+    AstExprTernary(Lang* context) :
+        AstExprOp(context),
         expr1(0),
         expr2(0),
         expr3(0)
@@ -758,10 +839,9 @@ struct AstExprTernary : AstExpr
 };
 
 // Unary-op expression
-struct AstExprUnary : AstExpr
+struct AstExprUnary : AstExprOp
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_UNARY; }
-    Uint32   op;        // Expression operation
     AstExpr* expr1;     // To be operated
 
     virtual void collect_children()
@@ -772,8 +852,8 @@ struct AstExprUnary : AstExpr
     // eg. --
     virtual String to_string();
 
-    AstExprUnary() :
-        op(0),
+    AstExprUnary(Lang* context) :
+        AstExprOp(context),
         expr1(0)
     {
     }
@@ -787,7 +867,8 @@ struct AstExprVariable : AstExpr
 
     virtual String to_string();
 
-    AstExprVariable() :
+    AstExprVariable(Lang* context) :
+        AstExpr(context),
         name(EMPTY_STRING)
     {
     }
@@ -807,7 +888,13 @@ struct AstForLoop : AstNode
         collect_children_of(init, cond, step, block);
     }
 
-    AstForLoop() :
+    virtual bool contains_new_frame()
+    {
+        return true;
+    }
+
+    AstForLoop(Lang* context) :
+        AstNode(context),
         init(0),
         cond(0),
         step(0),
@@ -821,6 +908,9 @@ struct AstFunction : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_FUNCTION; }
 
+    // Function number in program
+    FunctionNo no;
+
     // Prototype
     AstPrototype* prototype;
 
@@ -828,17 +918,25 @@ struct AstFunction : AstNode
     AstNode* body;
 
     // All local variable declaration
-    AstDeclaration* local_vars;
+    simple::vector<AstDeclaration*> local_vars;
 
     // All registers
     AstRegister* registers;
 
     virtual void collect_children()
     {
-        collect_children_of(prototype, body, local_vars, registers);
+        collect_children_of(prototype, body, registers);
     }
 
-    AstFunction() :
+    virtual bool contains_new_frame()
+    {
+        return true;
+    }
+
+    virtual String to_string();
+
+    AstFunction(Lang* context) :
+        AstNode(context),
         body(0),
         local_vars(0),
         registers(0)
@@ -849,7 +947,7 @@ struct AstFunction : AstNode
 // Argument list with extra attributes of function prototype
 struct AstFunctionArgsEx
 {
-    Int16 ddd;
+    bool ddd;
     AstFunctionArg* arg_list;
 };
 
@@ -868,7 +966,8 @@ struct AstFunctionArg : AstNode
 
     virtual String to_string();
 
-    AstFunctionArg() :
+    AstFunctionArg(Lang* context) :
+        AstNode(context),
         name(EMPTY_STRING),
         default_value(0)
     {
@@ -880,12 +979,14 @@ struct AstFunctionArg : AstNode
 struct AstGoto : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_GOTO; }
-    Int16  goto_type;
-    String target_label;     // Label to jmp
+    AstGotoType goto_type;
+    AstNode*    loop_switch;
+    String      target_label;     // Label to jmp
 
     virtual String to_string();
 
-    AstGoto() :
+    AstGoto(Lang* context) :
+        AstNode(context),
         target_label(EMPTY_STRING)
     {
     }
@@ -904,7 +1005,8 @@ struct AstIfElse : AstNode
         collect_children_of(cond, block_then, block_else);
     }
 
-    AstIfElse() :
+    AstIfElse(Lang* context) :
+        AstNode(context),
         cond(0),
         block_then(0),
         block_else(0)
@@ -921,7 +1023,8 @@ struct AstLabel : AstNode
 
     virtual String to_string();
 
-    AstLabel() :
+    AstLabel(Lang* context) :
+        AstNode(context),
         name(EMPTY_STRING)
     {
     }
@@ -939,7 +1042,13 @@ struct AstLoopEach : AstNode
         collect_children_of(decl_or_variable, container);
     }
 
-    AstLoopEach() :
+    virtual bool contains_new_frame()
+    {
+        return true;
+    }
+
+    AstLoopEach(Lang* context) :
+        AstNode(context),
         decl_or_variable(0),
         container(0)
     {
@@ -960,39 +1069,19 @@ struct AstLoopRange : AstNode
         collect_children_of(decl_or_variable, begin, to);
     }
 
+    virtual bool contains_new_frame()
+    {
+        return true;
+    }
+
     virtual String to_string();
 
-    AstLoopRange() :
+    AstLoopRange(Lang* context) :
+        AstNode(context),
         decl_or_variable(0),
         begin(0),
         to(0),
         direction(0)
-    {
-    }
-};
-
-// Left-value information
-struct AstLValue : AstNode
-{
-    virtual AstNodeType get_node_type() { return AstNodeType::AST_LVALUE; }
-    AstExprVariable*    assigner_varible;// assignable value
-    AstExpr*            index_from;      // from index
-    AstExpr*            index_to;        // to index
-    Int16               lvalue_type;     // type of L-Value
-    bool                is_reverse_from; // is from index reverse
-    bool                is_reverse_to;   // is to index reverse
-
-    virtual void collect_children()
-    {
-        collect_children_of(assigner_varible, index_from, index_to);
-    }
-
-    AstLValue() :
-        assigner_varible(0),
-        index_from(0),
-        index_to(0),
-        is_reverse_from(false),
-        is_reverse_to(false)
     {
     }
 };
@@ -1024,7 +1113,8 @@ struct AstPrototype : AstNode
 
     virtual String to_string();
 
-    AstPrototype() :
+    AstPrototype(Lang* context) :
+        AstNode(context),
         name(EMPTY_STRING),
         arg_list(0),
         has_ret(false)
@@ -1042,7 +1132,8 @@ struct AstRegister : AstNode
     bool      is_using;                    // is this register using currently
     bool      is_fixed_reg;                // is fixed register
 
-    AstRegister() :
+    AstRegister(Lang* context) :
+        AstNode(context),
         type(MIXED),
         index(0),
         is_using(false),
@@ -1061,12 +1152,27 @@ struct AstReturn : AstNode
     {
         collect_children_of(expr);
     }
+
+    AstReturn(Lang* context) :
+        AstNode(context)
+    {
+    }
 };
 
 // Statements
 struct AstStatements : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_STATEMENTS; }
+
+    virtual bool contains_new_frame()
+    {
+        return true;
+    }
+
+    AstStatements(Lang* context) :
+        AstNode(context)
+    {
+    }
 };
 
 // Switch-Case
@@ -1082,7 +1188,8 @@ struct AstSwitchCase : AstNode
         children = append_sibling_node(expr, cases);
     }
 
-    AstSwitchCase() :
+    AstSwitchCase(Lang* context) :
+        AstNode(context),
         cases(0)
     {
     }
@@ -1100,7 +1207,13 @@ struct AstWhileLoop : AstNode
         collect_children_of(cond, block);
     }
 
-    AstWhileLoop() :
+    virtual bool contains_new_frame()
+    {
+        return true;
+    }
+
+    AstWhileLoop(Lang* context) :
+        AstNode(context),
         cond(0),
         block(0)
     {

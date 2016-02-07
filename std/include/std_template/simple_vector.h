@@ -114,6 +114,8 @@ public:
     {
         T *new_array;
         m_space *= 2;
+        if (m_space < 8)
+            m_space = 8;
         new_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
         for (size_t i = 0; i < m_size; i++)
             new_array[i] = simple::move(m_array[i]);
@@ -159,6 +161,8 @@ public:
         {
             // Resize
             T *new_array;
+            if (to < 8)
+                to = 8;
             m_space = to;
             new_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
             for (size_t i = 0; i < m_size; i++)
@@ -239,6 +243,7 @@ public:
             throw "Element is out of range when remove from array.\n";
         for (size_t i = index; i < m_size; i++)
             m_array[i] = simple::move(m_array[i + 1]);
+        m_size--;
     }
 
     // Remove an element @ it

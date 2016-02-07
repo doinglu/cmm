@@ -126,7 +126,7 @@ void Lexer::shutdown()
 }
 
 Lexer::Lexer(Lang* context) :
-    m_current_file_path(EMPTY_STRING),
+    m_current_file_name(EMPTY_STRING),
     m_current_dir_string(EMPTY_STRING),
     m_current_file_string(EMPTY_STRING),
     m_current_pure_file_string(EMPTY_STRING)
@@ -134,7 +134,7 @@ Lexer::Lexer(Lang* context) :
     m_lang_context = context;
     m_out = 0;
     m_last_new_line = 0;
-    m_default_attrib = (LexerAttrib)0;
+    m_default_attrib = 0;
     m_if_top = 0;
     m_in_file_fd = 0;
     m_current_line = 0;
@@ -597,7 +597,7 @@ void Lexer::handle_pragma(char *name)
         lex_errors("Unknow pragma: %s.\n", name);
 }
 
-// Update m_current_file_path.c_str() & m_current_line information of source file
+// Update m_current_file_name.c_str() & m_current_line information of source file
 void Lexer::set_current_line_file(char *linefile)
 {
     char *p, *p2;
@@ -624,7 +624,7 @@ void Lexer::set_current_line_file(char *linefile)
     *p2 = 0;
 
     // Update current file/line information
-    m_current_file_path = add_file_name(p);
+    m_current_file_name = add_file_name(p);
     m_current_line = atoi(linefile);
 
     // Skip #pragma line, so decrease m_current_line by 1
@@ -693,14 +693,14 @@ void Lexer::skip_comment()
     }
 }
 
-// Generate a dir & file name by m_current_file_path & path
+// Generate a dir & file name by m_current_file_name & path
 void Lexer::generate_file_dir_name()
 {
     char buf[MAX_FILE_NAME_LEN];
     const char *tmp, *file;
     UintR len;
 
-    if (!m_current_file_path.length())
+    if (!m_current_file_name.length())
     {
         m_current_file_string = String("\"/Unknown File\"");
         m_current_pure_file_string = String("\"Unknown File\"");
@@ -709,8 +709,8 @@ void Lexer::generate_file_dir_name()
     }
 
     // Copy current file name
-    len = m_current_file_path.length();
-    const char *file_c_str = m_current_file_path.c_str();
+    len = m_current_file_name.length();
+    const char *file_c_str = m_current_file_name.c_str();
     if (len > sizeof(buf) - 4)
         len = sizeof(buf) - 4;
     buf[0] = '"';
@@ -737,7 +737,7 @@ void Lexer::generate_file_dir_name()
     m_current_pure_file_string = String(buf);
 
     // Fetch directory
-    if (tmp == m_current_file_path.c_str())
+    if (tmp == m_current_file_name.c_str())
     {
         // No path name, set as root
         snprintf(buf, sizeof(buf),
@@ -745,11 +745,11 @@ void Lexer::generate_file_dir_name()
         buf[sizeof(buf) - 1] = 0;
     } else
     {
-        len = tmp - m_current_file_path.c_str() + 1;
+        len = tmp - m_current_file_name.c_str() + 1;
         if (len > sizeof(buf) - 4)
             len = sizeof(buf) - 4;
         buf[0] = '"';
-        memcpy(buf + 1, m_current_file_path.c_str(), len);
+        memcpy(buf + 1, m_current_file_name.c_str(), len);
         buf[len + 1] = '"';
         buf[len + 2] = 0;
     }
@@ -780,6 +780,12 @@ void Lexer::del_trail(char *sp)
        break; \
     }
 
+// Return current file path
+String Lexer::get_current_file_name()
+{
+    return m_current_file_name;
+}
+
 // Return current line
 LineNo Lexer::get_current_line()
 {
@@ -790,13 +796,13 @@ LineNo Lexer::get_current_line()
 }
 
 // Get default attrib of compiler
-LexerAttrib Lexer::get_default_attrib()
+Uint32 Lexer::get_default_attrib()
 {
     return m_default_attrib;
 }
 
 // Set default attrib of compiler
-bool Lexer::set_default_attrib(LexerAttrib attrib)
+bool Lexer::set_default_attrib(Uint32 attrib)
 {
     m_default_attrib = attrib;
     return true;
@@ -1033,7 +1039,7 @@ int Lexer::lex_in()
             }
 
         case '*':
-            if (*this->m_out++ == '=') returnAssign(OP_MULT_EQ);
+            if (*this->m_out++ == '=') returnAssign(OP_MUL_EQ);
             this->m_out--;
             return L_MUL;
 
@@ -1062,6 +1068,11 @@ int Lexer::lex_in()
             this->m_out--;
             yylval.number = OP_ASSIGN;
             return L_ASSIGN;
+
+        case '?':
+            if (*this->m_out++ == '=') returnAssign(OP_QMARK_EQ);
+            this->m_out--;
+            return '?';
 
         case '(':
             yyp = this->m_out;
@@ -1115,7 +1126,6 @@ int Lexer::lex_in()
         case '[':
         case ']':
         case ',':
-        case '?':
             return c;
 
         case '!':
@@ -1726,7 +1736,7 @@ int Lexer::lex_in()
                     if (keyword != NULL)
                     {
                         yylval.number = keyword->sem_value;
-                        return keyword->token & TOKEN_MASK;
+                        return keyword->token;
                     }
                 }
 
@@ -1891,7 +1901,7 @@ bool Lexer::start_new_file(Program *program, IntR fd, const String& file_name)
     generate_file_dir_name();
 
     // Default attribution of compiler
-    m_default_attrib = (LexerAttrib)0;
+    m_default_attrib = 0;
 
     // For crypt type
     m_is_start = false;
@@ -1910,7 +1920,7 @@ bool Lexer::start_new_file(Program *program, IntR fd, const String& file_name)
 
     // Add source current file name into file list
     // Save file name to "m_lang_context->currentInputFile"
-    m_current_file_path = add_file_name(file_name);
+    m_current_file_name = add_file_name(file_name);
 
     // Compile script file, fill line buffer first
     refill_buffer();

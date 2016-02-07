@@ -69,11 +69,11 @@ String Lexer::expand_line_no(Lang* context)
 String Lexer::expand_function_name(Lang* context)
 {
     const char* UNKNOWN_FUN_NAME = "\"Unknown Function\"";
-    auto* prototype = context->m_in_function;
+    auto* function = context->m_in_function;
     
-    if (prototype)
+    if (function)
     {
-        return prototype->name;
+        return function->prototype->name;
     } else
     {
         return UNKNOWN_FUN_NAME;

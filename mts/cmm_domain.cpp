@@ -141,15 +141,19 @@ void Domain::leave()
 // Garbage collect
 void Domain::gc()
 {
+    auto* thread = Thread::get_current_thread();
+    if (thread)
+        thread->update_end_sp_of_current_domain_context();
+    gc_internal();
+}
+
+void Domain::gc_internal()
+{
     if (!m_value_list.get_count())
         // Value list is empty
         return;
 
     auto b = std_get_current_us_counter();////----
-
-    auto* thread = Thread::get_current_thread();
-    if (thread)
-        thread->update_end_sp_of_current_domain_context();
 
     MarkValueState state(&m_value_list);
 
@@ -179,20 +183,35 @@ void Domain::gc()
 
     // Free all non-refered values & regenerate value list
     ReferenceImpl** head_address = state.list->get_head_address();
+    // Sort state.list to
+    // [Valid] [Valid] .... [Valid] [Free] [Free] ... [Free]
+    // 0                            offset              size()
     size_t offset = 0;
-    for (auto& it: state.list->get_list())
+    size_t size = state.list->get_list().size();
+    for (auto i = 0; i < size; i++)
     {
-        // If owner is not set to null means value is not refered, free it
-        if (it->owner != 0)
+        auto* p = head_address[i];
+        if (p->owner == 0)
         {
-            XDELETE(it);
+            // Swap valid [i] with [offset]
+            p->owner = state.list;
+            p->offset = offset;
+            head_address[offset]->offset = i;
+            simple::swap(head_address[offset], head_address[i]);
+            offset++;
             continue;
         }
-        it->owner = state.list;
-        it->offset = offset;
-        head_address[offset] = it;
-        offset++;
     }
+    for (auto i = offset; i < size; i++)
+    {
+        if (head_address[i])
+        {
+            // Erase the owner to prevent calling unbind when destructing
+            head_address[i]->owner = 0;
+            XDELETE(head_address[i]);
+        }
+    }
+    STD_ASSERT(("Value list is not correct after GC.", state.list->get_list().size() >= offset));
     state.list->get_list().shrink(offset);
 
     // Reset gc counter

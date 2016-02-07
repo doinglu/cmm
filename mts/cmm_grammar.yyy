@@ -129,8 +129,8 @@ namespace cmm
     Uint8               var_attrib;
     AstVarType          var_type;
 
-    bool                bool_flag;
-    Uint32              uint32_val;
+    int                 int_val;
+    Op                  op;
 }
 
 /*
@@ -169,7 +169,7 @@ namespace cmm
 // Type declarations.
 
 // These hold opcodes
-%type <uint32_val>      L_ASSIGN L_ORDER
+%type <op>              L_ASSIGN L_ORDER
 
 // These hold arbitrary numbers
 %type <number>          L_NUMBER
@@ -233,15 +233,11 @@ namespace cmm
 all:
         statements
         {
-            // 仅当没有错误的时候进行后续处理
-            if (context->m_num_errors == 0)
+            if (!context->m_num_errors || $1)
             {
-                context->m_root = BUFFER_NEW(AstRoot);
+                // No error or got the AST
+                context->m_root = BUFFER_NEW(AstRoot, context);
                 context->m_root->add_child($1);
-            }
-            else
-            {
-                printf("Total %d errors %d warning.\n", (int)context->m_num_errors, (int)context->m_num_warnings);
             }
         }
     ;
@@ -249,7 +245,7 @@ all:
 statements:
         // empty
         {
-            $$ = BUFFER_NEW(AstStatements);
+            $$ = BUFFER_NEW(AstStatements, context);
         }
     |
         statements statement
@@ -274,15 +270,18 @@ statements:
             $1->add_child($2);
             $$ = $1;
         }
+    |
+        statements error
+        {
+            _yyerror("Illegal statement.");
+            $$ = $1;
+        }
     ;
 
 block:
 	    '{' statements '}'
         {
             $$ = $2;
-
-            // Popup context
-            // More to be added
         }
     ;
 
@@ -296,19 +295,13 @@ try_catch:
 label:
         identifier ':'
         {
-            auto* node = BUFFER_NEW(AstLabel);
+            auto* node = BUFFER_NEW(AstLabel, context);
             node->name = $1;
             $$ = node;
         }
     ;
 
 statement:
-        error ';'
-        {
-            _yyerror("Illegal statement.");
-            $$ = 0;
-        }
-    |
         ';'
         {
             $$ = 0;
@@ -333,48 +326,46 @@ statement:
     |
         L_BREAK ';'
         {
-            auto* node = BUFFER_NEW(AstGoto);
-            if (context->m_context_state.is_in_loop)
+            auto* node = BUFFER_NEW(AstGoto, context);
+            node->goto_type = AstGotoType::AST_BREAK;
+            node->loop_switch = context->get_node_for_break();
+            if (!node->loop_switch)
             {
-                node->goto_type = AstGotoType::AST_BREAK_CASE;
-            } else
-            if (context->m_context_state.is_in_switch)
-            {
-                node->goto_type = AstGotoType::AST_BREAK_LOOP;
-            } else
                 _yyerror("Break mismatched loop or switch.");
-            $$ = node;
+                $$ = 0;
+            } else
+                $$ = node;
         }
     |
         L_CONTINUE ';'
         {
-            if (context->m_context_state.is_in_loop)
-            {
-                auto* node = BUFFER_NEW(AstGoto);
-                node->goto_type = AstGotoType::AST_CONTINUE_LOOP;
-                $$ = node;
-            } else
+            auto* node = BUFFER_NEW(AstGoto, context);
+            node->goto_type = AstGotoType::AST_CONTINUE;
+            Thread::get_current_thread_domain()->gc();////----
+            node->loop_switch = context->get_node_for_continue();
+            if (!node->loop_switch)
             {
                 _yyerror("Continue mismatched loop or switch.");
                 $$ = 0;
-            }
+            } else
+                $$ = node;
         }
     |
         L_RETURN ';'
         {
-            auto* node = BUFFER_NEW(AstReturn);
+            auto* node = BUFFER_NEW(AstReturn, context);
             node->expr = 0;
             $$ = node;
         }
     |
         L_RETURN single_value ';'
         {
-            auto* node = BUFFER_NEW(AstReturn);
+            auto* node = BUFFER_NEW(AstReturn, context);
             node->expr = $2;
             $$ = node;
 
             // change the entry function type
-            if (!context->m_in_function)
+            if (context->is_in_entry_function())
                 context->m_entry_function->prototype->ret_var_type.basic_var_type = MIXED;
         }
     |
@@ -387,27 +378,36 @@ statement:
 add_component:
         L_ADD_COMPONENT strings ';' 
         {
-            context->syntax_add_component($2);
+            context->add_component($2);
         }
     ;
 
 function:
         prototype 
         {
+            if (context->is_in_entry_function())
+                // At top, this is member function of current object
+                $1->attrib |= AST_MEMBER_METHOD;
+
+            auto* node = BUFFER_NEW(AstFunction, context);
+            node->prototype = $1;
+            node->no = (FunctionNo)context->m_functions.size();
+            context->m_functions.push_back(node);
+
             auto* prev = context->m_in_function;
-            context->m_in_function = $1;
-            $1 = prev;
+            context->m_in_function = node;
+
+            // Backup previous function
+            $<function>1 = prev;
         }
         '{' statements '}'
         {
-            auto* node = BUFFER_NEW(AstFunction);
-            // 函数体
-            node->prototype = $1;
+            auto* node = context->m_in_function;
             node->body = $4;
 
-            // 恢复为空
-            context->m_in_function = $1;
-            
+            // Restore previous function context
+            context->m_in_function = $<function>1;
+
             $$ = node;
         }
     |
@@ -478,7 +478,7 @@ raw_prototype:
         var_type identifier '(' arguments_ex ')'
         {
             // 构造函数结构
-            auto* node = BUFFER_NEW(AstPrototype);
+            auto* node = BUFFER_NEW(AstPrototype, context);
             node->attrib = 0;
             node->name = $2;
 
@@ -530,31 +530,31 @@ arguments_ex:
         // empty
         {
             $$.arg_list = 0;
-            $$.ddd = 0;
+            $$.ddd = false;
         }
     |
         L_DOT_DOT_DOT
         {
             $$.arg_list = 0;
-            $$.ddd = 1;
+            $$.ddd = true;
         }
     |
         arg_list
         {
             $$.arg_list = $1;
-            $$.ddd = 0;
+            $$.ddd = false;
         }
     |
         arg_list L_DOT_DOT_DOT
         {
             $$.arg_list = $1;
-            $$.ddd = 1;
+            $$.ddd = true;
         }
     |
         arg_list ',' L_DOT_DOT_DOT
         {
             $$.arg_list = $1;
-            $$.ddd = 1;
+            $$.ddd = true;
         }
     ;
 
@@ -591,7 +591,7 @@ new_arg:
             } else
             {
                 $1.var_attrib |= $2;
-                auto* node = BUFFER_NEW(AstFunctionArg);
+                auto* node = BUFFER_NEW(AstFunctionArg, context);
                 node->name = $3;
                 node->var_type = $1;
 				node->default_value = $4;
@@ -620,7 +620,7 @@ optional_question_mark:
     |
         '?'
         {
-            $$ = AST_VAR_MAY_NULL;
+            $$ = AST_VAR_MAY_NIL;
         }
     ;
 
@@ -630,15 +630,28 @@ declarations:
             if ($1.basic_var_type == TVOID || $1.basic_var_type == NIL)
                 _yyerror("Invalid variable type.");
 
-            auto* node = BUFFER_NEW(AstDeclarations);
+            if (($1.var_attrib & AST_VAR_MAY_NIL) != 0)
+            {
+                _yyerror("Nullable flag '?' for arguments & return type only.");
+                // Erase the nullable flag
+                $1.var_attrib &= ~AST_VAR_MAY_NIL;
+            }
+
+            // For reference value, set MAY_NULL as default
+            if ($1.basic_var_type >= REFERENCE_VALUE)
+                $1.var_attrib |= AST_VAR_MAY_NIL;
+
+            auto* node = BUFFER_NEW(AstDeclarations, context);
             node->var_type = $1;
             node->decl_list = $2;
+
             auto* decl = node->decl_list;
             while (decl)
             {
                 decl->var_type = $1;
                 decl = (AstDeclaration*)decl->sibling;
             }
+
             $$ = node;
         }
     ;
@@ -658,7 +671,7 @@ declare_vars:
 declare_1_var:
         identifier optional_assign
         {
-            auto* decl = BUFFER_NEW(AstDeclaration);
+            auto* decl = BUFFER_NEW(AstDeclaration, context);
 
             decl->name = $1;
             if ($2 != 0)
@@ -698,8 +711,7 @@ optional_assign:
 goto:
         L_GOTO identifier ';'
         {
-            // More to be added
-            auto* node = BUFFER_NEW(AstGoto);
+            auto* node = BUFFER_NEW(AstGoto, context);
             node->goto_type = AST_DIRECT_JMP;
             node->target_label = $2;
             $$ = node;
@@ -710,7 +722,7 @@ if:
         L_IF '(' single_value ')' statement optional_else_part
         {
             // Record else line
-            auto* node = BUFFER_NEW(AstIfElse);
+            auto* node = BUFFER_NEW(AstIfElse, context);
             node->cond = $3;
             node->block_then = $5;
             node->block_else = $6;
@@ -733,48 +745,51 @@ optional_else_part:
 do:
         L_DO
         {
-            $<bool_flag>1 = context->m_context_state.is_in_loop;
-            context->m_context_state.is_in_loop = true;
+            auto* node = BUFFER_NEW(AstDoWhile, context);
+            $<int_val>1 = context->push_loop_switch(node);
         }
         statement L_WHILE '(' single_value ')' ';'
         {
-            auto* node = BUFFER_NEW(AstDoWhile);
+            auto* node = (AstDoWhile*)context->get_loop_switch($<int_val>1);
+            STD_ASSERT(("Bad loop_switch node.", node->get_node_type() == AST_DO_WHILE));
             node->block = $3;
             node->cond = $6;
-            context->m_context_state.is_in_loop = $<bool_flag>1;
             $$ = node;
+            context->pop_loop_switch($<int_val>1);
         }
     ;
 
 while:
         L_WHILE 
         {
-            $<bool_flag>1 = context->m_context_state.is_in_loop;
-            context->m_context_state.is_in_loop = true;
+            auto* node = BUFFER_NEW(AstWhileLoop, context);
+            $<int_val>1 = context->push_loop_switch(node);
         }
         '(' single_value ')' statement
         {
-            auto* node = BUFFER_NEW(AstWhileLoop);
+            auto* node = (AstWhileLoop*)context->get_loop_switch($<int_val>1);
+            STD_ASSERT(("Bad loop_switch node.", node->get_node_type() == AST_WHILE_LOOP));
             node->cond = $4;
             node->block = $6;
-            context->m_context_state.is_in_loop = $<bool_flag>1;
+            context->pop_loop_switch($<int_val>1);
             $$ = node;
         }
 
 for:
         L_FOR '(' for_init ';' for_cond ';' for_step ')' 
         {
-            $<bool_flag>1 = context->m_context_state.is_in_loop;
-            context->m_context_state.is_in_loop = true;
+            auto* node = BUFFER_NEW(AstForLoop, context);
+            $<int_val>1 = context->push_loop_switch(node);
         }
         statement
         {
-            auto* node = BUFFER_NEW(AstForLoop);
+            auto* node = (AstForLoop*)context->get_loop_switch($<int_val>1);
+            STD_ASSERT(("Bad loop_switch node.", node->get_node_type() == AST_FOR_LOOP));
             node->init = $3;
             node->cond = $5;
             node->step = $7;
             node->block = $10;
-            context->m_context_state.is_in_loop = $<bool_flag>1;
+            context->pop_loop_switch($<int_val>1);
             $$ = node;
         }
     |
@@ -832,20 +847,20 @@ for_step:
 loop:
 		L_LOOP '(' loop_init ')'
 		{
-            $<bool_flag>1 = context->m_context_state.is_in_loop;
-            context->m_context_state.is_in_loop = true;
+            auto* node = $3;
+            $<int_val>1 = context->push_loop_switch(node);
 		}
 		statement
 		{
             $$ = $3;
-            context->m_context_state.is_in_loop = $<bool_flag>1;
+            context->pop_loop_switch($<int_val>1);
 		}
 	;
 
 loop_init:
 		expr_variable L_ASSIGN single_value to single_value
 		{
-            auto* node = BUFFER_NEW(AstLoopRange);
+            auto* node = BUFFER_NEW(AstLoopRange, context);
             node->decl_or_variable = $1;
             node->begin = $3;
             node->to = $5;
@@ -864,7 +879,7 @@ loop_init:
                     _yyerror("Missed initialization for new declaration in loop.\n");
             }
 
-            auto* node = BUFFER_NEW(AstLoopRange);
+            auto* node = BUFFER_NEW(AstLoopRange, context);
             node->decl_or_variable = $1;
             node->begin = 0;
             node->to = $3;
@@ -874,7 +889,7 @@ loop_init:
 	|
 		expr_variable L_IN single_value
 		{
-            auto* node = BUFFER_NEW(AstLoopEach);
+            auto* node = BUFFER_NEW(AstLoopEach, context);
             node->decl_or_variable = $1;
             node->container = $3;
             $$ = node;
@@ -882,7 +897,7 @@ loop_init:
 	|
 		single_declaration L_IN single_value
 		{
-            auto* node = BUFFER_NEW(AstLoopEach);
+            auto* node = BUFFER_NEW(AstLoopEach, context);
             node->decl_or_variable = $1;
             node->container = $3;
             $$ = node;
@@ -904,15 +919,16 @@ to:
 switch:
         L_SWITCH '(' single_value ')'
         {
-            $<bool_flag>1 = context->m_context_state.is_in_switch;
-            context->m_context_state.is_in_switch = true;
+            auto* node = BUFFER_NEW(AstSwitchCase, context);
+            $<int_val>1 = context->push_loop_switch(node);
         }
         '{' switch_block '}'
         {
-            auto* node = BUFFER_NEW(AstSwitchCase);
+            auto* node = (AstSwitchCase*)context->get_loop_switch($<int_val>1);
+            STD_ASSERT(("Bad loop_switch node.", node->get_node_type() == AST_SWITCH_CASE));
             node->expr = $3;
             node->cases = $7;
-            context->m_context_state.is_in_switch = $<bool_flag>1;
+            context->pop_loop_switch($<int_val>1);
             $$ = node;
             if (!node->cases)
                 _yywarn("Missed case for switch.");
@@ -956,7 +972,7 @@ switch_block1:
 case:
         L_CASE case_label ':' statements
         {
-            auto *node = BUFFER_NEW(AstCase);
+            auto *node = BUFFER_NEW(AstCase, context);
             node->case_value = $2;
             node->block = $4;
             $$ = node;
@@ -973,7 +989,7 @@ case:
     |
         L_DEFAULT ':' statements
         {
-            auto *node = BUFFER_NEW(AstCase);
+            auto *node = BUFFER_NEW(AstCase, context);
             node->case_value = 0;
             node->is_default = true;
             node->block = $3;
@@ -1062,7 +1078,7 @@ command:
 single_value:
         comma_expression
         {
-            auto* node = BUFFER_NEW(AstExprSingleValue);
+            auto* node = BUFFER_NEW(AstExprSingleValue, context);
             node->expr_list = $1;
             $$ = node;
         }
@@ -1083,7 +1099,7 @@ comma_expression:
 expr0:
         L_INC element
         {
-            auto* node = BUFFER_NEW(AstExprUnary);
+            auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_INC_PRE;
             node->expr1 = $2;
             $$ = node;
@@ -1091,7 +1107,7 @@ expr0:
     |
         L_DEC element
         {
-            auto* node = BUFFER_NEW(AstExprUnary);
+            auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_DEC_PRE;
             node->expr1 = $2;
             $$ = node;
@@ -1099,7 +1115,7 @@ expr0:
     |
         element L_INC
         {
-            auto* node = BUFFER_NEW(AstExprUnary);
+            auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_INC_POST;
             node->expr1 = $1;
             $$ = node;
@@ -1107,7 +1123,7 @@ expr0:
     |
         element L_DEC
         {
-            auto* node = BUFFER_NEW(AstExprUnary);
+            auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_DEC_POST;
             node->expr1 = $1;
             $$ = node;
@@ -1115,16 +1131,16 @@ expr0:
     |
         element L_ASSIGN expr0
         {
-            auto* expr_assign = BUFFER_NEW(AstExprAssign);
+            auto* expr_assign = BUFFER_NEW(AstExprAssign, context);
             expr_assign->op = $2;
-            expr_assign->expr1 = (AstLValue*)$1;////----
+            expr_assign->expr1 = $1;
             expr_assign->expr2 = $3;
             $$ = expr_assign;
         }
     |
         expr0 L_LAND expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_LAND;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1133,7 +1149,7 @@ expr0:
     |
         expr0 L_LOR expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_LOR;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1142,7 +1158,7 @@ expr0:
     |
         expr0 L_OR expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_OR;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1150,7 +1166,7 @@ expr0:
         }
     |   expr0 L_XOR expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_XOR;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1158,7 +1174,7 @@ expr0:
         }
     |   expr0 L_AND expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_AND;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1166,7 +1182,7 @@ expr0:
         }
     |   expr0 L_EQ expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_EQ;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1174,7 +1190,7 @@ expr0:
         }
     |   expr0 L_NE expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_NE;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1182,7 +1198,7 @@ expr0:
         }
     |   expr0 L_ORDER expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = $2;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1190,7 +1206,7 @@ expr0:
         }
     |   expr0 L_LT expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_LT;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1198,7 +1214,7 @@ expr0:
         }
     |   expr0 L_LSH expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_LSH;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1206,7 +1222,7 @@ expr0:
         }
     |   expr0 L_RSH expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_RSH;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1214,8 +1230,8 @@ expr0:
         }
     |   expr0 '?' expr0 ':' expr0 %prec '?'
         {
-            auto* node = BUFFER_NEW(AstExprTernary);
-            node->op = '?';
+            auto* node = BUFFER_NEW(AstExprTernary, context);
+            node->op = OP_QMARK;
             node->expr1 = $1;
             node->expr2 = $3;
             node->expr3 = $5;
@@ -1223,7 +1239,7 @@ expr0:
         }
     |   expr0 L_ADD expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_ADD;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1231,7 +1247,7 @@ expr0:
         }
     |   expr0 L_SUB expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_SUB;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1239,7 +1255,7 @@ expr0:
         }
     |   expr0 L_MUL expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_MUL;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1247,7 +1263,7 @@ expr0:
         }
     |   expr0 L_MOD expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_MOD;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1255,7 +1271,7 @@ expr0:
         }
     |   expr0 L_DIV expr0
         {
-            auto* node = BUFFER_NEW(AstExprBinary);
+            auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_DIV;
             node->expr1 = $1;
             node->expr2 = $3;
@@ -1264,15 +1280,15 @@ expr0:
     |
         L_SUB expr0 %prec L_NOT
         {
-            auto* node = BUFFER_NEW(AstExprUnary);
-            node->op = OP_SUB;
+            auto* node = BUFFER_NEW(AstExprUnary, context);
+            node->op = OP_NEG;
             node->expr1 = $2;
             $$ = node;
         }
     |
         L_NOT expr0
         {
-            auto* node = BUFFER_NEW(AstExprUnary);
+            auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_NOT;
             node->expr1 = $2;
             $$ = node;
@@ -1280,7 +1296,7 @@ expr0:
     |
         L_REV expr0
         {
-            auto* node = BUFFER_NEW(AstExprUnary);
+            auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_REV;
             node->expr1 = $2;
             $$ = node;
@@ -1288,7 +1304,8 @@ expr0:
     |
         cast expr0 %prec L_NOT
         {
-            auto* node = BUFFER_NEW(AstExprCast);
+            auto* node = BUFFER_NEW(AstExprCast, context);
+            node->op = OP_CAST;
             node->var_type = $1;
             node->expr1 = $2;
             $$ = node;
@@ -1303,35 +1320,35 @@ expr0:
 element:
         L_NIL
         {
-            auto* node = BUFFER_NEW(AstExprConstant);
+            auto* node = BUFFER_NEW(AstExprConstant, context);
             node->value = Value(UNDEFINED);
             $$ = node;
         }
     |
         L_REAL
         {
-            auto* node = BUFFER_NEW(AstExprConstant);
+            auto* node = BUFFER_NEW(AstExprConstant, context);
             node->value = Value($1);
             $$ = node;
         }
     |
         L_NUMBER
         {
-            auto* node = BUFFER_NEW(AstExprConstant);
+            auto* node = BUFFER_NEW(AstExprConstant, context);
             node->value = Value($1);
             $$ = node;
         }
     |
         strings
         {
-            auto* node = BUFFER_NEW(AstExprConstant);
+            auto* node = BUFFER_NEW(AstExprConstant, context);
             node->value = Value($1);
             $$ = node;
         }
     |
         L_FUNCTION_OPEN identifier possible_arguments ':' ')'
         {
-            auto* node = BUFFER_NEW(AstExprCreateFunction);
+            auto* node = BUFFER_NEW(AstExprCreateFunction, context);
             node->name = $2;
             node->expr_list = $3;
             $$ = node;
@@ -1339,21 +1356,21 @@ element:
     |
         L_ARRAY_OPEN comma_expression possible_comma '}' ')'
         {
-            auto* node = BUFFER_NEW(AstExprCreateArray);
+            auto* node = BUFFER_NEW(AstExprCreateArray, context);
             node->expr_list = $2;
             $$ = node;
         }
     |
         L_ARRAY_OPEN possible_comma '}' ')'
         {
-            auto* node = BUFFER_NEW(AstExprCreateArray);
+            auto* node = BUFFER_NEW(AstExprCreateArray, context);
             node->expr_list = 0;
             $$ = node;
         }
     |
         L_MAPPING_OPEN mapping_pairs ']' ')'
         {
-            auto* node = BUFFER_NEW(AstExprCreateMapping);
+            auto* node = BUFFER_NEW(AstExprCreateMapping, context);
             node->expr_list = $2;
             $$ = node;
         }
@@ -1376,7 +1393,7 @@ element:
     |
         L_CALL '(' comma_expression ')'
         {
-            auto* node = BUFFER_NEW(AstExprFunctionCallEx);
+            auto* node = BUFFER_NEW(AstExprFunctionCallEx, context);
             node->arguments = $3;
             $$ = node;
         }
@@ -1388,7 +1405,7 @@ element:
     |
         element '.' identifier
         {
-            auto* node = BUFFER_NEW(AstExprSegment);
+            auto* node = BUFFER_NEW(AstExprSegment, context);
             node->expr = $1;
             node->name = $3;
             $$ = node;
@@ -1396,77 +1413,77 @@ element:
     |
         element '[' single_value ']'
         {
-            auto* node = BUFFER_NEW(AstExprIndex);
+            auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = $1;
             node->index_from = $3;
-            node->index_type = AST_INDEX_SINGLE;
+            node->op = OP_IDX;
             $$ = node;
         }
     |
         element '[' L_LT single_value ']'
         {
-            auto* node = BUFFER_NEW(AstExprIndex);
+            auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = $1;
             node->index_from = $4;
-            node->index_type = AST_INDEX_SINGLE;
+            node->op = OP_IDX;
             node->is_reverse_from = true;
             $$ = node;
         }
     |
         element '[' single_value L_RANGE single_value ']'
         {
-            auto* node = BUFFER_NEW(AstExprIndex);
+            auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = $1;
             node->index_from = $3;
             node->index_to = $5;
-            node->index_type = AST_INDEX_RANGE;
+            node->op = OP_IDX_RANGE;
             $$ = node;
         }
     |
         element '[' single_value L_RANGE L_LT single_value ']'
         {
-            auto* node = BUFFER_NEW(AstExprIndex);
+            auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = $1;
             node->index_from = $3;
             node->index_to = $6;
-            node->index_type = AST_INDEX_RANGE;
             node->is_reverse_to = true;
+            node->op = OP_IDX_RANGE;
             $$ = node;
         }
     |
         element '[' L_LT single_value L_RANGE L_LT single_value ']'
         {
-            auto* node = BUFFER_NEW(AstExprIndex);
+            auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = $1;
             node->index_from = $4;
             node->index_to = $7;
-            node->index_type = AST_INDEX_RANGE;
             node->is_reverse_from = true;
             node->is_reverse_to = true;
+            node->op = OP_IDX_RANGE;
             $$ = node;
         }
     |
         '$' L_NUMBER
         {
-            auto* expr = BUFFER_NEW(AstExprConstant);
+            auto* expr = BUFFER_NEW(AstExprConstant, context);
             expr->value = Value($2);
-            auto* node = BUFFER_NEW(AstExprUnary);
+            auto* node = BUFFER_NEW(AstExprUnary, context);
             node->expr1 = expr;
-            node->op = '$';
+            node->op = OP_DOLLAR;
             $$ = node;
         }
     |
         '$' '(' single_value ')'
         {
-            auto* node = BUFFER_NEW(AstExprUnary);
+            auto* node = BUFFER_NEW(AstExprUnary, context);
             node->expr1 = $3;
-            node->op = '$';
+            node->op = OP_DOLLAR;
             $$ = node;
         }
 	|
 		'$' '<'
 		{
-            auto* node = BUFFER_NEW(AstExprRuntimeValue);
+            auto* node = BUFFER_NEW(AstExprRuntimeValue, context);
             node->var_type.basic_var_type = ARRAY;
             node->value_id = AST_RV_INPUT_ARGUMENTS;
             $$ = node;
@@ -1474,7 +1491,7 @@ element:
     |
         '$' '?'
         {
-            auto* node = BUFFER_NEW(AstExprRuntimeValue);
+            auto* node = BUFFER_NEW(AstExprRuntimeValue, context);
             node->var_type.basic_var_type = INTEGER;
             node->value_id = AST_RV_INPUT_ARGUMENTS_COUNT;
             $$ = node;
@@ -1482,7 +1499,7 @@ element:
     |
         L_AND element
         {
-            auto* node = BUFFER_NEW(AstExprUnary);
+            auto* node = BUFFER_NEW(AstExprUnary, context);
             node->expr1 = $2;
             node->op = OP_AND;
             $$ = node;
@@ -1491,11 +1508,12 @@ element:
             // There is a problem: If user put a non-valid type value in
             // refered value, it may cause crash
             // More to be added
+            ////----
         }
     |
         L_IS_REF '(' identifier ')'
         {
-            auto* node = BUFFER_NEW(AstExprIsRef);
+            auto* node = BUFFER_NEW(AstExprIsRef, context);
             node->name = $3;
             $$ = node;
         }
@@ -1505,29 +1523,35 @@ element:
             $$ = $1;
         }
     |
-        '(' arguments_ex ')'
+        '(' arguments_ex ')' // closure
         {
-            auto* prototype = BUFFER_NEW(AstPrototype);
+            auto* prototype = BUFFER_NEW(AstPrototype, context);
             prototype->ret_var_type.basic_var_type = MIXED;
             prototype->ret_var_type.var_attrib = 0;
-            prototype->attrib = AST_RANDOM_ARG;
+            prototype->attrib = AST_RANDOM_ARG | AST_ANONYMOUS_CLOSURE;
             prototype->name = EMPTY_STRING;
             prototype->arg_list = $2.arg_list;
             if ($2.ddd)
                 prototype->attrib |= AST_RANDOM_ARG;
 
+            auto* function = BUFFER_NEW(AstFunction, context);
+            function->prototype = prototype;
+            function->no = (FunctionNo)context->m_functions.size();
+            context->m_functions.push_back(function);
+
             auto* prev = context->m_in_function;
-            context->m_in_function = prototype;
-            $<prototype>1 = prev;
+            context->m_in_function = function;
+            $<function>1 = prev;
         }
         '{' statements '}'
         {
-            auto* function = BUFFER_NEW(AstFunction);
-            function->prototype = context->m_in_function;
+            auto* function = context->m_in_function;
             function->body = $6;
-            context->m_in_function = $<prototype>1;
 
-            auto* node = BUFFER_NEW(AstExprClosure);
+            // Restore previous function
+            context->m_in_function = $<function>1;
+
+            auto* node = BUFFER_NEW(AstExprClosure, context);
             node->function = function;
             $$ = node;
         }
@@ -1536,7 +1560,7 @@ element:
 expr_variable:
         identifier
         {
-            auto* node = BUFFER_NEW(AstExprVariable);
+            auto* node = BUFFER_NEW(AstExprVariable, context);
             node->name = $1;
             $$ = node;
         }
@@ -1557,21 +1581,21 @@ possible_arguments:
 fun_call:
         '(' L_MUL element ')' '(' ')'
         {
-            auto* node = BUFFER_NEW(AstExprFunctionCallEx);
+            auto* node = BUFFER_NEW(AstExprFunctionCallEx, context);
             node->arguments = $3;
             $$ = node;
         }
     |
         '(' L_MUL element ')' '(' comma_expression ')'
         {
-            auto* node = BUFFER_NEW(AstExprFunctionCallEx);
+            auto* node = BUFFER_NEW(AstExprFunctionCallEx, context);
             node->arguments = (AstExpr*)append_sibling_node($3, $6);
             $$ = node;
         }
     |
         identifier '(' ')'
         {
-            auto* node = BUFFER_NEW(AstExprFunctionCall);
+            auto* node = BUFFER_NEW(AstExprFunctionCall, context);
             node->target = 0;
             node->callee_name = $1;
             node->arguments = 0;
@@ -1580,7 +1604,7 @@ fun_call:
     |
         identifier '(' comma_expression ')'
         {
-            auto* node = BUFFER_NEW(AstExprFunctionCall);
+            auto* node = BUFFER_NEW(AstExprFunctionCall, context);
             node->target = 0;
             node->callee_name = $1;
             node->arguments = $3;
@@ -1589,7 +1613,7 @@ fun_call:
     |
         element L_ARROW identifier '(' ')'
         {
-            auto* node = BUFFER_NEW(AstExprFunctionCall);
+            auto* node = BUFFER_NEW(AstExprFunctionCall, context);
             node->target = $1;
             node->callee_name = $3;
             node->arguments = NULL;
@@ -1598,7 +1622,7 @@ fun_call:
     |
         element L_ARROW identifier '(' comma_expression ')'
         {
-            auto* node = BUFFER_NEW(AstExprFunctionCall);
+            auto* node = BUFFER_NEW(AstExprFunctionCall, context);
             node->target = $1;
             node->callee_name = $3;
             node->arguments = $5;

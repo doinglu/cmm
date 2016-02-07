@@ -80,10 +80,15 @@ BufferImpl *buffer_new(const char *file, int line, Types&&... args)
 // Delete buffer contains 1 class
 inline void buffer_delete(const char *file, int line, BufferImpl *buffer)
 {
+    // Do nothing, since the delete should be called during GC only
+    // Or It may cause error when GC collecting
+    return;
+#if 0
     // Verify attrib & free the buffer - destructor will be invoked in free()
     STD_ASSERT(("Bad buffer class pointer to delete.",
                buffer->buffer_attrib & BufferImpl::CONTAIN_1_CLASS));
     BufferImpl::free(file, line, buffer);
+#endif
 }
 
 template <typename T>
@@ -120,10 +125,15 @@ BufferImpl *buffer_new_arr(const char *file, int line, size_t n)
 // Delete buffer contains N classes
 inline void buffer_delete_arr(const char *file, int line, BufferImpl *buffer)
 {
+    // Do nothing, since the delete should be called during GC only
+    // Or It may cause error when GC collecting
+    return;
+#if 0
     // Verify attrib & free the buffer - destructor will be invoked in free()
     STD_ASSERT(("Bad buffer class array pointer to delete.",
                buffer->buffer_attrib & BufferImpl::CONTAIN_N_CLASS));
     BufferImpl::free(file, line, buffer);
+#endif
 }
 
 // Macro as operators

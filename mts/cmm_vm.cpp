@@ -131,7 +131,7 @@ Value *Simulator::get_parameter_value(int index)
     case Instruction::CONSTANT: p = m_constants;    break;
     case Instruction::ARGUMENT: p = m_args;         break;
     case Instruction::LOCAL:    p = m_locals;       break;
-    case Instruction::MEMBER:   p = m_members;      break;
+    case Instruction::MEMBER:   p = m_object_vars;  break;
     default: break;
     }
 
@@ -174,8 +174,8 @@ Value Simulator::interpreter(AbstractComponent *_component, Thread *_thread, Val
     sim.m_locals = (Value *)STD_ALLOCA(sizeof(Value) * sim.m_localn);
     sim.m_constantn = sim.m_program->get_constants_count();
     sim.m_constants = sim.m_program->get_constant(0);
-    sim.m_membern = sim.m_component->m_program->get_members_count();
-    sim.m_members = sim.m_component->m_members;
+    sim.m_object_varn = sim.m_component->m_program->get_object_vars_count();
+    sim.m_object_vars = sim.m_component->m_object_vars;
     memset(sim.m_locals, 0, sizeof(Value) * sim.m_localn);
 
     // Set byte codes
