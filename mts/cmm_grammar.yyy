@@ -341,7 +341,6 @@ statement:
         {
             auto* node = BUFFER_NEW(AstGoto, context);
             node->goto_type = AstGotoType::AST_CONTINUE;
-            Thread::get_current_thread_domain()->gc();////----
             node->loop_switch = context->get_node_for_continue();
             if (!node->loop_switch)
             {

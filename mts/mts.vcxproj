@@ -160,6 +160,7 @@
     <ClInclude Include="..\std\include\std_port\std_port_compiler.h" />
     <ClInclude Include="..\std\include\std_port\std_port_cs.h" />
     <ClInclude Include="..\std\include\std_port\std_port_internal.h" />
+    <ClInclude Include="..\std\include\std_port\std_port_mmap.h" />
     <ClInclude Include="..\std\include\std_port\std_port_nothread.h" />
     <ClInclude Include="..\std\include\std_port\std_port_platform.h" />
     <ClInclude Include="..\std\include\std_port\std_port_posix.h" />
@@ -239,6 +240,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\std\src\std_port\std_port_windows_mmap.c" />
     <ClCompile Include="..\std\src\std_port\std_port_nothread.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>

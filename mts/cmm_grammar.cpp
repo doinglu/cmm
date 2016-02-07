@@ -89,12 +89,8 @@
 #include "cmm_register_allocator.h"
 #include "cmm_value.h"
 
-#include "cmm_domain.h"////----
-#include "cmm_thread.h"////----
-
 namespace cmm
 {
-AstDoWhile* _do_while = 0;////----
 
 #define isalunum(c) (isalnum(c) || (c) == '_')
 
@@ -123,7 +119,7 @@ AstDoWhile* _do_while = 0;////----
 
 
 /* Line 189 of yacc.c  */
-#line 127 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.cpp"
+#line 123 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.cpp"
 
 /* Enabling traces.  */
 #ifndef YYDEBUG
@@ -230,7 +226,7 @@ typedef union YYSTYPE
 {
 
 /* Line 214 of yacc.c  */
-#line 117 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 113 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
 
     Integer             number;
     Real                real;
@@ -256,7 +252,7 @@ typedef union YYSTYPE
 
 
 /* Line 214 of yacc.c  */
-#line 260 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.cpp"
+#line 256 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.cpp"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -268,7 +264,7 @@ typedef union YYSTYPE
 
 
 /* Line 264 of yacc.c  */
-#line 272 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.cpp"
+#line 268 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.cpp"
 
 #ifdef short
 # undef short
@@ -640,26 +636,26 @@ static const yytype_int16 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   238,   238,   251,   255,   261,   266,   272,   278,   286,
-     293,   300,   309,   314,   318,   319,   320,   321,   322,   323,
-     324,   325,   326,   327,   328,   329,   331,   344,   358,   365,
-     376,   383,   391,   390,   418,   426,   432,   439,   444,   460,
-     465,   470,   475,   482,   507,   518,   522,   527,   535,   540,
-     546,   552,   558,   566,   571,   584,   589,   609,   613,   621,
-     625,   632,   664,   669,   676,   689,   703,   707,   716,   726,
-     739,   743,   751,   750,   769,   768,   785,   784,   802,   801,
-     813,   817,   822,   830,   834,   842,   846,   854,   853,   866,
-     876,   895,   903,   913,   918,   926,   925,   943,   942,   953,
-     958,   967,   971,   978,   987,   986,   995,  1005,  1004,  1015,
-    1022,  1032,  1039,  1044,  1051,  1060,  1065,  1072,  1077,  1084,
-    1093,  1098,  1105,  1113,  1121,  1129,  1137,  1146,  1155,  1164,
-    1172,  1180,  1188,  1196,  1204,  1212,  1220,  1228,  1236,  1245,
-    1253,  1261,  1269,  1277,  1286,  1294,  1302,  1310,  1319,  1326,
-    1333,  1340,  1347,  1354,  1362,  1369,  1376,  1383,  1388,  1393,
-    1399,  1406,  1411,  1419,  1428,  1438,  1448,  1459,  1471,  1481,
-    1489,  1497,  1505,  1519,  1526,  1532,  1531,  1566,  1576,  1580,
-    1587,  1594,  1601,  1610,  1619,  1628,  1640,  1644,  1649,  1656,
-    1662,  1665,  1669,  1679,  1684,  1691
+       0,   234,   234,   247,   251,   257,   262,   268,   274,   282,
+     289,   296,   305,   310,   314,   315,   316,   317,   318,   319,
+     320,   321,   322,   323,   324,   325,   327,   340,   353,   360,
+     371,   378,   386,   385,   413,   421,   427,   434,   439,   455,
+     460,   465,   470,   477,   502,   513,   517,   522,   530,   535,
+     541,   547,   553,   561,   566,   579,   584,   604,   608,   616,
+     620,   627,   659,   664,   671,   684,   698,   702,   711,   721,
+     734,   738,   746,   745,   763,   762,   779,   778,   796,   795,
+     807,   811,   816,   824,   828,   836,   840,   848,   847,   860,
+     870,   889,   897,   907,   912,   920,   919,   937,   936,   947,
+     952,   961,   965,   972,   981,   980,   989,   999,   998,  1009,
+    1016,  1026,  1033,  1038,  1045,  1054,  1059,  1066,  1071,  1078,
+    1087,  1092,  1099,  1107,  1115,  1123,  1131,  1140,  1149,  1158,
+    1166,  1174,  1182,  1190,  1198,  1206,  1214,  1222,  1230,  1239,
+    1247,  1255,  1263,  1271,  1280,  1288,  1296,  1304,  1313,  1320,
+    1327,  1334,  1341,  1348,  1356,  1363,  1370,  1377,  1382,  1387,
+    1393,  1400,  1405,  1413,  1422,  1432,  1442,  1453,  1465,  1475,
+    1483,  1491,  1499,  1513,  1520,  1526,  1525,  1560,  1570,  1574,
+    1581,  1588,  1595,  1604,  1613,  1622,  1634,  1638,  1643,  1650,
+    1656,  1659,  1663,  1673,  1678,  1685
 };
 #endif
 
@@ -2145,7 +2141,7 @@ yyreduce:
         case 2:
 
 /* Line 1455 of yacc.c  */
-#line 239 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 235 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             if (!context->m_num_errors || (yyvsp[(1) - (1)].node))
             {
@@ -2159,7 +2155,7 @@ yyreduce:
   case 3:
 
 /* Line 1455 of yacc.c  */
-#line 251 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 247 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = BUFFER_NEW(AstStatements, context);
         ;}
@@ -2168,7 +2164,7 @@ yyreduce:
   case 4:
 
 /* Line 1455 of yacc.c  */
-#line 256 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 252 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyvsp[(1) - (2)].node)->add_child((yyvsp[(2) - (2)].node));
             (yyval.node) = (yyvsp[(1) - (2)].node);
@@ -2178,7 +2174,7 @@ yyreduce:
   case 5:
 
 /* Line 1455 of yacc.c  */
-#line 262 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 258 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = (yyvsp[(1) - (2)].node);
         ;}
@@ -2187,7 +2183,7 @@ yyreduce:
   case 6:
 
 /* Line 1455 of yacc.c  */
-#line 267 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 263 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyvsp[(1) - (2)].node)->add_child((yyvsp[(2) - (2)].function));
             (yyval.node) = (yyvsp[(1) - (2)].node);
@@ -2197,7 +2193,7 @@ yyreduce:
   case 7:
 
 /* Line 1455 of yacc.c  */
-#line 273 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 269 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyvsp[(1) - (3)].node)->add_child((yyvsp[(2) - (3)].node));
             (yyval.node) = (yyvsp[(1) - (3)].node);
@@ -2207,7 +2203,7 @@ yyreduce:
   case 8:
 
 /* Line 1455 of yacc.c  */
-#line 279 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 275 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             _yyerror("Illegal statement.");
             (yyval.node) = (yyvsp[(1) - (2)].node);
@@ -2217,7 +2213,7 @@ yyreduce:
   case 9:
 
 /* Line 1455 of yacc.c  */
-#line 287 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 283 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = (yyvsp[(2) - (3)].node);
         ;}
@@ -2226,7 +2222,7 @@ yyreduce:
   case 10:
 
 /* Line 1455 of yacc.c  */
-#line 294 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 290 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             // More to be added
 		;}
@@ -2235,7 +2231,7 @@ yyreduce:
   case 11:
 
 /* Line 1455 of yacc.c  */
-#line 301 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 297 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstLabel, context);
             node->name = (yyvsp[(1) - (2)].string);
@@ -2246,7 +2242,7 @@ yyreduce:
   case 12:
 
 /* Line 1455 of yacc.c  */
-#line 310 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 306 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = 0;
         ;}
@@ -2255,7 +2251,7 @@ yyreduce:
   case 13:
 
 /* Line 1455 of yacc.c  */
-#line 315 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 311 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = (yyvsp[(1) - (2)].expression);
         ;}
@@ -2264,7 +2260,7 @@ yyreduce:
   case 26:
 
 /* Line 1455 of yacc.c  */
-#line 332 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 328 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstGoto, context);
             node->goto_type = AstGotoType::AST_BREAK;
@@ -2281,11 +2277,10 @@ yyreduce:
   case 27:
 
 /* Line 1455 of yacc.c  */
-#line 345 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 341 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstGoto, context);
             node->goto_type = AstGotoType::AST_CONTINUE;
-            Thread::get_current_thread_domain()->gc();////----
             node->loop_switch = context->get_node_for_continue();
             if (!node->loop_switch)
             {
@@ -2299,7 +2294,7 @@ yyreduce:
   case 28:
 
 /* Line 1455 of yacc.c  */
-#line 359 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 354 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstReturn, context);
             node->expr = 0;
@@ -2310,7 +2305,7 @@ yyreduce:
   case 29:
 
 /* Line 1455 of yacc.c  */
-#line 366 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 361 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstReturn, context);
             node->expr = (yyvsp[(2) - (3)].expression);
@@ -2325,7 +2320,7 @@ yyreduce:
   case 30:
 
 /* Line 1455 of yacc.c  */
-#line 377 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 372 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = (yyvsp[(1) - (1)].node);
         ;}
@@ -2334,7 +2329,7 @@ yyreduce:
   case 31:
 
 /* Line 1455 of yacc.c  */
-#line 384 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 379 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             context->add_component((yyvsp[(2) - (3)].string));
         ;}
@@ -2343,7 +2338,7 @@ yyreduce:
   case 32:
 
 /* Line 1455 of yacc.c  */
-#line 391 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 386 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             if (context->is_in_entry_function())
                 // At top, this is member function of current object
@@ -2365,7 +2360,7 @@ yyreduce:
   case 33:
 
 /* Line 1455 of yacc.c  */
-#line 408 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 403 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = context->m_in_function;
             node->body = (yyvsp[(4) - (5)].node);
@@ -2380,7 +2375,7 @@ yyreduce:
   case 34:
 
 /* Line 1455 of yacc.c  */
-#line 419 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 414 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             _yyerror("Bad function body, expected \"{ ... }\".");
             (yyval.function) = 0;
@@ -2390,7 +2385,7 @@ yyreduce:
   case 35:
 
 /* Line 1455 of yacc.c  */
-#line 427 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 422 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyvsp[(2) - (2)].prototype)->attrib |= (yyvsp[(1) - (2)].number);
             (yyval.prototype) = (yyvsp[(2) - (2)].prototype);
@@ -2400,7 +2395,7 @@ yyreduce:
   case 36:
 
 /* Line 1455 of yacc.c  */
-#line 433 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 428 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.prototype) = (yyvsp[(1) - (1)].prototype);
         ;}
@@ -2409,7 +2404,7 @@ yyreduce:
   case 37:
 
 /* Line 1455 of yacc.c  */
-#line 440 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 435 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.number) = (yyvsp[(1) - (1)].number);
         ;}
@@ -2418,7 +2413,7 @@ yyreduce:
   case 38:
 
 /* Line 1455 of yacc.c  */
-#line 445 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 440 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.number) = (yyvsp[(1) - (2)].number) | (yyvsp[(2) - (2)].number);            
 
@@ -2436,7 +2431,7 @@ yyreduce:
   case 39:
 
 /* Line 1455 of yacc.c  */
-#line 461 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 456 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.number) = AST_PRIVATE;
         ;}
@@ -2445,7 +2440,7 @@ yyreduce:
   case 40:
 
 /* Line 1455 of yacc.c  */
-#line 466 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 461 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.number) = AST_PUBLIC;
         ;}
@@ -2454,7 +2449,7 @@ yyreduce:
   case 41:
 
 /* Line 1455 of yacc.c  */
-#line 471 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 466 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.number) = AST_OVERRIDE;
         ;}
@@ -2463,7 +2458,7 @@ yyreduce:
   case 42:
 
 /* Line 1455 of yacc.c  */
-#line 476 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 471 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.number) = AST_UNMASKABLE;
         ;}
@@ -2472,7 +2467,7 @@ yyreduce:
   case 43:
 
 /* Line 1455 of yacc.c  */
-#line 483 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 478 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             // 构造函数结构
             auto* node = BUFFER_NEW(AstPrototype, context);
@@ -2499,7 +2494,7 @@ yyreduce:
   case 44:
 
 /* Line 1455 of yacc.c  */
-#line 508 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 503 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             AstVarType var_type;
             var_type.basic_var_type = (yyvsp[(2) - (3)].basic_var_type);
@@ -2511,7 +2506,7 @@ yyreduce:
   case 45:
 
 /* Line 1455 of yacc.c  */
-#line 518 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 513 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.var_attrib) = 0;
 		;}
@@ -2520,7 +2515,7 @@ yyreduce:
   case 46:
 
 /* Line 1455 of yacc.c  */
-#line 523 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 518 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.var_attrib) = AST_VAR_NO_SAVE | (yyvsp[(2) - (2)].var_attrib);
 		;}
@@ -2529,7 +2524,7 @@ yyreduce:
   case 47:
 
 /* Line 1455 of yacc.c  */
-#line 528 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 523 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.var_attrib) = AST_VAR_CONST | (yyvsp[(2) - (2)].var_attrib);
         ;}
@@ -2538,7 +2533,7 @@ yyreduce:
   case 48:
 
 /* Line 1455 of yacc.c  */
-#line 535 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 530 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.arguments_ex).arg_list = 0;
             (yyval.arguments_ex).ddd = false;
@@ -2548,7 +2543,7 @@ yyreduce:
   case 49:
 
 /* Line 1455 of yacc.c  */
-#line 541 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 536 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.arguments_ex).arg_list = 0;
             (yyval.arguments_ex).ddd = true;
@@ -2558,7 +2553,7 @@ yyreduce:
   case 50:
 
 /* Line 1455 of yacc.c  */
-#line 547 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 542 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.arguments_ex).arg_list = (yyvsp[(1) - (1)].argument);
             (yyval.arguments_ex).ddd = false;
@@ -2568,7 +2563,7 @@ yyreduce:
   case 51:
 
 /* Line 1455 of yacc.c  */
-#line 553 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 548 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.arguments_ex).arg_list = (yyvsp[(1) - (2)].argument);
             (yyval.arguments_ex).ddd = true;
@@ -2578,7 +2573,7 @@ yyreduce:
   case 52:
 
 /* Line 1455 of yacc.c  */
-#line 559 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 554 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.arguments_ex).arg_list = (yyvsp[(1) - (3)].argument);
             (yyval.arguments_ex).ddd = true;
@@ -2588,7 +2583,7 @@ yyreduce:
   case 53:
 
 /* Line 1455 of yacc.c  */
-#line 567 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 562 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.argument) = (yyvsp[(1) - (1)].argument);
         ;}
@@ -2597,7 +2592,7 @@ yyreduce:
   case 54:
 
 /* Line 1455 of yacc.c  */
-#line 572 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 567 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             if ((yyvsp[(1) - (3)].argument) != 0)
             {
@@ -2612,7 +2607,7 @@ yyreduce:
   case 55:
 
 /* Line 1455 of yacc.c  */
-#line 585 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 580 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.argument) = 0;
         ;}
@@ -2621,7 +2616,7 @@ yyreduce:
   case 56:
 
 /* Line 1455 of yacc.c  */
-#line 590 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 585 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             if ((yyvsp[(1) - (4)].var_type).basic_var_type == TVOID || (yyvsp[(1) - (4)].var_type).basic_var_type == NIL)
 			{
@@ -2642,7 +2637,7 @@ yyreduce:
   case 57:
 
 /* Line 1455 of yacc.c  */
-#line 609 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 604 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.var_attrib) = 0;
         ;}
@@ -2651,7 +2646,7 @@ yyreduce:
   case 58:
 
 /* Line 1455 of yacc.c  */
-#line 614 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 609 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.var_attrib) = AST_VAR_REF_ARGUMENT;
         ;}
@@ -2660,7 +2655,7 @@ yyreduce:
   case 59:
 
 /* Line 1455 of yacc.c  */
-#line 621 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 616 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.var_attrib) = 0;
         ;}
@@ -2669,7 +2664,7 @@ yyreduce:
   case 60:
 
 /* Line 1455 of yacc.c  */
-#line 626 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 621 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.var_attrib) = AST_VAR_MAY_NIL;
         ;}
@@ -2678,7 +2673,7 @@ yyreduce:
   case 61:
 
 /* Line 1455 of yacc.c  */
-#line 633 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 628 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             if ((yyvsp[(1) - (2)].var_type).basic_var_type == TVOID || (yyvsp[(1) - (2)].var_type).basic_var_type == NIL)
                 _yyerror("Invalid variable type.");
@@ -2712,7 +2707,7 @@ yyreduce:
   case 62:
 
 /* Line 1455 of yacc.c  */
-#line 665 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 660 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.declares) = (yyvsp[(1) - (1)].declares);
         ;}
@@ -2721,7 +2716,7 @@ yyreduce:
   case 63:
 
 /* Line 1455 of yacc.c  */
-#line 670 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 665 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.declares) = (AstDeclaration*)append_sibling_node((yyvsp[(1) - (3)].declares), (yyvsp[(3) - (3)].declares));
         ;}
@@ -2730,7 +2725,7 @@ yyreduce:
   case 64:
 
 /* Line 1455 of yacc.c  */
-#line 677 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 672 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* decl = BUFFER_NEW(AstDeclaration, context);
 
@@ -2745,7 +2740,7 @@ yyreduce:
   case 65:
 
 /* Line 1455 of yacc.c  */
-#line 690 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 685 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* decls = (AstDeclarations*)(yyvsp[(1) - (1)].node);
             if (decls != 0 && decls->decl_list)
@@ -2760,7 +2755,7 @@ yyreduce:
   case 66:
 
 /* Line 1455 of yacc.c  */
-#line 703 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 698 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = 0;
         ;}
@@ -2769,7 +2764,7 @@ yyreduce:
   case 67:
 
 /* Line 1455 of yacc.c  */
-#line 708 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 703 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             if ((yyvsp[(1) - (2)].op) != OP_ASSIGN)
                 _yyerror("SyntaxVariable initialization operator can be only '='.");
@@ -2780,7 +2775,7 @@ yyreduce:
   case 68:
 
 /* Line 1455 of yacc.c  */
-#line 717 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 712 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstGoto, context);
             node->goto_type = AST_DIRECT_JMP;
@@ -2792,7 +2787,7 @@ yyreduce:
   case 69:
 
 /* Line 1455 of yacc.c  */
-#line 727 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 722 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             // Record else line
             auto* node = BUFFER_NEW(AstIfElse, context);
@@ -2806,7 +2801,7 @@ yyreduce:
   case 70:
 
 /* Line 1455 of yacc.c  */
-#line 740 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 735 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = 0;
 	    ;}
@@ -2815,7 +2810,7 @@ yyreduce:
   case 71:
 
 /* Line 1455 of yacc.c  */
-#line 744 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 739 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = (yyvsp[(2) - (2)].node);
         ;}
@@ -2824,10 +2819,9 @@ yyreduce:
   case 72:
 
 /* Line 1455 of yacc.c  */
-#line 751 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 746 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstDoWhile, context);
-            _do_while = node;////----
             (yyvsp[(1) - (1)].int_val) = context->push_loop_switch(node);
         ;}
     break;
@@ -2835,7 +2829,7 @@ yyreduce:
   case 73:
 
 /* Line 1455 of yacc.c  */
-#line 757 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 751 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = (AstDoWhile*)context->get_loop_switch((yyvsp[(1) - (8)].int_val));
             STD_ASSERT(("Bad loop_switch node.", node->get_node_type() == AST_DO_WHILE));
@@ -2849,7 +2843,7 @@ yyreduce:
   case 74:
 
 /* Line 1455 of yacc.c  */
-#line 769 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 763 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstWhileLoop, context);
             (yyvsp[(1) - (1)].int_val) = context->push_loop_switch(node);
@@ -2859,7 +2853,7 @@ yyreduce:
   case 75:
 
 /* Line 1455 of yacc.c  */
-#line 774 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 768 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = (AstWhileLoop*)context->get_loop_switch((yyvsp[(1) - (6)].int_val));
             STD_ASSERT(("Bad loop_switch node.", node->get_node_type() == AST_WHILE_LOOP));
@@ -2873,7 +2867,7 @@ yyreduce:
   case 76:
 
 /* Line 1455 of yacc.c  */
-#line 785 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 779 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstForLoop, context);
             (yyvsp[(1) - (8)].int_val) = context->push_loop_switch(node);
@@ -2883,7 +2877,7 @@ yyreduce:
   case 77:
 
 /* Line 1455 of yacc.c  */
-#line 790 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 784 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = (AstForLoop*)context->get_loop_switch((yyvsp[(1) - (10)].int_val));
             STD_ASSERT(("Bad loop_switch node.", node->get_node_type() == AST_FOR_LOOP));
@@ -2899,7 +2893,7 @@ yyreduce:
   case 78:
 
 /* Line 1455 of yacc.c  */
-#line 802 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 796 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             _yyerror("Bad for expression/condition syntax");
         ;}
@@ -2908,7 +2902,7 @@ yyreduce:
   case 79:
 
 /* Line 1455 of yacc.c  */
-#line 806 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 800 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
 			(yyval.node) = 0;
 		;}
@@ -2917,7 +2911,7 @@ yyreduce:
   case 80:
 
 /* Line 1455 of yacc.c  */
-#line 813 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 807 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = 0;
         ;}
@@ -2926,7 +2920,7 @@ yyreduce:
   case 81:
 
 /* Line 1455 of yacc.c  */
-#line 818 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 812 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = (yyvsp[(1) - (1)].expression);
         ;}
@@ -2935,7 +2929,7 @@ yyreduce:
   case 82:
 
 /* Line 1455 of yacc.c  */
-#line 823 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 817 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = (yyvsp[(1) - (1)].node);
         ;}
@@ -2944,7 +2938,7 @@ yyreduce:
   case 83:
 
 /* Line 1455 of yacc.c  */
-#line 830 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 824 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = 0;
         ;}
@@ -2953,7 +2947,7 @@ yyreduce:
   case 84:
 
 /* Line 1455 of yacc.c  */
-#line 835 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 829 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(1) - (1)].expression);
         ;}
@@ -2962,7 +2956,7 @@ yyreduce:
   case 85:
 
 /* Line 1455 of yacc.c  */
-#line 842 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 836 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = 0;
         ;}
@@ -2971,7 +2965,7 @@ yyreduce:
   case 86:
 
 /* Line 1455 of yacc.c  */
-#line 847 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 841 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(1) - (1)].expression);
         ;}
@@ -2980,7 +2974,7 @@ yyreduce:
   case 87:
 
 /* Line 1455 of yacc.c  */
-#line 854 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 848 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = (yyvsp[(3) - (4)].node);
             (yyvsp[(1) - (4)].int_val) = context->push_loop_switch(node);
@@ -2990,7 +2984,7 @@ yyreduce:
   case 88:
 
 /* Line 1455 of yacc.c  */
-#line 859 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 853 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = (yyvsp[(3) - (6)].node);
             context->pop_loop_switch((yyvsp[(1) - (6)].int_val));
@@ -3000,7 +2994,7 @@ yyreduce:
   case 89:
 
 /* Line 1455 of yacc.c  */
-#line 867 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 861 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstLoopRange, context);
             node->decl_or_variable = (yyvsp[(1) - (5)].expression);
@@ -3014,7 +3008,7 @@ yyreduce:
   case 90:
 
 /* Line 1455 of yacc.c  */
-#line 877 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 871 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             // Check the initialization of variable
             auto* decls = (AstDeclarations*)(yyvsp[(1) - (3)].node);
@@ -3037,7 +3031,7 @@ yyreduce:
   case 91:
 
 /* Line 1455 of yacc.c  */
-#line 896 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 890 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstLoopEach, context);
             node->decl_or_variable = (yyvsp[(1) - (3)].expression);
@@ -3049,7 +3043,7 @@ yyreduce:
   case 92:
 
 /* Line 1455 of yacc.c  */
-#line 904 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 898 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstLoopEach, context);
             node->decl_or_variable = (yyvsp[(1) - (3)].node);
@@ -3061,7 +3055,7 @@ yyreduce:
   case 93:
 
 /* Line 1455 of yacc.c  */
-#line 914 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 908 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.number) = 1;
 		;}
@@ -3070,7 +3064,7 @@ yyreduce:
   case 94:
 
 /* Line 1455 of yacc.c  */
-#line 919 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 913 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.number) = -1;
 		;}
@@ -3079,7 +3073,7 @@ yyreduce:
   case 95:
 
 /* Line 1455 of yacc.c  */
-#line 926 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 920 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstSwitchCase, context);
             (yyvsp[(1) - (4)].int_val) = context->push_loop_switch(node);
@@ -3089,7 +3083,7 @@ yyreduce:
   case 96:
 
 /* Line 1455 of yacc.c  */
-#line 931 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 925 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = (AstSwitchCase*)context->get_loop_switch((yyvsp[(1) - (8)].int_val));
             STD_ASSERT(("Bad loop_switch node.", node->get_node_type() == AST_SWITCH_CASE));
@@ -3105,7 +3099,7 @@ yyreduce:
   case 97:
 
 /* Line 1455 of yacc.c  */
-#line 943 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 937 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             _yyerror("Bad parameter for switch.");
         ;}
@@ -3114,7 +3108,7 @@ yyreduce:
   case 98:
 
 /* Line 1455 of yacc.c  */
-#line 947 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 941 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.node) = 0;
         ;}
@@ -3123,7 +3117,7 @@ yyreduce:
   case 99:
 
 /* Line 1455 of yacc.c  */
-#line 954 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 948 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.cases) = (yyvsp[(1) - (1)].cases);
         ;}
@@ -3132,7 +3126,7 @@ yyreduce:
   case 100:
 
 /* Line 1455 of yacc.c  */
-#line 959 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 953 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             _yyerror("Invalid statement in the switch block.");
             (yyval.cases) = (yyvsp[(2) - (2)].cases);
@@ -3142,7 +3136,7 @@ yyreduce:
   case 101:
 
 /* Line 1455 of yacc.c  */
-#line 967 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 961 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.cases) = 0;
         ;}
@@ -3151,7 +3145,7 @@ yyreduce:
   case 102:
 
 /* Line 1455 of yacc.c  */
-#line 972 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 966 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.cases) = (AstCase*)append_sibling_node((yyvsp[(1) - (2)].cases), (yyvsp[(2) - (2)].cases));
         ;}
@@ -3160,7 +3154,7 @@ yyreduce:
   case 103:
 
 /* Line 1455 of yacc.c  */
-#line 979 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 973 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto *node = BUFFER_NEW(AstCase, context);
             node->case_value = (yyvsp[(2) - (4)].expression);
@@ -3172,7 +3166,7 @@ yyreduce:
   case 104:
 
 /* Line 1455 of yacc.c  */
-#line 987 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 981 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             _yyerror("Invalid case label: must be constant number or string.");
         ;}
@@ -3181,7 +3175,7 @@ yyreduce:
   case 105:
 
 /* Line 1455 of yacc.c  */
-#line 991 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 985 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.cases) = 0;
         ;}
@@ -3190,7 +3184,7 @@ yyreduce:
   case 106:
 
 /* Line 1455 of yacc.c  */
-#line 996 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 990 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto *node = BUFFER_NEW(AstCase, context);
             node->case_value = 0;
@@ -3203,7 +3197,7 @@ yyreduce:
   case 107:
 
 /* Line 1455 of yacc.c  */
-#line 1005 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 999 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             _yyerror("Invalid parameter for default routine.");
         ;}
@@ -3212,7 +3206,7 @@ yyreduce:
   case 108:
 
 /* Line 1455 of yacc.c  */
-#line 1009 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1003 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.cases) = 0;
         ;}
@@ -3221,7 +3215,7 @@ yyreduce:
   case 109:
 
 /* Line 1455 of yacc.c  */
-#line 1016 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1010 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(1) - (1)].expression);
         ;}
@@ -3230,7 +3224,7 @@ yyreduce:
   case 110:
 
 /* Line 1455 of yacc.c  */
-#line 1023 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1017 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
 #ifdef _DEBUG
             // More to be added
@@ -3244,7 +3238,7 @@ yyreduce:
   case 111:
 
 /* Line 1455 of yacc.c  */
-#line 1033 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1027 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
 			(yyval.node) = 0;
 		;}
@@ -3253,7 +3247,7 @@ yyreduce:
   case 112:
 
 /* Line 1455 of yacc.c  */
-#line 1040 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1034 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             // More to be added
 		;}
@@ -3262,7 +3256,7 @@ yyreduce:
   case 113:
 
 /* Line 1455 of yacc.c  */
-#line 1045 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1039 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
 			(yyval.node) = 0;
 		;}
@@ -3271,7 +3265,7 @@ yyreduce:
   case 114:
 
 /* Line 1455 of yacc.c  */
-#line 1052 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1046 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(1) - (1)].expression);
             if (!(yyval.expression)->is_constant)
@@ -3282,7 +3276,7 @@ yyreduce:
   case 115:
 
 /* Line 1455 of yacc.c  */
-#line 1061 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1055 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             // More to be added
         ;}
@@ -3291,7 +3285,7 @@ yyreduce:
   case 116:
 
 /* Line 1455 of yacc.c  */
-#line 1066 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1060 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             // More to be added
         ;}
@@ -3300,7 +3294,7 @@ yyreduce:
   case 117:
 
 /* Line 1455 of yacc.c  */
-#line 1073 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1067 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             // More to be added
         ;}
@@ -3309,7 +3303,7 @@ yyreduce:
   case 118:
 
 /* Line 1455 of yacc.c  */
-#line 1078 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1072 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             // More to be added
         ;}
@@ -3318,7 +3312,7 @@ yyreduce:
   case 119:
 
 /* Line 1455 of yacc.c  */
-#line 1085 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1079 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprSingleValue, context);
             node->expr_list = (yyvsp[(1) - (1)].expression);
@@ -3329,7 +3323,7 @@ yyreduce:
   case 120:
 
 /* Line 1455 of yacc.c  */
-#line 1094 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1088 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(1) - (1)].expression);
         ;}
@@ -3338,7 +3332,7 @@ yyreduce:
   case 121:
 
 /* Line 1455 of yacc.c  */
-#line 1099 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1093 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (AstExpr*)append_sibling_node((yyvsp[(1) - (3)].expression), (yyvsp[(3) - (3)].expression));
         ;}
@@ -3347,7 +3341,7 @@ yyreduce:
   case 122:
 
 /* Line 1455 of yacc.c  */
-#line 1106 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1100 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_INC_PRE;
@@ -3359,7 +3353,7 @@ yyreduce:
   case 123:
 
 /* Line 1455 of yacc.c  */
-#line 1114 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1108 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_DEC_PRE;
@@ -3371,7 +3365,7 @@ yyreduce:
   case 124:
 
 /* Line 1455 of yacc.c  */
-#line 1122 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1116 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_INC_POST;
@@ -3383,7 +3377,7 @@ yyreduce:
   case 125:
 
 /* Line 1455 of yacc.c  */
-#line 1130 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1124 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_DEC_POST;
@@ -3395,7 +3389,7 @@ yyreduce:
   case 126:
 
 /* Line 1455 of yacc.c  */
-#line 1138 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1132 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* expr_assign = BUFFER_NEW(AstExprAssign, context);
             expr_assign->op = (yyvsp[(2) - (3)].op);
@@ -3408,7 +3402,7 @@ yyreduce:
   case 127:
 
 /* Line 1455 of yacc.c  */
-#line 1147 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1141 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_LAND;
@@ -3421,7 +3415,7 @@ yyreduce:
   case 128:
 
 /* Line 1455 of yacc.c  */
-#line 1156 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1150 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_LOR;
@@ -3434,7 +3428,7 @@ yyreduce:
   case 129:
 
 /* Line 1455 of yacc.c  */
-#line 1165 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1159 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_OR;
@@ -3447,7 +3441,7 @@ yyreduce:
   case 130:
 
 /* Line 1455 of yacc.c  */
-#line 1173 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1167 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_XOR;
@@ -3460,7 +3454,7 @@ yyreduce:
   case 131:
 
 /* Line 1455 of yacc.c  */
-#line 1181 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1175 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_AND;
@@ -3473,7 +3467,7 @@ yyreduce:
   case 132:
 
 /* Line 1455 of yacc.c  */
-#line 1189 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1183 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_EQ;
@@ -3486,7 +3480,7 @@ yyreduce:
   case 133:
 
 /* Line 1455 of yacc.c  */
-#line 1197 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1191 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_NE;
@@ -3499,7 +3493,7 @@ yyreduce:
   case 134:
 
 /* Line 1455 of yacc.c  */
-#line 1205 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1199 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = (yyvsp[(2) - (3)].op);
@@ -3512,7 +3506,7 @@ yyreduce:
   case 135:
 
 /* Line 1455 of yacc.c  */
-#line 1213 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1207 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_LT;
@@ -3525,7 +3519,7 @@ yyreduce:
   case 136:
 
 /* Line 1455 of yacc.c  */
-#line 1221 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1215 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_LSH;
@@ -3538,7 +3532,7 @@ yyreduce:
   case 137:
 
 /* Line 1455 of yacc.c  */
-#line 1229 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1223 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_RSH;
@@ -3551,7 +3545,7 @@ yyreduce:
   case 138:
 
 /* Line 1455 of yacc.c  */
-#line 1237 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1231 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprTernary, context);
             node->op = OP_QMARK;
@@ -3565,7 +3559,7 @@ yyreduce:
   case 139:
 
 /* Line 1455 of yacc.c  */
-#line 1246 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1240 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_ADD;
@@ -3578,7 +3572,7 @@ yyreduce:
   case 140:
 
 /* Line 1455 of yacc.c  */
-#line 1254 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1248 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_SUB;
@@ -3591,7 +3585,7 @@ yyreduce:
   case 141:
 
 /* Line 1455 of yacc.c  */
-#line 1262 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1256 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_MUL;
@@ -3604,7 +3598,7 @@ yyreduce:
   case 142:
 
 /* Line 1455 of yacc.c  */
-#line 1270 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1264 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_MOD;
@@ -3617,7 +3611,7 @@ yyreduce:
   case 143:
 
 /* Line 1455 of yacc.c  */
-#line 1278 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1272 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprBinary, context);
             node->op = OP_DIV;
@@ -3630,7 +3624,7 @@ yyreduce:
   case 144:
 
 /* Line 1455 of yacc.c  */
-#line 1287 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1281 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_NEG;
@@ -3642,7 +3636,7 @@ yyreduce:
   case 145:
 
 /* Line 1455 of yacc.c  */
-#line 1295 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1289 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_NOT;
@@ -3654,7 +3648,7 @@ yyreduce:
   case 146:
 
 /* Line 1455 of yacc.c  */
-#line 1303 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1297 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprUnary, context);
             node->op = OP_REV;
@@ -3666,7 +3660,7 @@ yyreduce:
   case 147:
 
 /* Line 1455 of yacc.c  */
-#line 1311 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1305 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprCast, context);
             node->op = OP_CAST;
@@ -3679,7 +3673,7 @@ yyreduce:
   case 148:
 
 /* Line 1455 of yacc.c  */
-#line 1320 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1314 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(1) - (1)].expression);
         ;}
@@ -3688,7 +3682,7 @@ yyreduce:
   case 149:
 
 /* Line 1455 of yacc.c  */
-#line 1327 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1321 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprConstant, context);
             node->value = Value(UNDEFINED);
@@ -3699,7 +3693,7 @@ yyreduce:
   case 150:
 
 /* Line 1455 of yacc.c  */
-#line 1334 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1328 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprConstant, context);
             node->value = Value((yyvsp[(1) - (1)].real));
@@ -3710,7 +3704,7 @@ yyreduce:
   case 151:
 
 /* Line 1455 of yacc.c  */
-#line 1341 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1335 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprConstant, context);
             node->value = Value((yyvsp[(1) - (1)].number));
@@ -3721,7 +3715,7 @@ yyreduce:
   case 152:
 
 /* Line 1455 of yacc.c  */
-#line 1348 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1342 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprConstant, context);
             node->value = Value((yyvsp[(1) - (1)].string));
@@ -3732,7 +3726,7 @@ yyreduce:
   case 153:
 
 /* Line 1455 of yacc.c  */
-#line 1355 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1349 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprCreateFunction, context);
             node->name = (yyvsp[(2) - (5)].string);
@@ -3744,7 +3738,7 @@ yyreduce:
   case 154:
 
 /* Line 1455 of yacc.c  */
-#line 1363 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1357 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprCreateArray, context);
             node->expr_list = (yyvsp[(2) - (5)].expression);
@@ -3755,7 +3749,7 @@ yyreduce:
   case 155:
 
 /* Line 1455 of yacc.c  */
-#line 1370 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1364 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprCreateArray, context);
             node->expr_list = 0;
@@ -3766,7 +3760,7 @@ yyreduce:
   case 156:
 
 /* Line 1455 of yacc.c  */
-#line 1377 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1371 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprCreateMapping, context);
             node->expr_list = (yyvsp[(2) - (4)].expr_list);
@@ -3777,7 +3771,7 @@ yyreduce:
   case 157:
 
 /* Line 1455 of yacc.c  */
-#line 1384 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1378 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(1) - (1)].expression);
         ;}
@@ -3786,7 +3780,7 @@ yyreduce:
   case 158:
 
 /* Line 1455 of yacc.c  */
-#line 1389 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1383 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(2) - (3)].expression);
         ;}
@@ -3795,7 +3789,7 @@ yyreduce:
   case 159:
 
 /* Line 1455 of yacc.c  */
-#line 1394 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1388 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             _yyerror("Missed function to call.");
             (yyval.expression) = 0;
@@ -3805,7 +3799,7 @@ yyreduce:
   case 160:
 
 /* Line 1455 of yacc.c  */
-#line 1400 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1394 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprFunctionCallEx, context);
             node->arguments = (yyvsp[(3) - (4)].expression);
@@ -3816,7 +3810,7 @@ yyreduce:
   case 161:
 
 /* Line 1455 of yacc.c  */
-#line 1407 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1401 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(1) - (1)].expression);
         ;}
@@ -3825,7 +3819,7 @@ yyreduce:
   case 162:
 
 /* Line 1455 of yacc.c  */
-#line 1412 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1406 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprSegment, context);
             node->expr = (yyvsp[(1) - (3)].expression);
@@ -3837,7 +3831,7 @@ yyreduce:
   case 163:
 
 /* Line 1455 of yacc.c  */
-#line 1420 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1414 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = (yyvsp[(1) - (4)].expression);
@@ -3850,7 +3844,7 @@ yyreduce:
   case 164:
 
 /* Line 1455 of yacc.c  */
-#line 1429 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1423 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = (yyvsp[(1) - (5)].expression);
@@ -3864,7 +3858,7 @@ yyreduce:
   case 165:
 
 /* Line 1455 of yacc.c  */
-#line 1439 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1433 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = (yyvsp[(1) - (6)].expression);
@@ -3878,7 +3872,7 @@ yyreduce:
   case 166:
 
 /* Line 1455 of yacc.c  */
-#line 1449 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1443 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = (yyvsp[(1) - (7)].expression);
@@ -3893,7 +3887,7 @@ yyreduce:
   case 167:
 
 /* Line 1455 of yacc.c  */
-#line 1460 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1454 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprIndex, context);
             node->container = (yyvsp[(1) - (8)].expression);
@@ -3909,7 +3903,7 @@ yyreduce:
   case 168:
 
 /* Line 1455 of yacc.c  */
-#line 1472 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1466 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* expr = BUFFER_NEW(AstExprConstant, context);
             expr->value = Value((yyvsp[(2) - (2)].number));
@@ -3923,7 +3917,7 @@ yyreduce:
   case 169:
 
 /* Line 1455 of yacc.c  */
-#line 1482 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1476 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprUnary, context);
             node->expr1 = (yyvsp[(3) - (4)].expression);
@@ -3935,7 +3929,7 @@ yyreduce:
   case 170:
 
 /* Line 1455 of yacc.c  */
-#line 1490 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1484 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprRuntimeValue, context);
             node->var_type.basic_var_type = ARRAY;
@@ -3947,7 +3941,7 @@ yyreduce:
   case 171:
 
 /* Line 1455 of yacc.c  */
-#line 1498 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1492 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprRuntimeValue, context);
             node->var_type.basic_var_type = INTEGER;
@@ -3959,7 +3953,7 @@ yyreduce:
   case 172:
 
 /* Line 1455 of yacc.c  */
-#line 1506 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1500 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprUnary, context);
             node->expr1 = (yyvsp[(2) - (2)].expression);
@@ -3977,7 +3971,7 @@ yyreduce:
   case 173:
 
 /* Line 1455 of yacc.c  */
-#line 1520 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1514 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprIsRef, context);
             node->name = (yyvsp[(3) - (4)].string);
@@ -3988,7 +3982,7 @@ yyreduce:
   case 174:
 
 /* Line 1455 of yacc.c  */
-#line 1527 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1521 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(1) - (1)].expression);
         ;}
@@ -3997,7 +3991,7 @@ yyreduce:
   case 175:
 
 /* Line 1455 of yacc.c  */
-#line 1532 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1526 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* prototype = BUFFER_NEW(AstPrototype, context);
             prototype->ret_var_type.basic_var_type = MIXED;
@@ -4022,7 +4016,7 @@ yyreduce:
   case 176:
 
 /* Line 1455 of yacc.c  */
-#line 1552 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1546 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* function = context->m_in_function;
             function->body = (yyvsp[(6) - (7)].node);
@@ -4039,7 +4033,7 @@ yyreduce:
   case 177:
 
 /* Line 1455 of yacc.c  */
-#line 1567 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1561 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprVariable, context);
             node->name = (yyvsp[(1) - (1)].string);
@@ -4050,7 +4044,7 @@ yyreduce:
   case 178:
 
 /* Line 1455 of yacc.c  */
-#line 1576 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1570 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = 0;
         ;}
@@ -4059,7 +4053,7 @@ yyreduce:
   case 179:
 
 /* Line 1455 of yacc.c  */
-#line 1581 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1575 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expression) = (yyvsp[(2) - (2)].expression);
         ;}
@@ -4068,7 +4062,7 @@ yyreduce:
   case 180:
 
 /* Line 1455 of yacc.c  */
-#line 1588 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1582 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprFunctionCallEx, context);
             node->arguments = (yyvsp[(3) - (6)].expression);
@@ -4079,7 +4073,7 @@ yyreduce:
   case 181:
 
 /* Line 1455 of yacc.c  */
-#line 1595 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1589 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprFunctionCallEx, context);
             node->arguments = (AstExpr*)append_sibling_node((yyvsp[(3) - (7)].expression), (yyvsp[(6) - (7)].expression));
@@ -4090,7 +4084,7 @@ yyreduce:
   case 182:
 
 /* Line 1455 of yacc.c  */
-#line 1602 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1596 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprFunctionCall, context);
             node->target = 0;
@@ -4103,7 +4097,7 @@ yyreduce:
   case 183:
 
 /* Line 1455 of yacc.c  */
-#line 1611 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1605 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprFunctionCall, context);
             node->target = 0;
@@ -4116,7 +4110,7 @@ yyreduce:
   case 184:
 
 /* Line 1455 of yacc.c  */
-#line 1620 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1614 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprFunctionCall, context);
             node->target = (yyvsp[(1) - (5)].expression);
@@ -4129,7 +4123,7 @@ yyreduce:
   case 185:
 
 /* Line 1455 of yacc.c  */
-#line 1629 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1623 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             auto* node = BUFFER_NEW(AstExprFunctionCall, context);
             node->target = (yyvsp[(1) - (6)].expression);
@@ -4142,7 +4136,7 @@ yyreduce:
   case 186:
 
 /* Line 1455 of yacc.c  */
-#line 1640 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1634 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expr_list) = 0;
         ;}
@@ -4151,7 +4145,7 @@ yyreduce:
   case 187:
 
 /* Line 1455 of yacc.c  */
-#line 1645 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1639 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expr_list) = (yyvsp[(1) - (1)].expr_list);
         ;}
@@ -4160,7 +4154,7 @@ yyreduce:
   case 188:
 
 /* Line 1455 of yacc.c  */
-#line 1650 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1644 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expr_list) = (AstExpr*)append_sibling_node((yyvsp[(1) - (3)].expr_list), (yyvsp[(3) - (3)].expr_list));
         ;}
@@ -4169,7 +4163,7 @@ yyreduce:
   case 189:
 
 /* Line 1455 of yacc.c  */
-#line 1657 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1651 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.expr_list) = (AstExpr*)append_sibling_node((yyvsp[(1) - (3)].expression), (yyvsp[(3) - (3)].expression));
         ;}
@@ -4178,7 +4172,7 @@ yyreduce:
   case 192:
 
 /* Line 1455 of yacc.c  */
-#line 1670 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1664 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             if ((yyvsp[(2) - (3)].var_type).basic_var_type == TVOID || (yyvsp[(2) - (3)].var_type).basic_var_type == NIL)
                 _yyerror("Invalid type to cast.");
@@ -4190,7 +4184,7 @@ yyreduce:
   case 193:
 
 /* Line 1455 of yacc.c  */
-#line 1680 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1674 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.string) = (yyvsp[(1) - (1)].string)
         ;}
@@ -4199,7 +4193,7 @@ yyreduce:
   case 194:
 
 /* Line 1455 of yacc.c  */
-#line 1685 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1679 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.string) = (yyvsp[(1) - (2)].string)->concat((yyvsp[(2) - (2)].string));
         ;}
@@ -4208,7 +4202,7 @@ yyreduce:
   case 195:
 
 /* Line 1455 of yacc.c  */
-#line 1692 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1686 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
     {
             (yyval.string) = (yyvsp[(1) - (1)].string);
         ;}
@@ -4217,7 +4211,7 @@ yyreduce:
 
 
 /* Line 1455 of yacc.c  */
-#line 4221 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.cpp"
+#line 4215 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.cpp"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -4429,7 +4423,7 @@ yyreturn:
 
 
 /* Line 1675 of yacc.c  */
-#line 1696 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 1690 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
 
 
 } // End of namespace: cmm
