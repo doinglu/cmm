@@ -197,6 +197,7 @@
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_grammar.h" />
     <ClInclude Include="cmm_memory.h" />
+    <ClInclude Include="cmm_memory_pool.h" />
     <ClInclude Include="cmm_mmm_value.h" />
     <ClInclude Include="cmm_shell.h" />
     <ClInclude Include="cmm_vm.h" />
@@ -284,6 +285,7 @@
     <ClCompile Include="cmm_lang_pass2.cpp" />
     <ClCompile Include="cmm_lang_symbols.cpp" />
     <ClCompile Include="cmm_memory.cpp" />
+    <ClCompile Include="cmm_memory_pool.cpp" />
     <ClCompile Include="cmm_shell.cpp" />
     <ClCompile Include="cmm_value_oper.cpp" />
     <ClCompile Include="cmm_vm.cpp" />

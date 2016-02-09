@@ -1,4 +1,5 @@
 // cmm_value.cpp
+// Initial version by doing
 
 #include <stdio.h>
 #include <stdarg.h>

@@ -11,6 +11,7 @@
 #define STD_PAGE_READ           0x0010
 #define STD_PAGE_WRITE          0x0020
 #define STD_PAGE_EXECUTE        0x0040
+#define STD_PAGE_ALL_ACCESS     (STD_PAGE_READ | STD_PAGE_WRITE | STD_PAGE_EXECUTE)
 
 void* std_mmap(void* address, size_t size, int flags);
 
