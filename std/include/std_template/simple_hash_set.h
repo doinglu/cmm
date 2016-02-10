@@ -52,6 +52,7 @@ public:
         m_table.clear();
         m_table.push_backs(BadIndex, MinCapacity * 2);
         m_table_mask = (index_t)m_table.size() - 1;
+        m_size = 0;
     }
 
     // Is this hash map contains the key?
@@ -59,6 +60,19 @@ public:
     {
         index_t index;
         return try_get_index(key, &index);
+    }
+
+    // Erase pair by iterator
+    void erase(iterator& it)
+    {
+        STD_ASSERT(it.m_size == size());
+        STD_ASSERT(it.m_index < size());
+        erase(*it.m_cursor_ptr);
+
+#ifdef _DEBUG
+        // Update m_size
+        it.m_size = (index_t)size();
+#endif
     }
 
     // Erase pair by key

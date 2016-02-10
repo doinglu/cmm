@@ -55,6 +55,7 @@ public:
         m_table.clear();
         m_table.push_backs(BadIndex, MinCapacity * 2);
         m_table_mask = (index_t)m_table.size() - 1;
+        m_size = 0;
     }
 
     // Is this hash map contains the key?
