@@ -16,6 +16,18 @@ typename remove_reference<T>::type&& move(T&& a)
     return static_cast<RvalRef>(a);
 }
 
+template<class T> struct raw_type_struct { typedef T type; };
+template<class T> struct raw_type_struct<const T> { typedef T type; };
+template<class T> struct raw_type_struct<volatile T> { typedef T type; };
+template<class T> struct raw_type_struct<const volatile T> { typedef T type; };
+
+template<class T>
+typename raw_type_struct<T>::type raw_type(T a)
+{
+    typedef typename raw_type_struct<T>::type RawType;
+    return static_cast<RawType>(a);
+}
+
 template<class T>
 T&& forward(typename remove_reference<T>::type& a)
 {

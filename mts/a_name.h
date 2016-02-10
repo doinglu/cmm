@@ -29,11 +29,11 @@ public:
         if (__args[0].m_type != ValueType::STRING)
             throw_error("Parameter 1 'name' is not string.\n");
 
-        // Enter function
-//        Value __local[] = { };
-        StringImpl* &name = __args[0].m_string;
+        Value& name = __args[0];
 
-        StringImpl* &m_name = this->m_object_vars[0].m_string;
+        // Enter function
+        Value& m_name = this->m_object_vars[0];
+
         m_name = name;
         return Value(UNDEFINED);
     }
@@ -44,7 +44,7 @@ public:
         if (__n != 0)
             throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
-        StringImpl* &m_name = this->m_object_vars[0].m_string;
+        Value& m_name = this->m_object_vars[0];
         return m_name;
     }
 

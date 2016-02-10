@@ -158,16 +158,39 @@ int main_body(int argn, char *argv[]);
 
 void test_gc()
 {
-    Value m = Map();
+    Uint8 ins[] = { 0x48, 0x89, 0x43, 0x08 };
+#if 1
+    // Prepare some old mappings
+    Value mo = Map();
+    printf("mo.m_map = %p\n", mo.m_map);
+    for (int i = 0; i < 1000; i++)
+    {
+        Value mx = Map();
+        char str[100];
+        snprintf(str, 100, "m_%d", i);
+        mo[str] = mx;
+
+        for (int k = 0; k < 100; k++)
+        {
+            char str[100];
+            snprintf(str, 100, "m_%d", i);
+            mx[str] = k;
+        }
+    }
+#endif
+
     auto b = std_get_current_us_counter();
-    for (int i = 0; i < 10000; i++)
+    
+    Value m = Map();
+    printf("m.m_map = %p\n", m.m_map);
+#if 1
+    for (int i = 0; i < 1000000; i++)
     {   
-        auto s = BUFFER_NEW(std::string);
         char str[100];
         snprintf(str, 100, "i = %d", i);
-        *s = str;
-        m[i] = s->c_str();
+        m[str] = str;
     }
+#endif
     auto e = std_get_current_us_counter();
     printf("Total Cost = %dus.\n\n", (int)(e - b));
 }

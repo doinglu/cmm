@@ -121,7 +121,7 @@ private:
     Value *m_current_arg;
     ArgNo  m_current_arg_index;
     simple::unsafe_vector<char_t> m_obuf; // Output buffer
-    simple::hash_set<ReferenceImpl *> m_check_loop;
+    simple::hash_set<ReferenceImpl*> m_check_loop;
 };
 
 }

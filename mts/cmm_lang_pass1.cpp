@@ -665,6 +665,9 @@ void Lang::lookup_expr_types(AstNode *node)
 
             expr->var_type = ((AstExpr*)p)->var_type;
         }
+        default:
+            // Skip
+            break;
     }
 }
 
@@ -691,7 +694,7 @@ ValueType Lang::derive_type_of_op(
 )
 {
     int start_index;
-    Op  key_op = op;
+    Op  key_op;
 
     // Convert LT/LE/GT/GE to OP_ORDER
     switch (op)
@@ -700,6 +703,7 @@ ValueType Lang::derive_type_of_op(
         case OP_LE: key_op = OP_ORDER; break;
         case OP_GT: key_op = OP_ORDER; break;
         case OP_GE: key_op = OP_ORDER; break;
+        default:    key_op = op;       break;
     }
 
     if (!op_start_index->try_get(key_op, &start_index))
@@ -797,6 +801,10 @@ bool Lang::check_lvalue(AstExpr* node)
             }
             return true;
         }
+
+        default:
+            // Not L-value
+            break;
     }
 
     this->syntax_errors(this,

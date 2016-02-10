@@ -106,6 +106,7 @@ bool StaticMemoryPool::extend_pool(size_t new_reserve)
     size_t delta_size = new_reserve - m_reserve;
     std_mmap(m_head + m_reserve, delta_size, STD_PAGE_COMMIT);
     m_reserve = new_reserve;
+    return true;
 }
 
 // Reset memory
@@ -126,7 +127,7 @@ void StaticMemoryPool::shrink_pool(size_t new_reserve)
     m_reserve = new_reserve;
 }
 
-DynamicMemoryPool::DynamicMemoryPool(size_t max_reserve, size_t init_size = 0) :
+DynamicMemoryPool::DynamicMemoryPool(size_t max_reserve, size_t init_size) :
     MemoryPool()
 {
     if (!init_size)
@@ -168,6 +169,7 @@ bool DynamicMemoryPool::extend_pool(size_t new_reserve)
     STD_MEM_FREE(m_head);
     m_head = new_pool;
     m_reserve = new_reserve;
+    return true;
 }
 
 // Reset memory

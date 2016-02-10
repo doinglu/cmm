@@ -14,7 +14,7 @@ namespace cmm
 {
 
 // Constructor of parameter
-SyntaxVariable::SyntaxVariable(Function *function, const String& name, ValueType type, Attrib attrib) :
+SyntaxVariable::SyntaxVariable(Function* function, const String& name, ValueType type, Attrib attrib) :
     m_default(UNDEFINED)
 {
     m_function = function;
@@ -24,7 +24,7 @@ SyntaxVariable::SyntaxVariable(Function *function, const String& name, ValueType
 }
 
 // Constructor of function
-Function::Function(Program *program, const String& name)
+Function::Function(Program* program, const String& name)
 {
     m_program = program;
     m_name = Program::find_or_add_string(name);
@@ -43,12 +43,12 @@ Function::~Function()
 }
 
 // Create local variable definition in function
-LocalVariable *Function::define_local_variable(
+LocalVariable* Function::define_local_variable(
     const String& name,
     ValueType type,
     LocalVariable::Attrib attrib)
 {
-    auto *local_variable = XNEW(LocalVariable, this, name, type, attrib);
+    auto* local_variable = XNEW(LocalVariable, this, name, type, attrib);
     local_variable->m_type = type;
     local_variable->m_attrib = attrib;
     m_local_variables.push_back(local_variable);
@@ -56,12 +56,12 @@ LocalVariable *Function::define_local_variable(
 }
 
 // Create parameter definition in function
-Parameter *Function::define_parameter(
+Parameter* Function::define_parameter(
     const String& name,
     ValueType type,
     Parameter::Attrib attrib)
 {
-    auto *parameter = XNEW(Parameter, this, name, type, attrib);
+    auto* parameter = XNEW(Parameter, this, name, type, attrib);
     parameter->m_type = type;
     parameter->m_attrib = attrib;
     m_parameters.push_back(parameter);
@@ -107,7 +107,7 @@ bool Function::finish_adding_parameters()
 }
 
 // Get byte codes address
-const Instruction *Function::get_byte_codes_addr() const
+const Instruction* Function::get_byte_codes_addr() const
 {
     STD_ASSERT(("Byte codes only for the interpreted function.\n",
                 is_being_interpreted()));
@@ -115,7 +115,7 @@ const Instruction *Function::get_byte_codes_addr() const
 }
 
 // Set byte codes for interpreted function
-void Function::set_byte_codes(Instruction *codes, size_t len)
+void Function::set_byte_codes(Instruction* codes, size_t len)
 {
     STD_ASSERT(("Byte codes only for the interpreted function.\n",
                 is_being_interpreted()));
@@ -125,7 +125,7 @@ void Function::set_byte_codes(Instruction *codes, size_t len)
     m_byte_codes.push_back_array(codes, len);
 }
 
-ObjectVar::ObjectVar(Program *program, const String& name)
+ObjectVar::ObjectVar(Program* program, const String& name)
 {
     m_program = program;
     m_name = Program::find_or_add_string(name);
@@ -134,13 +134,13 @@ ObjectVar::ObjectVar(Program *program, const String& name)
 }
 
 // StringImpl pool of all programs
-StringPool *Program::m_string_pool = 0;
+StringPool* Program::m_string_pool = 0;
 
 // Program name -> program map
-Program::ProgramNameMap *Program::m_name_programs = 0;
-Program::FunctionEntryMap *Program::m_entry_functions = 0;
-struct std_critical_section *Program::m_program_cs = 0;
-Program::ObsoletedProgramSet *Program::m_obsoleted_programs = 0;
+Program::ProgramNameMap* Program::m_name_programs = 0;
+Program::FunctionEntryMap* Program::m_entry_functions = 0;
+struct std_critical_section* Program::m_program_cs = 0;
+Program::ObsoletedProgramSet* Program::m_obsoleted_programs = 0;
 
 bool Program::init()
 {
@@ -181,7 +181,7 @@ void Program::shutdown()
 Program::Program(const String& name, Attrib attrib)
 {
     m_name = Program::find_or_add_string(name);
-    auto *prev_program = find_program_by_name(m_name);
+    auto* prev_program = find_program_by_name(m_name);
     if (prev_program)
     {
         if (!(attrib & Program::INTERPRETED))
@@ -234,48 +234,48 @@ bool Program::convert_to_shared(const String* string)
     if (!(string->m_string->attrib & ReferenceImpl::SHARED))
     {
         // Not shared? Lookup in pool
-        auto *string_impl_in_pool = find_string(*string);
+        auto* string_impl_in_pool = find_string(*string);
         if (!string_impl_in_pool)
             return false;
 
         // Modify previous string
-        ((String *)string)->m_string = string_impl_in_pool;
+        ((String*)string)->m_string = string_impl_in_pool;
     }
 
     return true;
 }
 
 // Find or add a string into pool
-StringImpl *Program::find_or_add_string(const String& string)
+StringImpl* Program::find_or_add_string(const String& string)
 {
     // Not found, create new string
     return m_string_pool->find_or_insert(string);
 }
 
 // Find or add a string into pool
-StringImpl *Program::find_or_add_string(const char* c_str)
+StringImpl* Program::find_or_add_string(const char* c_str)
 {
     // Not found, create new string
     return m_string_pool->find_or_insert(c_str, strlen(c_str));
 }
 
 // Find string in pool (return 0 if not found)
-StringImpl *Program::find_string(const String& string)
+StringImpl* Program::find_string(const String& string)
 {
     return m_string_pool->find(string);
 }
 
 // Find string in pool (return 0 if not found)
-StringImpl *Program::find_string(const char* c_str)
+StringImpl* Program::find_string(const char* c_str)
 {
     return m_string_pool->find(c_str, strlen(c_str));
 }
 
 // Find a program by name (shared string)
 // The program_name may be updated during operation
-Program *Program::find_program_by_name(const String& program_name)
+Program* Program::find_program_by_name(const String& program_name)
 {
-    Program *program;
+    Program* program;
 
     if (!convert_to_shared(&program_name))
         // No such name in shared pool, program not found
@@ -295,12 +295,12 @@ Program *Program::find_program_by_name(const String& program_name)
 // Update all programs after they are declared
 void Program::update_all_programs()
 {
-    for (auto &it: *m_name_programs)
+    for (auto &it : *m_name_programs)
         it.second->update_program();
 }
 
 // Create a interpreter component
-Object *Program::new_interpreter_component()
+Object* Program::new_interpreter_component()
 {
     throw 0;////----
 }
@@ -308,20 +308,20 @@ Object *Program::new_interpreter_component()
 // Define a constant in this program
 ConstantIndex Program::define_constant(const Value& value)
 {
-    auto *thread = Thread::get_current_thread();
+    auto* thread = Thread::get_current_thread();
     Value dup = value;
     if (dup.m_type >= REFERENCE_VALUE)
     {
         if (dup.m_type == STRING)
         {
-            dup.m_string = Program::find_or_add_string(*(String *)&dup);
+            dup.m_string = Program::find_or_add_string(*(String*)&dup);
         } else
         {
             STD_ASSERT(("There are still values in thread local value list.\n",
                         thread->get_value_list_count() == 0));
             dup.m_reference = dup.m_reference->copy_to_local(thread);
 
-            /* Mark them to constant */
+            // Mark them to constant
             mark_constant(&dup);
         }
     }
@@ -349,12 +349,12 @@ void Program::define_object(size_t object_size)
 }
 
 // Create function in this program
-Function *Program::define_function(const String& name,
+Function* Program::define_function(const String& name,
     Function::Entry entry,
     ArgNo min_arg_no, ArgNo max_arg_no,
     Function::Attrib attrib)
 {
-    auto *function = XNEW(Function, this, name);
+    auto* function = XNEW(Function, this, name);
     function->m_entry = entry;
     function->m_min_arg_no = min_arg_no;
     function->m_max_arg_no = max_arg_no;
@@ -368,14 +368,14 @@ Function *Program::define_function(const String& name,
         function->m_entry.script_entry = (Function::ScriptEntry)&InterpreterComponent::interpreter;
     } else
         // Add function to entry->function map for future searching
-        m_entry_functions->put(*(void **)&entry, function);
+        m_entry_functions->put(*(void**)&entry, function);
     return function;
 }
 
 // Create object var in this program
-ObjectVar *Program::define_object_var(const String& name, ValueType type)
+ObjectVar* Program::define_object_var(const String& name, ValueType type)
 {
-    auto *object_var = XNEW(ObjectVar, this, name);
+    auto* object_var = XNEW(ObjectVar, this, name);
     object_var->m_type = type;
     object_var->m_no = (VariableNo)m_object_vars.size();
     m_object_vars.push_back(object_var);
@@ -388,7 +388,7 @@ ObjectVar *Program::define_object_var(const String& name, ValueType type)
 // Add a function to callee map
 // Public function -> public callee
 // Private function of this component + public function -> self callee
-void Program::add_callee(ComponentNo component_no, Function *function)
+void Program::add_callee(ComponentNo component_no, Function* function)
 {
     CalleeInfo info;
     info.component_no = component_no;
@@ -430,9 +430,9 @@ private:
 
 When init the program for this class:
 
-static Program *__clone_entity_ob::create_program()
+static Program* __clone_entity_ob::create_program()
 {
-    Program *program = new Program("/object/entity");
+    Program* program = new Program("/object/entity");
 
     program->define_object_var(...);
     ...
@@ -461,7 +461,7 @@ class __clone_entity
 {
 public:
     // Routine 0 of this component
-    Value print_hello(Value *__args, ArgNo __n)
+    Value print_hello(Value* __args, ArgNo __n)
     {
         ...
         printf("Hello! %s\n", call_far(1, 7).m_string->c_str()); // Component 1, routine 7 - /feature/name::get_name()
@@ -478,7 +478,7 @@ private:
 
 public:
     // Routine 0 of this component
-    Value set(Value *__args, ArgNo __n)
+    Value set(Value* __args, ArgNo __n)
     {
         ...
         m_dbase[__args[0]] = __args[1];
@@ -486,7 +486,7 @@ public:
     }
 
     // Routine 1 of this component
-    Value query(Value *__args, ArgNo __n)
+    Value query(Value* __args, ArgNo __n)
     {
         ...
         return m_dbase[__args[0]];
@@ -500,7 +500,7 @@ class __feature_name
     // Skip 6 routines
 
     // Routine 6 of this component
-    Value set_name(Value *__args, ArgNo __n)
+    Value set_name(Value* __args, ArgNo __n)
     {
         ...
         return call_far(1, 0, Value("name"), __args[0]); // Component 1, routine 0 - /feature/dbase::set()
@@ -508,7 +508,7 @@ class __feature_name
     }
 
     // Routine 7 of this component
-    Value get_name(Value *__args, ArgNo __n)
+    Value get_name(Value* __args, ArgNo __n)
     {
         ...
         return call_far(1, 1, Value("name")); // Component 1, routine 1 - /feature/dbase::query()
@@ -605,7 +605,7 @@ void Program::update_program()
     // Lookup program by name
     for (auto &it: m_components)
     {
-        auto *program = Program::find_program_by_name(it.program_name);
+        auto* program = Program::find_program_by_name(it.program_name);
         STD_ASSERT(("Program is not found.", program));
         it.program = program;
     }
@@ -620,7 +620,7 @@ void Program::update_program()
     size_t entire_object_size = offsetof(Object, m_object_vars);
     for (auto &it : m_components)
     {
-        auto *program = it.program;
+        auto* program = it.program;
         it.offset = (ComponentOffset)entire_object_size;
         entire_object_size += program->get_this_component_size();
     }
@@ -632,9 +632,9 @@ void Program::update_program()
 
 // Mark a reference value & all values to CONSTANT in this container
 // (if value is array or mapping)
-void Program::mark_constant(Value *value)
+void Program::mark_constant(Value* value)
 {
-    auto *reference = value->m_reference;
+    auto* reference = value->m_reference;
     if (reference->attrib & ReferenceImpl::CONSTANT)
         // It's already a constant value
         return;
@@ -642,7 +642,7 @@ void Program::mark_constant(Value *value)
     if (value->m_type == STRING)
     {
         // For string, move them into shared string pool
-        value->m_string = Program::find_or_add_string(*(String *)value);
+        value->m_string = Program::find_or_add_string(*(String*)value);
         return;
     }
 
@@ -654,7 +654,7 @@ void Program::mark_constant(Value *value)
     {
     case ARRAY:
         // Mark array elements
-        for (auto& it : ((ArrayImpl *)reference)->a)
+        for (auto& it : ((ArrayImpl*)reference)->a)
         {
             if (it.is_reference_value())
                 mark_constant(&it);
@@ -663,7 +663,7 @@ void Program::mark_constant(Value *value)
 
     case MAPPING:
         // Mark mapping pairs
-        for (auto& it : ((MapImpl *)reference)->m)
+        for (auto& it : ((MapImpl*)reference)->m)
         {
             if (it.first.is_reference_value())
                 mark_constant(&it.first);
@@ -684,7 +684,7 @@ void Program::mark_constant(Value *value)
 // Update all callees during updating program
 void Program::update_callees()
 {
-    simple::hash_map<StringImpl *, ComponentNo> component_no_map;
+    simple::hash_map<StringImpl*, ComponentNo> component_no_map;
 
     // Update "program" in Component info & build map: program->offset
     // Also calculate size of ComponentsNoMap
@@ -702,7 +702,7 @@ void Program::update_callees()
     m_components_no_map.reserve(components_no_map_size);
     for (auto &it: m_components)
     {
-        auto *program = it.program;
+        auto* program = it.program;
 
         // Start map this component
         m_components_map_offset.push_back((MapOffset)m_components_no_map.size());
@@ -733,24 +733,24 @@ void Program::update_callees()
 }
 
 // Create a new instance
-Object *Program::new_instance(Domain *domain)
+Object* Program::new_instance(Domain* domain)
 {
-    Thread *thread = Thread::get_current_thread();
-    Domain *prev_domain = thread->get_current_domain();
+    Thread* thread = Thread::get_current_thread();
+    Domain* prev_domain = thread->get_current_domain();
 
     thread->switch_domain(domain);
 
-    auto *ob = (Object*)STD_MEM_ALLOC(m_entire_object_size);
+    auto* ob = (Object*)STD_MEM_ALLOC(m_entire_object_size);
     if (ob)
     {
         // Initialize the object
-        memset((void *)ob, 0, m_entire_object_size);
+        memset((void*)ob, 0, m_entire_object_size);
         new (ob)Object();
         ob->m_program = this;
         // Set field ".program" for each component
         for (auto &it : m_components)
         {
-            auto *p = (AbstractComponent*)(((Uint8 *)ob) + it.offset);
+            auto* p = (AbstractComponent*)(((Uint8*)ob) + it.offset);
             p->m_program = it.program;
             // Initial all types
             for (auto &object_var : it.program->m_object_vars)
@@ -771,7 +771,7 @@ Object *Program::new_instance(Domain *domain)
 }
 
 // Invoke a function in program
-Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n) const
+Value Program::invoke(Thread* thread, ObjectId oid, const Value& function_name, Value* args, ArgNo n) const
 {
     CalleeInfo callee;
 
@@ -779,7 +779,7 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
         // Bad type of function name
         return Value(UNDEFINED);
 
-    if (!get_public_callee_by_name((String *)&function_name, &callee))
+    if (!get_public_callee_by_name((String*)&function_name, &callee))
         // No such function
         return Value(UNDEFINED);
 
@@ -788,10 +788,10 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
         return Value(UNDEFINED);
 
     // Call
-    auto *object = Object::get_object_by_id(oid);
+    auto* object = Object::get_object_by_id(oid);
     auto component_no = callee.component_no;
     ComponentOffset offset = m_components[component_no].offset;
-    auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
+    auto* component_impl = (AbstractComponent*)(((Uint8*)object) + offset);
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
 
     thread->push_call_context(object, callee.function, args, n, component_no);
@@ -804,7 +804,7 @@ Value Program::invoke(Thread *thread, ObjectId oid, const Value& function_name, 
 
 // Invoke self function
 // Call public function in this program OR private function of this component
-Value Program::invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n) const
+Value Program::invoke_self(Thread* thread, const Value& function_name, Value* args, ArgNo n) const
 {
     CalleeInfo callee;
 
@@ -813,17 +813,17 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
         return Value(UNDEFINED);
 
     // Get program of the current module
-    auto *object = thread->get_this_object();
+    auto* object = thread->get_this_object();
     auto component_no = thread->get_this_component_no();
-    auto *to_program = m_components[component_no].program;
+    auto* to_program = m_components[component_no].program;
 
-    if (!to_program->get_self_callee_by_name((String *)&function_name, &callee))
+    if (!to_program->get_self_callee_by_name((String*)&function_name, &callee))
         // No such function
         return Value(UNDEFINED);
 
     // Call
     ComponentOffset offset = m_components[component_no].offset;
-    auto *component_impl = (AbstractComponent *)(((Uint8 *)object) + offset);
+    auto* component_impl = (AbstractComponent*)(((Uint8*)object) + offset);
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
     thread->push_call_context(object, callee.function, args, n, component_no);
     Value ret = (component_impl->*func)(thread, args, n);
@@ -832,18 +832,18 @@ Value Program::invoke_self(Thread *thread, const Value& function_name, Value *ar
 }
 
 // Get program by name
-Program *Program::get_program_by_name(const Value& program_name)
+Program* Program::get_program_by_name(const Value& program_name)
 {
     if (program_name.m_type != ValueType::STRING)
         // Bad type of function name
         return NULL;
 
-    if (!convert_to_shared((String *)&program_name))
+    if (!convert_to_shared((String*)&program_name))
         // Not found in shared string, not a program name
         return NULL;
 
-    Program *program = 0;
-    m_name_programs->try_get(program_name.m_string, &program);
+    Program* program = 0;
+    m_name_programs->try_get(simple::raw_type(program_name.m_string), &program);
     return program;
 }
 

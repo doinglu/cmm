@@ -644,7 +644,7 @@ void Output::type_value_at(const Value *value, size_t ident)
     if (value->is_reference_value())
     {
         // Check loop
-        if (m_check_loop.contains(value->m_reference))
+        if (m_check_loop.contains(simple::raw_type(value->m_reference)))
         {
             // This value was already print, just print address
             add_char('<');
@@ -654,7 +654,7 @@ void Output::type_value_at(const Value *value, size_t ident)
             add_char('>');
             return;
         }
-        m_check_loop.put(value->m_reference);
+        m_check_loop.put(simple::raw_type(value->m_reference));
     }
 
     switch (value->m_type)

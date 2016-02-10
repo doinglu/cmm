@@ -149,7 +149,7 @@ Value Efun::invoke(Thread *thread, const Value& function_name, Value *args, ArgN
         return Value(UNDEFINED);
 
     Function *function;
-    if (!m_efun_map->try_get(function_name.m_string, &function))
+    if (!m_efun_map->try_get(simple::raw_type(function_name.m_string), &function))
         // Function is not found
         return Value(UNDEFINED);
 
@@ -177,7 +177,7 @@ Function* Efun::get_efun(const Value& function_name)
         return NULL;
 
     Function *function;
-    if (!m_efun_map->try_get(function_name.m_string, &function))
+    if (!m_efun_map->try_get(simple::raw_type(function_name.m_string), &function))
         // Function is not found
         return NULL;
 

@@ -243,13 +243,6 @@ struct AstVarType
     ValueType basic_var_type;       // basic variable type
     Uint8     var_attrib;           // variable attribute
 
-    // Get value type (MIXED if accept null, like int?)
-    ValueType get_value_type()
-    {
-        if (var_attrib & AST_VAR_MAY_NIL)
-            return MIXED;
-    }
-
     // Is this a const (readonly) varaible
     bool is_const()
     {

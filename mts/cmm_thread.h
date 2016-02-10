@@ -19,6 +19,13 @@ class Function;
 class Object;
 class Thread;
 
+// Reserve Values as local variables
+#define __RESERVE_LOCAL(n) \
+Value* __local = STD_ALLOCA(sizeof(Value)*(n)); \
+memset(__local, 0, sizeof(Value)*(n)); \
+_thread->get_this_call_context()->m_locals = __local; \
+_thread->get_this_call_context()->m_local_no = (LocalNo)n;
+
 // VM domain context
 // We save context when switching domain for tracing & GC (it needs to walk
 // through all domain contexts)
@@ -55,12 +62,13 @@ public:
 class CallContext
 {
 public:
-    Value      *m_args;
-    Value      *m_locals;
+    Value      *m_args;             // Arguments
+    Value      *m_locals;           // Local variables
     void       *m_function_or_entry;// Function or function entry (for local call only)
     Object     *m_this_object;      // This object of context
     ComponentNo m_component_no;     // Component no in this object
-    ArgNo       m_arg_no;           // Real arguments (valid only for RANDOM_ARG)
+    ArgNo       m_arg_no;           // Real arguments count (valid only for RANDOM_ARG)
+    LocalNo     m_local_no;         // Local variables count
 };
 
 // Define the node of DomainContext

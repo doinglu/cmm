@@ -10,7 +10,7 @@
 #include "std_port/std_port_mmap.h"
 #include <windows.h>
 
-void* std_mmap(void* address, size_t size, int flags)
+extern void* std_mmap(void* address, size_t size, int flags)
 {
     DWORD allocation_type = 0;
     DWORD protect = 0;

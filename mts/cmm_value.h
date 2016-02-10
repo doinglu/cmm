@@ -416,12 +416,12 @@ public:
         Real             m_real;
         IntPtr           m_intptr;
         ObjectId         m_oid;
-        ReferenceImpl   *m_reference;
-        StringImpl      *m_string;
-        BufferImpl      *m_buffer;
-        FunctionPtrImpl *m_function;
-        ArrayImpl       *m_array;
-        MapImpl         *m_map;
+        ReferenceImpl*   volatile m_reference;
+        StringImpl*      volatile m_string;
+        BufferImpl*      volatile m_buffer;
+        FunctionPtrImpl* volatile m_function;
+        ArrayImpl*       volatile m_array;
+        MapImpl*         volatile m_map;
     };
 };
 

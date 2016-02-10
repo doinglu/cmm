@@ -66,10 +66,10 @@ public:
     static Function* get_efun(const Value& function_name);
 
 private:
-    typedef simple::hash_map<StringImpl *, Program *> EfunPackage;
+    typedef simple::hash_map<StringImpl*, Program*> EfunPackage;
     static EfunPackage *m_efun_packages;
 
-    typedef simple::hash_map<StringImpl *, Function *> EfunMap;
+    typedef simple::hash_map<StringImpl*, Function*> EfunMap;
     static EfunMap *m_efun_map;
 };
 

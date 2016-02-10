@@ -30,7 +30,7 @@ struct Instruction;
 class AbstractComponent
 {
 public:
-    Program *m_program;  // The relative program
+    Program* m_program;  // The relative program
     Value m_object_vars[1]; // Object vars start from here
 };
 
@@ -47,7 +47,7 @@ public:
 	} Attrib;
 
 public:
-    SyntaxVariable(Function *function, const String& name, ValueType type, Attrib attrib);
+    SyntaxVariable(Function* function, const String& name, ValueType type, Attrib attrib);
 
 public:
     // Return the attribute of parameter
@@ -63,7 +63,7 @@ public:
     }
 
     // Return the name of parameter
-    const StringImpl *get_name()
+    const StringImpl* get_name()
     {
         return m_name;
     }
@@ -87,14 +87,14 @@ public:
     }
 
 private:
-	StringImpl *m_name;     // Point to string pools in Program
-    Function   *m_function; // Owner function
+	StringImpl* m_name;     // Point to string pools in Program
+    Function*   m_function; // Owner function
 	ValueType   m_type;     // Type of this argument
 	Attrib      m_attrib;   // Attrib of this parmeters
     Value       m_default;  // Default value (valid only for has_default())
 };
 
-class Variables : public simple::vector<SyntaxVariable *> { };
+class Variables : public simple::vector<SyntaxVariable*> { };
 typedef SyntaxVariable Parameter;
 typedef SyntaxVariable LocalVariable;
 typedef Variables Parameters;
@@ -118,9 +118,9 @@ public:
 
     // Types of entry routine
     // For script functions
-    typedef Value (AbstractComponent::*ScriptEntry)(Thread *, Value *, ArgNo);
+    typedef Value (AbstractComponent::*ScriptEntry)(Thread*, Value*, ArgNo);
     // For external functions
-    typedef Value (*EfunEntry)(Thread *, Value *, ArgNo);
+    typedef Value (*EfunEntry)(Thread*, Value*, ArgNo);
     struct Entry
     {
         Entry(int zero = 0) { script_entry = 0; }
@@ -135,15 +135,15 @@ public:
     };
 
 public:
-    Function(Program *program, const String& name);
+    Function(Program* program, const String& name);
     ~Function();
 
 public:
     // Create local variable definition in function
-    LocalVariable *define_local_variable(const String& name, ValueType type, LocalVariable::Attrib attrib = (LocalVariable::Attrib)0);
+    LocalVariable* define_local_variable(const String& name, ValueType type, LocalVariable::Attrib attrib = (LocalVariable::Attrib)0);
 
     // Create parameter definition in function
-    Parameter *define_parameter(const String& name, ValueType type, Parameter::Attrib attrib = (Parameter::Attrib)0);
+    Parameter* define_parameter(const String& name, ValueType type, Parameter::Attrib attrib = (Parameter::Attrib)0);
 
     // Define the return type
     void define_ret_type(ValueType type, SyntaxVariable::Attrib attrib = (SyntaxVariable::Attrib)0)
@@ -157,7 +157,7 @@ public:
     bool finish_adding_parameters();
 
     // Get byte codes address
-    const Instruction *get_byte_codes_addr() const;
+    const Instruction* get_byte_codes_addr() const;
 
     // Reserve local space
     void reserve_local(LocalNo count)
@@ -166,7 +166,7 @@ public:
     }
 
     // Set byte codes
-    void set_byte_codes(Instruction *codes, size_t len);
+    void set_byte_codes(Instruction* codes, size_t len);
 
 public:
     // Get attribute
@@ -208,7 +208,7 @@ public:
     }
 
     // Get the function name
-    StringImpl *get_name() const
+    StringImpl* get_name() const
     {
         return m_name;
     }
@@ -220,7 +220,7 @@ public:
     }
 
     // Get program
-    const Program *get_program() const
+    const Program* get_program() const
     {
         return m_program;
     }
@@ -256,8 +256,8 @@ public:
     }
 
 private:
-    StringImpl *m_name;
-    Program    *m_program;
+    StringImpl* m_name;
+    Program*    m_program;
     Attrib      m_attrib;
     ArgNo       m_min_arg_no;
 	ArgNo       m_max_arg_no;
@@ -282,11 +282,11 @@ class ObjectVar
 friend Program;
 
 public:
-    ObjectVar(Program *program, const String& name);
+    ObjectVar(Program* program, const String& name);
 
 private:
-    StringImpl  *m_name;
-    Program     *m_program;
+    StringImpl*  m_name;
+    Program*     m_program;
     ValueType    m_type;
     VariableNo   m_no;
 };
@@ -301,20 +301,20 @@ public:
         INTERPRETED = 0x8000,           // This is a interpreted program
     } Attrib;
 
-    typedef Object *(*NewInstanceFunc)();
+    typedef Object*(*NewInstanceFunc)();
 
     // Callee info of a function in program
     struct CalleeInfo
     {
-        Function *function;
+        Function* function;
         ComponentNo component_no;
     };
 
     // Component info
     struct ComponentInfo
     {
-        StringImpl *program_name;
-        Program *program;
+        StringImpl* program_name;
+        Program* program;
         ComponentOffset offset;
     };
 
@@ -333,27 +333,27 @@ public:
     static bool convert_to_shared(const String* string);
         
     // Find or add a string into pool
-    static StringImpl *find_or_add_string(const String& string);
+    static StringImpl* find_or_add_string(const String& string);
 
     // Find or add a string into pool
-    static StringImpl *find_or_add_string(const char* c_str);
+    static StringImpl* find_or_add_string(const char* c_str);
 
     // Find string in pool (return 0 if not found)
-    static StringImpl *find_string(const String& string);
+    static StringImpl* find_string(const String& string);
 
     // Find string in pool (return 0 if not found)
-    static StringImpl *find_string(const char* c_str);
+    static StringImpl* find_string(const char* c_str);
 
     // Find a program by name (shared string)
     // The string.m_string would be updated if found in pool
-    static Program *find_program_by_name(const String& program_name);
+    static Program* find_program_by_name(const String& program_name);
 
     // Update callees of all programs
     static void update_all_programs();
 
 public:
     // Create an interpreter component
-    static Object *new_interpreter_component();
+    static Object* new_interpreter_component();
 
 public:
     // Is this program compiled to native class?
@@ -376,17 +376,17 @@ public:
     void define_object(size_t object_size);
 
     // Create function definition in this program
-    Function *define_function(const String& name,
+    Function* define_function(const String& name,
                               Function::Entry entry,
                               ArgNo min_arg_no = 0, ArgNo max_arg_no = 0,
                               Function::Attrib attrib = (Function::Attrib)0);
 
     // Create object var definition in this program
-    ObjectVar *define_object_var(const String& name, ValueType type);
+    ObjectVar* define_object_var(const String& name, ValueType type);
 
 public:
     // Add a function to public callee map
-    void add_callee(ComponentNo component_no, Function *function);
+    void add_callee(ComponentNo component_no, Function* function);
 
     // Add component in this program
     void add_component(const String& program_name);
@@ -403,14 +403,14 @@ public:
 private:
     // Mark a reference value & all values to CONSTANT in this container
     // (if value is array or mapping)
-    void mark_constant(Value *value);
+    void mark_constant(Value* value);
         
     // Update all callees during updating program
     void update_callees();
 
 public:
     // Get component by component no
-    Program *get_component(ComponentNo component_no) const
+    Program* get_component(ComponentNo component_no) const
     {
         return m_components[component_no].program;
     }
@@ -422,7 +422,7 @@ public:
     }
 
     // Get constant by index
-    Value *get_constant(ConstantIndex index) const
+    Value* get_constant(ConstantIndex index) const
     {
         return m_constants.get_array_address(index);
     }
@@ -434,7 +434,7 @@ public:
     }
 
     // Get function by function no
-    Function *get_function(FunctionNo function_no) const
+    Function* get_function(FunctionNo function_no) const
     {
         return m_functions[function_no];
     }
@@ -448,7 +448,7 @@ public:
     }
 
     // Get object var by index
-    const ObjectVar *get_object_var(VariableNo no) const
+    const ObjectVar* get_object_var(VariableNo no) const
     {
         return m_object_vars[no];
     }
@@ -460,7 +460,7 @@ public:
     }
 
     // Get name
-    StringImpl *get_name() const
+    StringImpl* get_name() const
     {
         return m_name;
     }
@@ -479,7 +479,7 @@ public:
 
     // Get callee by name (access by public)
     // Update name to shared string if found
-    bool get_public_callee_by_name(const String *name, CalleeInfo *ptr_info) const
+    bool get_public_callee_by_name(const String* name, CalleeInfo* ptr_info) const
     {
         if (!Program::convert_to_shared(name))
             // This string is not in pool, not such callee
@@ -489,7 +489,7 @@ public:
 
     // Get callee by name (access by this component)
     // Update name to shared string if found
-    bool get_self_callee_by_name(const String *name, CalleeInfo *ptr_info) const
+    bool get_self_callee_by_name(const String* name, CalleeInfo* ptr_info) const
     {
         if (!Program::convert_to_shared(name))
             // This string is not in pool, not such callee
@@ -498,53 +498,53 @@ public:
     }
 
     // Create a new instance
-    Object *new_instance(Domain *domain);
+    Object* new_instance(Domain* domain);
 
     // Invoke routine
     // function_name may be modified to shared string, IGNORE the const
     // ATTENTION: Must use Value for input parameter to avoid constructor String(),
     // or the modification of function_name (to lookup shared) would be useless.
-    Value invoke(Thread *thread, ObjectId oid, const Value& function_name, Value *args, ArgNo n) const;
+    Value invoke(Thread* thread, ObjectId oid, const Value& function_name, Value* args, ArgNo n) const;
 
     // Invoke routine can be accessed by self component
     // See ATTENTION of invoke
-    Value invoke_self(Thread *thread, const Value& function_name, Value *args, ArgNo n) const;
+    Value invoke_self(Thread* thread, const Value& function_name, Value* args, ArgNo n) const;
 
 public:
     // Get function by entry
-    static Function *get_function_by_entry(void *function_or_entry)
+    static Function* get_function_by_entry(void* function_or_entry)
     {
-        Function *function;
+        Function* function;
         if (!m_entry_functions->try_get(function_or_entry, &function))
-            function = (Function *)function_or_entry;
+            function = (Function*)function_or_entry;
         return function;
     }
 
     // Get program by name
-    static Program *get_program_by_name(const Value& program_name);
+    static Program* get_program_by_name(const Value& program_name);
 
 private:
     // All constant strings of programs
-    static StringPool *m_string_pool;
+    static StringPool* m_string_pool;
 
     // Function entry -> function map
-    typedef simple::hash_map<void *, Function *> FunctionEntryMap;
-    static FunctionEntryMap *m_entry_functions;
+    typedef simple::hash_map<void*, Function*> FunctionEntryMap;
+    static FunctionEntryMap* m_entry_functions;
 
     // Program name -> program map
-    typedef simple::hash_map<StringImpl *, Program *> ProgramNameMap;
-    static ProgramNameMap *m_name_programs;
+    typedef simple::hash_map<StringImpl*, Program*> ProgramNameMap;
+    static ProgramNameMap* m_name_programs;
 
     // Obsoleted programs
-    typedef simple::hash_set<Program *> ObsoletedProgramSet;
-    static ObsoletedProgramSet *m_obsoleted_programs;
+    typedef simple::hash_set<Program*> ObsoletedProgramSet;
+    static ObsoletedProgramSet* m_obsoleted_programs;
 
     // Critical Section for access
-    static struct std_critical_section *m_program_cs;
+    static struct std_critical_section* m_program_cs;
 
 private:
     Attrib m_attrib;
-    StringImpl *m_name;
+    StringImpl* m_name;
     size_t m_entire_object_size;
     size_t m_this_component_size;
 
@@ -567,13 +567,13 @@ private:
     simple::unsafe_vector<MMMValue> m_constants;
 
     // All functions defined this program (those defined in component not included) 
-    simple::unsafe_vector<Function *> m_functions;
+    simple::unsafe_vector<Function*> m_functions;
 
     // All object vars defined this program (those defined in component not included) 
-    simple::unsafe_vector<ObjectVar *> m_object_vars;
+    simple::unsafe_vector<ObjectVar*> m_object_vars;
 
     // Callees map by function name
-    typedef simple::hash_map<StringImpl *, CalleeInfo> CalleInfoMap;
+    typedef simple::hash_map<StringImpl*, CalleeInfo> CalleInfoMap;
     CalleInfoMap m_public_callees;  // Can be accessed by public
     CalleInfoMap m_self_callees;    // Only can be accessed by self
 };
