@@ -55,7 +55,9 @@ public:
         attrib(0),
         hash_cache(0),
         owner(0),
+#if USE_VECTOR_IN_VALUE_LIST
         offset(0),
+#endif
         next(0)
 	{
 	}
@@ -111,7 +113,9 @@ public:
     Uint attrib;             // 32bits only (Don't use enum)
     mutable Uint hash_cache; // Cache of hash value
     ValueList *owner;        // Owned by domain or thread
-    size_t offset;           // Offset in owner value list
+#if USE_VECTOR_IN_VALUE_LIST
+    size_t offset;           // Offset of value in value list
+#endif
     ReferenceImpl *next;     // Next value in list
 };
 

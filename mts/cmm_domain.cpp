@@ -181,27 +181,28 @@ void Domain::gc_internal()
     auto e1 = std_get_current_us_counter();////----
     ////----printf("GC mark: %zuus.\n", (size_t)(e1 - b1));////----
 
+#if USE_VECTOR_IN_VALUE_LIST
     // Free all non-refered values & regenerate value list
-    ReferenceImpl** head_address = state.list->get_head_address();
+    ReferenceImpl** head_address = state.value_list->get_head_address();
     // Sort state.list to
     // [Valid] [Valid] .... [Valid] [Free] [Free] ... [Free]
     // 0                            offset              size()
     size_t offset = 0;
-    size_t size = state.list->get_list().size();
+    size_t size = state.value_list->get_count();
     for (auto i = 0; i < size; i++)
     {
         auto* p = head_address[i];
         if (p->owner == 0)
         {
             // Swap valid [i] with [offset]
-            p->owner = state.list;
+            p->owner = state.value_list;
             p->offset = offset;
             head_address[offset]->offset = i;
             simple::swap(head_address[offset], head_address[i]);
             offset++;
-            continue;
         }
     }
+
     for (auto i = offset; i < size; i++)
     {
         if (head_address[i])
@@ -211,8 +212,26 @@ void Domain::gc_internal()
             XDELETE(head_address[i]);
         }
     }
-    STD_ASSERT(("Value list is not correct after GC.", state.list->get_list().size() >= offset));
-    state.list->get_list().shrink(offset);
+    STD_ASSERT(("Value list is not correct after GC.", state.container->size() >= offset));
+    state.container->shrink(offset);
+#else
+    auto& list = m_value_list.get_container();
+    for (auto it = list.begin(); it != list.end();)
+    {
+        auto* p = *it;
+        if (p->owner != 0)
+        {
+            // Unused, free it
+            p->owner = 0;
+            XDELETE(p);
+            list.erase(it);
+            continue;
+        } else
+            // Set back to owner
+            p->owner = &m_value_list;
+        ++it;
+    }
+#endif
 
     // Reset gc counter
     m_gc_counter = m_value_list.get_count();
