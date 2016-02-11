@@ -1,37 +1,41 @@
-// simple_alloc.h
+// simple_allocator.h
+// Initial version by doing
 
 #pragma once
-
-#include "simple_memory.h"
 
 namespace simple
 {
 
-struct XAlloc
+class Allocator
 {
+public:
     template <typename T, typename... Types>
-    static T* new1(const char *file, int line, Types&&... args)
+    T* new1(const char *file, int line, Types&&... args)
     {
         return xnew<T>(file, line, simple::forward<Types>(args)...);
     }
 
     template<typename T>
-    static void delete1(const char *file, int line, T *p)
+    void delete1(const char *file, int line, T *p)
     {
         xdelete<T>(file, line, p);
     }
 
     template<typename T>
-    static T* newn(const char *file, int line, size_t n)
+    T* newn(const char *file, int line, size_t n)
     {
         return xnew_arr<T>(file, line, n);
     }
 
     template<typename T>
-    static void deleten(const char *file, int line, T *p)
+    void deleten(const char *file, int line, T *p)
     {
         xdelete_arr<T>(file, line, p);
     }
+
+public:
+    // Default allocator
+    static Allocator g;
 };
 
 } // End of namespace: simple

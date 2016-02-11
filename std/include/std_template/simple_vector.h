@@ -9,53 +9,57 @@
 namespace simple
 {
 
-template <typename T, typename Alloc>
+template <typename T>
 class vector_iterator;
 
-template <typename T, typename Alloc = XAlloc>
+template <typename T>
 class vector
 {
 public:
-    typedef vector_iterator<T, Alloc> iterator;
+    typedef vector_iterator<T> iterator;
     friend iterator;
 
 public:
     vector(const vector &vec) :
-        vector(vec.m_space)
+        vector(vec.m_space, vec.m_allocator)
     {
         *this = vec;
     }
 
-    vector(vector&& vec)
+    vector(vector&& vec, Allocator* allocator = &Allocator::g)
     {
+        m_allocator = allocator;
         m_array = 0;
         *this = simple::move(vec);
     }
 
     // Construct from T[] with size
-    vector(const T *arr, size_t count)
+    vector(const T *arr, size_t count, Allocator* allocator = &Allocator::g)
     {
+        m_allocator = allocator;
         m_space = count;
         m_size = count;
-        m_array = Alloc::template newn<T>(__FILE__, __LINE__, count);
+        m_array = m_allocator->template newn<T>(__FILE__, __LINE__, count);
         for (size_t i = 0; i < count; i++)
             m_array[i] = arr[i];
     }
 
-    vector(size_t capacity = 8)
+    vector(size_t capacity = 8, Allocator* allocator = &Allocator::g)
     {
+        m_allocator = allocator;
+
         // Allocate an empty array with reserved space
         if (capacity < 1)
             capacity = 1;
         m_space = capacity;
-        m_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
+        m_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
         m_size = 0;
     }
 
     ~vector()
     {
         if (m_array)
-            Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
+            m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
         STD_DEBUG_SET_NULL(m_array);
     }
 
@@ -64,9 +68,9 @@ public:
         if (m_space < vec.size())
         {
             // Reallocate array
-            Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
+            m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
             m_space = vec.size();
-            m_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
+            m_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
         }
 
         m_size = vec.size();
@@ -78,8 +82,12 @@ public:
 
     vector& operator = (vector&& vec)
     {
+        if (m_allocator != vec.m_allocator)
+            // Not same allocator, do copy
+            return *this = vec;
+
         if (m_array)
-            Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
+            m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
 
         // Steal m_array from vec
         m_space = vec.m_space;
@@ -116,10 +124,10 @@ public:
         m_space *= 2;
         if (m_space < 8)
             m_space = 8;
-        new_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
+        new_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
         for (size_t i = 0; i < m_size; i++)
             new_array[i] = simple::move(m_array[i]);
-        Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
+        m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
         m_array = new_array;
     }
 
@@ -139,10 +147,10 @@ public:
 
         T *new_array;
         m_space = to;
-        new_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
+        new_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
         for (size_t i = 0; i < m_size; i++)
             new_array[i] = simple::move(m_array[i]);
-        Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
+        m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
         m_array = new_array;
     }
 
@@ -164,10 +172,10 @@ public:
             if (to < 8)
                 to = 8;
             m_space = to;
-            new_array = Alloc::template newn<T>(__FILE__, __LINE__, m_space);
+            new_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
             for (size_t i = 0; i < m_size; i++)
                 new_array[i] = simple::move(m_array[i]);
-            Alloc::template deleten<T>(__FILE__, __LINE__, m_array);
+            m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
             m_array = new_array;
         }
     }
@@ -282,15 +290,16 @@ public:
 
 private:
     // hash table
-    T     *m_array;
-    size_t m_size, m_space;
+    Allocator *m_allocator;
+    T         *m_array;
+    size_t     m_size, m_space;
 };
 
 // Iterator of container
-template<typename T, typename Alloc>
+template<typename T>
 class vector_iterator
 {
-    typedef vector<T, Alloc> vector_type;
+    typedef vector<T> vector_type;
     typedef T value_type;
     friend vector_type;
 
@@ -374,26 +383,26 @@ private:
 };
 
 // Unsafe vector (don't do bound check when index)
-template<typename T, typename Alloc = XAlloc>
-class unsafe_vector : public vector<T, Alloc>
+template<typename T>
+class unsafe_vector : public vector<T>
 {
 public:
-    unsafe_vector(size_t capacity = 8) :
-        vector<T, Alloc>(capacity)
+    unsafe_vector(size_t capacity = 8, Allocator* allocator = &Allocator::g) :
+        vector<T>(capacity, allocator)
     {
     }
 
     T& operator [] (size_t index) const
     {
         STD_ASSERT(index < size());
-        return vector<T, Alloc>::get_array_unsafe()[index];
+        return vector<T>::get_array_unsafe()[index];
     }
 
     // Return the address of element index
     T *get_array_address(size_t index) const
     {
         STD_ASSERT(index <= size());
-        return &vector<T, Alloc>::get_array_unsafe()[index];
+        return &vector<T>::get_array_unsafe()[index];
     }
 };
 

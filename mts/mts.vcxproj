@@ -171,7 +171,8 @@
     <ClInclude Include="..\std\include\std_socket\std_socket_bsd_errno.h" />
     <ClInclude Include="..\std\include\std_socket\std_socket_port.h" />
     <ClInclude Include="..\std\include\std_template\simple.h" />
-    <ClInclude Include="..\std\include\std_template\simple_alloc.h" />
+    <ClInclude Include="..\std\include\std_template\simple_allocator.h" />
+    <ClInclude Include="..\std\include\std_template\simple_hash_base.h" />
     <ClInclude Include="..\std\include\std_template\simple_hash_map.h" />
     <ClInclude Include="..\std\include\std_template\simple_hash_set.h" />
     <ClInclude Include="..\std\include\std_template\simple_list.h" />
@@ -268,6 +269,7 @@
     <ClCompile Include="..\std\src\std_socket\std_os_socket_linux.c" />
     <ClCompile Include="..\std\src\std_socket\std_os_socket_win32.c" />
     <ClCompile Include="..\std\src\std_socket\std_socket_port.c" />
+    <ClCompile Include="..\std\src\std_template\simple_allocator.cpp" />
     <ClCompile Include="..\std\src\std_template\simple_string.cpp" />
     <ClCompile Include="a_desc_2.h" />
     <ClCompile Include="a_entity_2.h" />

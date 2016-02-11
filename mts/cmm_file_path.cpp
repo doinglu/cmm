@@ -27,14 +27,14 @@ std_critical_section_t* FilePath::m_cs = NULL;
 bool FilePath::init()
 {
     std_new_critical_section(&m_cs);
-    m_mount_nodes = new MountNodes();
+    m_mount_nodes = XNEW(MountNodes);
     return true;
 }
 
 void FilePath::shutdown()
 {
     std_delete_critical_section(m_cs);
-    delete m_mount_nodes;
+    XDELETE(m_mount_nodes);
 }
 
 // Get the root directory

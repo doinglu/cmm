@@ -1,4 +1,5 @@
 // simple_string.c
+// Initial version by doing
 
 #include <stdarg.h>
 #include <stdio.h>

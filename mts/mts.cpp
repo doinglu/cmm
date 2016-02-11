@@ -197,7 +197,7 @@ void test_gc()
 
 void tgc()
 {
-    typedef simple::vector<int, GCAlloc> VVV;
+    typedef simple::vector<int> VVV;
     auto* p = XNEW(MapImpl);
     Value v = Value(p);
     XDELETE(p);

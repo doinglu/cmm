@@ -128,7 +128,7 @@ public:
     bool m_will_treat_warnings_as_errors;
 
     // context state
-    simple::vector<AstNode*, GCAlloc> m_loop_switches;
+    simple::vector<AstNode*> m_loop_switches;
 
     // the depth of loop
     Uint32 m_loop_depth;

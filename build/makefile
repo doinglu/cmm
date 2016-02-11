@@ -27,7 +27,9 @@ STD_SOCKET_SRCS := $(notdir $(shell ls ../std/src/std_socket/*.c))
 STD_OBJS := \
   $(addprefix std/src/std_port/, $(addsuffix .o, $(basename $(STD_PORT_SRCS)))) \
   $(addprefix std/src/std_socket/, $(addsuffix .o, $(basename $(SRD_SOCKET_SRCS)))) \
-  std/src/std_memmgr/std_memmgr.o std/src/std_template/simple_string.o
+  std/src/std_memmgr/std_memmgr.o \
+  std/src/std_template/simple_string.o \
+  std/src/std_template/simple_allocator.o
 
 a.out : $(OBJS) $(STD_OBJS)
 	@echo $(STD_SRCS)

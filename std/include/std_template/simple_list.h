@@ -192,7 +192,7 @@ protected:
     size_t m_size;
 };
 
-template <typename T, typename Alloc = XAlloc>
+template <typename T>
 class list : public manual_list<T>
 {
     typedef manual_list<T> base;
@@ -200,17 +200,20 @@ class list : public manual_list<T>
     typedef typename base::node node;
 
 public:
-    list()
+    list(Allocator* allocator = &Allocator::g) :
+        m_allocator(allocator)
     {
     }
 
     list(const list &other)
     {
+        m_allocator = other.m_allocator;
         *this = other;
     }
 
     list(list&& other)
     {
+        m_allocator = other.m_allocator;
         *this = simple::move(other);
     }
 
@@ -243,6 +246,10 @@ public:
 
     list& operator = (list&& other)
     {
+        if (m_allocator != other.m_allocator)
+            // Not same allocator, do copy
+            return *this = other;
+
         base::m_size = other.m_size;
         if (base::m_size == 0)
         {
@@ -273,7 +280,7 @@ public:
         {
             node *this_node = p;
             p = p->next;
-            Alloc::template delete1<node>(__FILE__, __LINE__, this_node);
+            m_allocator->template delete1<node>(__FILE__, __LINE__, this_node);
         }
 
         // Reset list
@@ -285,42 +292,42 @@ public:
     // Insert before
     void insert_before(iterator it, const T& element)
     {
-        node *p = Alloc::template new1<node>(__FILE__, __LINE__, element);
+        node *p = m_allocator->template new1<node>(__FILE__, __LINE__, element);
         insert_node_before(it, p);
     }
 
     // Insert before
     void insert_before(iterator it, T&& element)
     {
-        node *p = Alloc::template new1<node>(__FILE__, __LINE__, simple::move(element));
+        node *p = m_allocator->template new1<node>(__FILE__, __LINE__, simple::move(element));
         insert_node_before(it, p);
     }
 
     // Insert after
     void insert_after(iterator it, const T& element)
     {
-        node *p = Alloc::template new1<node>(__FILE__, __LINE__, element);
+        node *p = m_allocator->template new1<node>(__FILE__, __LINE__, element);
         insert_node_after(it, p);
     }
 
     // Insert after
     void insert_after(iterator it, T&& element)
     {
-        node *p = Alloc::template new1<node>(__FILE__, __LINE__, simple::move(element));
+        node *p = m_allocator->template new1<node>(__FILE__, __LINE__, simple::move(element));
         insert_node_after(it, p);
     }
 
     // Append element @ tail
     void append(const T& element)
     {
-        node *p = Alloc::template new1<node>(__FILE__, __LINE__, element);
+        node *p = m_allocator->template new1<node>(__FILE__, __LINE__, element);
         this->append_node(p);
     }
 
     // Append element @ tail
     void append(T&& element)
     {
-        node *p = Alloc::template new1<node>(__FILE__, __LINE__, simple::move(element));
+        node *p = m_allocator->template new1<node>(__FILE__, __LINE__, simple::move(element));
         this->append_node(p);
     }
 
@@ -336,8 +343,11 @@ public:
     // Remove an element @ it
     void remove(iterator& it)
     {
-        Alloc::template delete1<node>(__FILE__, __LINE__, this->remove_node(it.get_node()));
+        m_allocator->template delete1<node>(__FILE__, __LINE__, this->remove_node(it.get_node()));
     }
+
+private:
+    Allocator* m_allocator;
 };
 
 // Iterator of container
