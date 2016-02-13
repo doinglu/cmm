@@ -1,4 +1,4 @@
-// simple_memory.h
+// simple_xnew.h
 
 #pragma once
 
@@ -19,6 +19,8 @@ template <typename T, typename... Types>
 inline T* xnew(const char* file, int line, Types&&... args)
 {
     T* p = (T*)std_allocate_memory(sizeof(T), "simple", file, line);
+    if (!p)
+        return 0;
     new (p) T(simple::forward<Types>(args)...);
     return p;
 }
@@ -40,10 +42,14 @@ T* xnew_arr(const char* file, int line, size_t n)
 {
     STD_ASSERT(("Invalid RESERVE_FOR_ARRAY, too small.", RESERVE_FOR_ARRAY >= sizeof(size_t) * 2));
     char* b = (char*)std_allocate_memory(RESERVE_FOR_ARRAY + n * sizeof(T), "simple", file, line);
-    ((size_t*) b)[0] = n;
-    ((size_t*) b)[1] = RESERVE_STAMP;
+    if (!b)
+        return 0;
+    auto& count = ((size_t*) b)[0];
+    auto& stamp = ((size_t*) b)[1];
+    count = 0;
+    stamp = RESERVE_STAMP;
     T* p = (T*)(b + RESERVE_FOR_ARRAY);
-    for (size_t i = 0; i < n; i++, p++)
+    for (count = 0; count < n; count++, p++)
         new (p) T();
     return (T*)(b + RESERVE_FOR_ARRAY);
 }

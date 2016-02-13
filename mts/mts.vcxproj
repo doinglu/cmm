@@ -176,7 +176,7 @@
     <ClInclude Include="..\std\include\std_template\simple_hash_map.h" />
     <ClInclude Include="..\std\include\std_template\simple_hash_set.h" />
     <ClInclude Include="..\std\include\std_template\simple_list.h" />
-    <ClInclude Include="..\std\include\std_template\simple_memory.h" />
+    <ClInclude Include="..\std\include\std_template\simple_xnew.h" />
     <ClInclude Include="..\std\include\std_template\simple_pair.h" />
     <ClInclude Include="..\std\include\std_template\simple_shared_ptr.h" />
     <ClInclude Include="..\std\include\std_template\simple_string.h" />
@@ -197,8 +197,9 @@
     <ClInclude Include="cmm_error.h" />
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_grammar.h" />
-    <ClInclude Include="cmm_memory.h" />
+    <ClInclude Include="cmm_init_mmgr.h" />
     <ClInclude Include="cmm_memory_pool.h" />
+    <ClInclude Include="cmm_mem_list.h" />
     <ClInclude Include="cmm_mmm_value.h" />
     <ClInclude Include="cmm_shell.h" />
     <ClInclude Include="cmm_vm.h" />
@@ -286,7 +287,7 @@
     <ClCompile Include="cmm_lang_pass1.cpp" />
     <ClCompile Include="cmm_lang_pass2.cpp" />
     <ClCompile Include="cmm_lang_symbols.cpp" />
-    <ClCompile Include="cmm_memory.cpp" />
+    <ClCompile Include="cmm_init_mmgr.cpp" />
     <ClCompile Include="cmm_memory_pool.cpp" />
     <ClCompile Include="cmm_shell.cpp" />
     <ClCompile Include="cmm_value_oper.cpp" />

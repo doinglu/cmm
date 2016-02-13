@@ -9,7 +9,7 @@
 namespace simple
 {
 
-template <typename T>
+template <typename T, typename N>
 class list_iterator;
 
 template <typename T>
@@ -28,18 +28,12 @@ struct list_node
 
 // The list node is manual list should be operated manually by user
 // User create & free node
-template <typename T>
+template <typename T, typename N = list_node<T> >
 class manual_list
 {
-    struct stub_node
-    {
-        struct stub_node *next;
-        struct stub_node *prev;
-    };
-
 public:
-    typedef list_iterator<T> iterator;
-    typedef list_node<T> node;
+    typedef list_iterator<T, N> iterator;
+    typedef N node;
     friend iterator;
 
 public:
@@ -49,10 +43,10 @@ public:
         m_size(0)
     {
         // Initialize stub nodes
-        m_begin_stub.prev = 0;
-        m_begin_stub.next = &m_end_stub;
-        m_end_stub.prev = &m_begin_stub;
-        m_end_stub.next = 0;
+        ((node*)&m_begin_stub)->prev = 0;
+        ((node*)&m_begin_stub)->next = (node*)&m_end_stub;
+        ((node*)&m_end_stub)->prev = (node*)&m_begin_stub;
+        ((node*)&m_end_stub)->next = 0;
     }
 
     manual_list& operator = (const manual_list& other)
@@ -82,6 +76,14 @@ public:
         return p->value;
     }
 
+    // Clear all elements
+    void clear()
+    {
+        m_head = (node *)&m_begin_stub;
+        m_tail = (node *)&m_end_stub;
+        m_size = 0;
+    }
+        
     // Find element in manual_list
     iterator find(const T& element)
     {
@@ -187,15 +189,15 @@ public:
 
 protected:
     // hash table
-    stub_node m_begin_stub, m_end_stub;
+    char m_begin_stub[sizeof(node)], m_end_stub[sizeof(node)];
     node *m_head, *m_tail;
     size_t m_size;
 };
 
-template <typename T>
+template <typename T, typename N = list_node<T> >
 class list : public manual_list<T>
 {
-    typedef manual_list<T> base;
+    typedef manual_list<T, N> base;
     typedef typename base::iterator iterator;
     typedef typename base::node node;
 
@@ -351,12 +353,12 @@ private:
 };
 
 // Iterator of container
-template<typename T>
+template<typename T, typename N = list_node<T> >
 class list_iterator
 {
-    typedef manual_list<T> list_type;
+    typedef manual_list<T, N> list_type;
     typedef T value_type;
-    typedef list_node<T> node;
+    typedef N node;
     friend list_type;
 
 public:

@@ -12,18 +12,25 @@ namespace simple
 typedef char char_t;
 typedef unsigned char uchar_t;
 
+enum reserve_space
+{
+    EMPTY
+};
+
 class string
 {
     enum
     {
-        ShortStringLen = 8,
+        SHORT_STRING_LEN = 8,
     };
 
 public:
     typedef unsigned int string_hash_t;
     typedef unsigned int string_size_t;
 
-    string(size_t size)
+    // ATTENTION:
+    // Argument unused is to prevent this class being constructed from size_t 
+    string(reserve_space unused, size_t size)
     {
         set_length(size);
         data_ptr()[0] = 0;
@@ -104,12 +111,24 @@ public:
     string operator + (const string& s) const
     {
         size_t new_len = this->m_len + s.m_len;
-        string new_str(new_len);
+        string new_str(reserve_space::EMPTY, new_len);
 
         char_t *new_p = new_str.data_ptr();
         memcpy(new_p, this->data_ptr(), this->m_len * sizeof(char_t));
         memcpy(new_p + this->m_len, s.data_ptr(), (s.m_len + 1) * sizeof(char_t));
         return simple::move(new_str);
+    }
+
+    // Concat
+    string& operator += (const string& s)
+    {
+        size_t new_len = this->m_len + s.m_len;
+        string new_str(reserve_space::EMPTY, new_len);
+
+        char_t *new_p = new_str.data_ptr();
+        memcpy(new_p, this->data_ptr(), this->m_len * sizeof(char_t));
+        memcpy(new_p + this->m_len, s.data_ptr(), (s.m_len + 1) * sizeof(char_t));
+        return *this = simple::move(new_str);
     }
 
     char_t operator [](size_t index) const
@@ -158,7 +177,7 @@ public:
 private:
     bool is_dynamic_allocated() const
     {
-        return m_len >= ShortStringLen;
+        return m_len >= SHORT_STRING_LEN;
     }
 
     char_t *data_ptr() const
@@ -181,7 +200,7 @@ private:
     union
     {
         char_t *m_alloc;
-        char_t  m_buf[ShortStringLen];
+        char_t  m_buf[SHORT_STRING_LEN];
     };
 };
 
@@ -194,9 +213,29 @@ inline bool operator == (const string& s1, const string& s2)
     return s1.compare(s2) == 0;
 }
 
+inline bool operator != (const string& s1, const string& s2)
+{
+    return s1.compare(s2) != 0;
+}
+
 inline bool operator < (const string& s1, const string& s2)
 {
     return s1.compare(s2) < 0;
+}
+
+inline bool operator <= (const string& s1, const string& s2)
+{
+    return s1.compare(s2) <= 0;
+}
+
+inline bool operator > (const string& s1, const string& s2)
+{
+    return s1.compare(s2) > 0;
+}
+
+inline bool operator >= (const string& s1, const string& s2)
+{
+    return s1.compare(s2) >= 0;
 }
 
 } // End of namespace: simple

@@ -56,19 +56,20 @@ BufferImpl *buffer_new(const char *file, int line, Types&&... args)
 
     // Build array info head
     auto *info = (BufferImpl::ArrInfo *)buffer->data();
-    info->n = 1;
+    info->n = 0;
     info->size = (Uint32)sizeof(T);
     info->stamp = BufferImpl::CLASS_1_STAMP;
+
+    // Save constructor/destructor
+    void(*constructor)(T *, const T *) = [](T *me, const T *other) { new (me) T(*other); };
+    void(*destructor)(T *) = [](T *me) { me->~T(); };
+    buffer->constructor = (BufferImpl::ConstructFunc)constructor;
+    buffer->destructor = (BufferImpl::DestructFunc)destructor;
 
     // Construct the class T
     Uint8 *ptr_class = (Uint8 *)(info + 1);
     new (ptr_class)T(simple::forward<Types>(args)...);
-
-    // Save constructor/destructor
-    void (*constructor)(T *, const T *) = [](T *me, const T *other) { new (me) T(*other); };
-    void (*destructor)(T *) = [](T *me) { me->~T(); };
-    buffer->constructor = (BufferImpl::ConstructFunc)constructor;
-    buffer->destructor = (BufferImpl::DestructFunc)destructor;
+    info->n = 1;
 
     // Mark attrib
     buffer->buffer_attrib = BufferImpl::CONTAIN_1_CLASS;
@@ -100,20 +101,20 @@ BufferImpl *buffer_new_arr(const char *file, int line, size_t n)
 
     // Build array info head
     auto *info = (BufferImpl::ArrInfo *)buffer->data();
-    info->n = (Uint32)n;
+    info->n = 0;
     info->size = (Uint32)sizeof(T);
     info->stamp = BufferImpl::CLASS_N_STAMP;
-
-    // Construct all class
-    Uint8 *ptr_class = (Uint8 *) (info + 1);
-    for (size_t i = 0; i < n; i++, ptr_class += sizeof(T))
-        new (ptr_class)T();
 
     // Save constructor/destructor
     void(*constructor)(T *, const T *) = [](T *me, const T *other) { new (me) T(*other); };
     void(*destructor)(T *) = [](T *me) { me->~T(); };
     buffer->constructor = (BufferImpl::ConstructFunc)constructor;
     buffer->destructor = (BufferImpl::DestructFunc)destructor;
+
+    // Construct all class
+    Uint8 *ptr_class = (Uint8 *) (info + 1);
+    for (info->n = 0; info->n < n; info->n++, ptr_class += sizeof(T))
+        new (ptr_class)T();
 
     // Mark attribute
     buffer->buffer_attrib = BufferImpl::CONTAIN_N_CLASS;

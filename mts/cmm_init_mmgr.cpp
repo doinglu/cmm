@@ -1,9 +1,9 @@
-// cmm_memory.cpp
+// cmm_init_mmgr.cpp
 
 #include <stdio.h>
 #include <stdlib.h>
 #include "std_memmgr/std_memmgr.h"
-#include "cmm_memory.h"
+#include "cmm_init_mmgr.h"
 
 namespace cmm
 {

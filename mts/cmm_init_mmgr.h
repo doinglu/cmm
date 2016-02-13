@@ -1,4 +1,4 @@
-// cmm_memory.h
+// cmm_init_mmgr.h
 // Memory management
 
 #pragma once
