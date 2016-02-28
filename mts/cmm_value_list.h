@@ -28,6 +28,8 @@ public:
 #endif
 
 public:
+    // Constructor
+    // name must point to a non-free memory
     ValueList()
     {
         reset();
@@ -57,13 +59,6 @@ public:
     // Remove a value
     void remove(ReferenceImpl* value);
 
-    // Set bound of all pointers
-    void set_bound(ReferenceImpl* low, ReferenceImpl* high)
-    {
-        m_low = low;
-        m_high = high;
-    }
-
     // Set name of me
     void set_name(const char* name)
     {
@@ -83,8 +78,8 @@ private:
     // List of all reference values
     const char*    m_name;
     ContainerType  m_container;
-    ReferenceImpl* m_low;
     ReferenceImpl* m_high;
+    ReferenceImpl* m_low;
 };
 
 // Strcuture using by GC
@@ -112,6 +107,7 @@ public:
     }
 
     // Mark the possible pointer
+    // Mark value
     inline void mark_value(ReferenceImpl* ptr_value)
     {
         // Try remove from set
@@ -129,10 +125,12 @@ public:
                 // Already marked
                 return;
 
+            STD_ASSERT(("The value will be marked is not belonged to this domain.", ptr_value->owner == value_list));
+
             // set owner to 0 means marked already
             ptr_value->owner = 0;
             if (ptr_value->need_mark_for_domain_gc())
-                ptr_value->mark(*this);
+               ptr_value->mark(*this);
             return;
         }
 
@@ -152,6 +150,8 @@ public:
             if (!buffer_impl->owner)
                 // Already marked
                 return;
+
+            STD_ASSERT(("The value will be marked is not belonged to this domain.", buffer_impl->owner == value_list));
 
             // set owner to 0 means marked already
             buffer_impl->owner = 0;

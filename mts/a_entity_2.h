@@ -15,15 +15,18 @@ namespace cmm
     public:
         static Program *create_program()
         {
-            Program *program = XNEW(Program, "/clone/entity", Program::COMPILED_TO_NATIVE);
+            auto r = ReserveStack(1);
+            String& temp = (String&)r[0];
 
-            program->define_object_var("id", INTEGER);
+            Program *program = XNEW(Program, temp = "/clone/entity", Program::COMPILED_TO_NATIVE);
 
-            program->add_component("/clone/entity");
-            program->add_component("/feature/name");
-            program->add_component("/feature/desc");
+            program->define_object_var(temp = "id", INTEGER);
 
-            program->define_function("create", (Function::ScriptEntry)&Impl::create, 0, 0);
+            program->add_component(temp = "/clone/entity");
+            program->add_component(temp = "/feature/name");
+            program->add_component(temp = "/feature/desc");
+
+            program->define_function(temp = "create", (Function::ScriptEntry)&Impl::create, 0, 0);
 
             return program;
         }

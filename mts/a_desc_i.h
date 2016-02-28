@@ -11,55 +11,60 @@ namespace cmm
 
 Program *create_desc_i_program()
 {
-    Program *program = XNEW(Program, "/feature/desc", Program::Attrib::INTERPRETED);
+    auto r = ReserveStack(3);
+    Value& temp = (String&)r[0];
+    Value& value = r[1];
+    Value& m = r[2];
 
-    program->add_component("/feature/desc");
-    program->add_component("/feature/name");
+    Program *program = XNEW(Program, temp = "/feature/desc", Program::Attrib::INTERPRETED);
 
-    Map m = XNEW(MapImpl, 3);
-//    Map m2 = XNEW(MapImpl, 3);
-//    m2["key2"] = "value2";
-//    m["m2"] = m2;
-    m.set(String("purpose"), "test");
+    program->add_component(temp = "/feature/desc");
+    program->add_component(temp = "/feature/name");
+
+    m = XNEW(MapImpl, 3);
+    m.set(temp = "purpose", value = "test");
 
     Function *function;
-    function = program->define_function("printf", 0, 1, 1, (Function::Attrib)(Function::Attrib::RANDOM_ARG|Function::Attrib::INTERPRETED));
-    function->define_parameter("format", ValueType::STRING);
-    function->reserve_local(8);
-    auto stroff1 = (Instruction::ParaValue)program->define_constant("(VM) Name: %s.\n%O\n");
-    auto stroff2 = (Instruction::ParaValue)program->define_constant("printf");
-    auto intoff3 = (Instruction::ParaValue)program->define_constant(2);
-    auto intoff4 = (Instruction::ParaValue)program->define_constant(Simulator::make_function_constant(1, 1));
-    auto mapoff5 = (Instruction::ParaValue)program->define_constant(m);
-    auto stroff6 = (Instruction::ParaValue)program->define_constant("After loop, r3 = %d.\n");
+    function = program->define_function(temp = "printf", 0, 1, 1, (Function::Attrib)(Function::Attrib::RANDOM_ARG|Function::Attrib::INTERPRETED));
+    function->define_parameter(temp = "format", ValueType::STRING);
+    function->reserve_local(10);
+
+    auto stroff1 = (Instruction::ParaValue23)program->define_constant(temp = "(VM) Name: %s.\n%O\n");
+    auto stroff2 = (Instruction::ParaValue23)program->define_constant(temp = "printf");
+    auto intoff3 = (Instruction::ParaValue23)program->define_constant(temp = 2);
+    auto intoff4 = (Instruction::ParaValue23)program->define_constant(temp = Simulator::make_function_constant(1, 1));
+    auto mapoff5 = (Instruction::ParaValue23)program->define_constant(temp = m);
+    auto stroff6 = (Instruction::ParaValue23)program->define_constant(temp = "After loop, r3 = %d.\n");
     // Create bytes
 #define I Instruction
-#define P0 (Instruction::ParaType)0
-#define NG (Instruction::ParaValue)
+#define P0 (Instruction::ParaValue)0
+#define LOCAL   Instruction::LOCAL_VAR
     Instruction arr1[] =
     {
-        { I::LDI, I::LOCAL, P0, P0, 2, 16, 0 },                         // LDI r2, 1048576
-        { I::LDI, I::LOCAL, P0, P0, 3, 0, 5 },                          // LDI r3, 5
-        { I::LDI, I::LOCAL, P0, P0, 4, 0, 1 },                          // LDI r4, 1
-        { I::LEI, I::LOCAL, I::LOCAL, I::LOCAL, 1, 2, 3 },              // LTI r1, r2, r3   (label1)
-        { I::JCOND, I::LOCAL, P0, P0, 1, 0, 2 },                        // JCOND label_2, r1    (jmp if r2 <= r3)
-        { I::ADDI, I::LOCAL, I::LOCAL, I::LOCAL, 3, 3, 4 },             // ADDI, r3, r3, r4
-        { I::JMP, P0, P0, P0, 0, NG-1, NG-4 },                          // JMP -4  (label_1)
-                                                                        // (label_2)
-        { I::LDI, I::LOCAL, P0, P0, 1, 0, 2 },                          // LDI r1, 2
-        { I::LDX, I::LOCAL, I::CONSTANT, P0, 2, stroff6, 0 },           // LDX r2, "After loop, r3 = %d.\n"
-        { I::CALLEFUN, I::LOCAL, I::CONSTANT, I::LOCAL, 0, stroff2, 1 }, // CALLEFUN r0, "printf", r1...
-
+        { I::LDI, -3, 1048576 },                // LDI L2, 1048576
+        { I::LDI, -4, 5 },                      // LDI L3, 5
+        { I::LDI, -5, 1 },                      // LDI L4, 1
+        { I::LEI, -2, -3, -4 },                 // LEI L1, L2, L3   (label1)
+        { I::JCOND, -2, 2 },                    // JCOND label_2, L1    (jmp if L2 <= L3)
+        { I::ADDI, -4, -4, -5 },                // ADDI, L3, L3, L4
+        { I::JMP, 0, -4 },                      // JMP -4  (label_1)
+                                                // (label_2)
+        { I::LDI, -2, 2 },                      // LDI L1, 2
+        { I::LDX, I::CONSTANT, -5, stroff6 },   // LDX L4, "After loop, l3 = %d.\n"
+        { I::PUSHNX, -5, -2, P0 },              // PUSHNX L4... (xL1)
+        { I::LDX, I::CONSTANT, -6, stroff2 },   // LDX L5, "printf"
+        { I::CALLEFUN, -1, -6, -2 },            // CALLEFUN L0(ret), L5(printf), L1(argn)
+                                                                         
 //      printf("Name: %s, %O.\n", call_far(_thread, 1 /* Component:Name */, 1 /* get_name() */).m_string->c_str());
-        { I::LDI, I::LOCAL, P0, P0, 2, 0, 0 },                          // LDI r2, 0
-        { I::CALLFAR, I::LOCAL, I::CONSTANT, I::LOCAL, 3, intoff4, 0 }, // CALLFAR r3, get_name, r2
-        { I::LDX, I::LOCAL, I::CONSTANT, P0, 2, stroff1, 0 },           // LDX r2, "(VM) Name: %s.\n"
-        { I::LDARGN, I::LOCAL, P0, P0, 1, 0, 0 },                       // LDARGN r1
-        { I::LDMULX, I::LOCAL, I::ARGUMENT, I::LOCAL, 4, 0, 1 },        // LDMULX r4, arg0 xr1
-        { I::ADDX, I::LOCAL, I::LOCAL, I::CONSTANT, 1, 1, intoff3 },    // ADDX r1, r1, 2
-        { I::CALLEFUN, I::LOCAL, I::CONSTANT, I::LOCAL, 0, stroff2, 1}, // CALLEFUN r0, "printf", r1...
-
-        { I::RET, I::LOCAL, P0, P0, 0, 0, 0 },
+        { I::LDI, -3, 0 },                      // LDI L2, 0
+        { I::LDX, I::CONSTANT, -6, intoff4 },
+        { I::CALLFAR, -4, -6, -3 },             // CALLFAR L3(ret), L5(get_name), L2(argn)
+        { I::LDX, I::CONSTANT, -3, stroff1 },   // LDX L2, "(VM) Name: %s.\n"
+        { I::LDARGN, -2, 0, P0 },               // LDARGN L1
+        { I::PUSHNX, 0, -2, P0 },               // PUSHNX arg0... (xL1)
+        { I::LDX, I::CONSTANT, -6, stroff2 },   // LDX L5, "printf"
+        { I::CALLEFUN, -1, -6, -2},             // CALLEFUN L0, "printf", L1...
+        { I::RET, -1, P0, P0 },                 // RET L0
     };
     function->set_byte_codes(arr1, STD_SIZE_N(arr1));
 

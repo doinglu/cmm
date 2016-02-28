@@ -3,6 +3,7 @@
 #pragma once
 
 #include "cmm.h"
+#include "cmm_lang_symbols.h"
 #include "cmm_output.h"
 #include "cmm_value.h"
 #include "cmm_mmm_value.h"
@@ -47,7 +48,6 @@ enum AstNodeType
     AST_LOOP_RANGE,
     AST_LVALUE,
     AST_PROTOTYPE,
-    AST_REGISTER,
     AST_RETURN,
     AST_WHILE_LOOP,
     AST_STATEMENTS,
@@ -56,7 +56,7 @@ enum AstNodeType
 };
 
 // Type of goto/break/continue/switch-case
-enum AstGotoType
+enum AstGotoType : Uint8
 {
     AST_DIRECT_JMP = 0,
     AST_BREAK      = 12,
@@ -64,7 +64,7 @@ enum AstGotoType
 };
 
 // Function attrib
-enum AstFunctionAttrib
+enum AstFunctionAttrib : Uint16
 {
     AST_PRIVATE = 0x0001,
     AST_OVERRIDE = 0x0002,
@@ -74,9 +74,10 @@ enum AstFunctionAttrib
     AST_MEMBER_METHOD = 0x0020,
     AST_PUBLIC = 0x1000         // For AST node use only
 };
+DECLARE_BITS_ENUM(AstFunctionAttrib, Uint16);
 
 // Function type
-enum AstFunctionType
+enum AstFunctionType : Uint8
 {
     AST_UNKNOWN = 0,
     AST_NEAR_FUN = 1,
@@ -86,7 +87,7 @@ enum AstFunctionType
 };
 
 // Runtime value id
-enum AstRuntimeValueId
+enum AstRuntimeValueId : Uint8
 {
     AST_RV_INPUT_ARGUMENTS,
     AST_RV_INPUT_ARGUMENTS_COUNT,
@@ -154,13 +155,14 @@ enum Op
 };
 
 // Type of variant
-enum AstVarAttrib
+enum AstVarAttrib : Uint8
 {
     AST_VAR_REF_ARGUMENT = 0x01,
     AST_VAR_MAY_NIL = 0x02,
     AST_VAR_NO_SAVE = 0x04,
     AST_VAR_CONST = 0x08,
 };
+DECLARE_BITS_ENUM(AstVarAttrib, Uint8);
 
 // Node utilties
 
@@ -241,8 +243,8 @@ struct SourceLocation
 // Variable type
 struct AstVarType
 {
-    ValueType basic_var_type;       // basic variable type
-    Uint8     var_attrib;           // variable attribute
+    ValueType    basic_var_type;       // basic variable type
+    AstVarAttrib var_attrib;           // variable attribute
 
     // Is this a const (readonly) varaible
     bool is_const()
@@ -259,7 +261,6 @@ struct AstFunction;
 struct AstFunctionArg;
 struct AstLValue;
 struct AstPrototype;
-struct AstRegister;
 
 // Concat ast nodes list
 AstNode *append_sibling_node(AstNode *node, AstNode *next);
@@ -402,7 +403,7 @@ struct AstDeclaration : AstNode
     virtual AstNodeType get_node_type() { return AstNodeType::AST_DECLARATION; }
     AstVarType     var_type;   // variable type
     simple::string name;       // variable name
-    Uint32         ident_type; // IdentType: identifier type, local or object
+    IdentType      ident_type; // IdentType: identifier type, local or object
     union
     {
         LocalNo     local_var_no;   // Number of var as local
@@ -470,30 +471,39 @@ struct AstDoWhile : AstNode
         cond(0)
     {
     }
-
-    ~AstDoWhile()
-    {
-        printf("~AstDoWhile() %p.\n", this);////----
-    }
 };
+
+enum OutputType
+{
+    OUTPUT_NONE        = 0,
+    OUTPUT_OBJECT_VAR  = 19,    // To object var
+    OUTPUT_LOCAL_VAR   = 47,    // To local var/argument
+    OUTPUT_VIRTUAL_REG = 62,    // To a virtual register
+};
+
+typedef int VirtualRegNo;       // No of virtual register
 
 // Primary Expression
 // Abstract node
 struct AstExpr : AstNode
 {
-    AstVarType var_type;    // Value type of this expression
-    bool   is_constant;     // if this is a constant expression
-    Int32  reg_index;       // expression output register index
+    AstVarType  var_type;       // Value type of this expression
+    bool        is_constant;    // if this is a constant expression
+    struct
+    {
+        OutputType  type;       // Output to member variable or to local (include argument) 
+        int         index;      // Index of output variable
+    } output;
 
     virtual simple::string to_string();
 
     AstExpr(Lang* context) :
         AstNode(context),
         is_constant(false),
-        reg_index(0)
+        output{ OUTPUT_NONE, 0 }
     {
         var_type.basic_var_type = MIXED;
-        var_type.var_attrib = 0;
+        var_type.var_attrib = (AstVarAttrib)0;
     }
 };
 
@@ -607,8 +617,7 @@ struct AstExprConstant : AstExpr
     }
 
     AstExprConstant(Lang* context) :
-        AstExpr(context),
-        value(NIL)
+        AstExpr(context)
     {
         is_constant = true;
     }
@@ -914,12 +923,9 @@ struct AstFunction : AstNode
     // All local variable declaration
     simple::vector<AstDeclaration*> local_vars;
 
-    // All registers
-    AstRegister* registers;
-
     virtual void collect_children()
     {
-        collect_children_of(prototype, body, registers);
+        collect_children_of(prototype, body);
     }
 
     virtual bool contains_new_frame()
@@ -932,8 +938,7 @@ struct AstFunction : AstNode
     AstFunction(Lang* context) :
         AstNode(context),
         body(0),
-        local_vars(0),
-        registers(0)
+        local_vars(0)
     {
     }
 };
@@ -951,6 +956,7 @@ struct AstFunctionArg : AstNode
     virtual AstNodeType get_node_type() { return AstNodeType::AST_FUNCTION_ARG; }
     simple::string  name;            // function argument name
     AstVarType      var_type;        // argument variable type
+    ArgNo           arg_no;          // argument index
     AstExpr*        default_value;   // default argument value
 
     virtual void collect_children()
@@ -963,6 +969,7 @@ struct AstFunctionArg : AstNode
     AstFunctionArg(Lang* context) :
         AstNode(context),
         name(""),
+        arg_no(0),
         default_value(0)
     {
     }
@@ -1089,7 +1096,7 @@ struct AstPrototype : AstNode
     simple::string name;
 
     // Function attrib
-    Uint16 attrib;
+    AstFunctionAttrib attrib;
 
     // Return type
     AstVarType ret_var_type;
@@ -1112,26 +1119,6 @@ struct AstPrototype : AstNode
         name(""),
         arg_list(0),
         has_ret(false)
-    {
-    }
-};
-
-// Register
-// No child
-struct AstRegister : AstNode
-{
-    virtual AstNodeType get_node_type() { return AstNodeType::AST_REGISTER; }
-    ValueType type;                        // register type
-    Uint16    index;                       // register index
-    bool      is_using;                    // is this register using currently
-    bool      is_fixed_reg;                // is fixed register
-
-    AstRegister(Lang* context) :
-        AstNode(context),
-        type(MIXED),
-        index(0),
-        is_using(false),
-        is_fixed_reg(false)
     {
     }
 };

@@ -18,8 +18,8 @@ struct StringImpl;
 class Output
 {
 public:
-    String format_output(const char_t *format_str, Value *argv, ArgNo argc);
-    String type_value(const Value *value);
+    simple::string format_output(const char_t *format_str, Value *argv, ArgNo argc);
+    simple::string type_value(const Value *value);
 
 private:
     enum ErrorCode

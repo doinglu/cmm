@@ -15,18 +15,25 @@ class Thread;
 // Single instruction structure
 struct Instruction
 {
-    enum ParaType
+    enum ParaType : Uint8
     {
-        CONSTANT = 0,   // In this program
-        ARGUMENT = 1,   // Arguments in this context
-        LOCAL = 2,      // Local variables in this context
-        MEMBER = 3,     // Members in this object
+        // These values can't be changed. They should be matched to the
+        // sequence order of (m_frame/m_constants/m_object_vars) in the class
+        // Simulator 
+        LOCAL_VAR = 0,  // Local variables in this context
+        CONSTANT = 1,   // In this program
+        OBJECT_VAR = 2, // Members in this object
+
+        // Make an alias
+        ARGUMENT = LOCAL_VAR,
     };
 
-    typedef Uint16 ParaValue;
-    typedef Int16  SignedParaValue;
+    typedef Int16 ParaValue;
+    typedef Int16 UnsignedParaValue;
+    typedef Int32 ParaValue23;
+    typedef Int32 UnsignedParaValue23;
 
-    enum Code
+    enum Code : Uint8
     {
         NOP       = 0,   // N/A
         ADDI      = 1,   // p1<-p2, p3
@@ -79,24 +86,27 @@ struct Instruction
         CAST      = 63,  // p1<-(p2)p3
         ISTYPE    = 66,  // p1<-p3 is (p2)?
         LDMULX    = 69,  // p1...<-p2... x p3
-        LDI       = 70,  // p1<-p2p3 (combine to 32bits)
-        LDR       = 71,  // p1<-p2.p3 (p3 /= 10000)
-        LDX       = 72,  // p1<-p2
-        LDARGN    = 73,  // p1<-argn
-        RIDXXX    = 75,  // p1<-p2[p3]
+        LDI       = 70,  // p1<-p23 (combine to 32bits)
+        LDR       = 71,  // p1<-p23
+        LDX       = 72,  // p1<-pt.p2
+        STI       = 73,  // pt.p1<-p23
+        STR       = 74,  // pt.p1<-p23
+        STX       = 75,  // pt.p1<-p2
+        LDARGN    = 76,  // p1<-argn
+        RIDXXX    = 77,  // p1<-p2[p3]
         LIDXXX    = 78,  // p1[p3]<-p2
         MKEARR    = 81,  // p1<-[], capacity=p2
         MKIARR    = 84,  // p1<-p2... x p3
         MKEMAP    = 87,  // p1<-{}, capacity=p2
         MKIMAP    = 90,  // p1<-p2... x p3
+        PUSHNX    = 93,  // Push to stacks
         JMP       = 102, // Jmp p1
         JCOND     = 105, // Jmp p1 when p2 != 0
-        CALLNEAR  = 108, // p1<-call(p2 = function_no, p3 = argn, args)
-        CALLFAR   = 111, // p1<-call(p2 = constant:component_no,function_no, p3 = argn, args)
-        CALLNAME  = 114, // p1<-call(p2 = constant:name, p3 = argn, args)
-        CALLOTHER = 117, // p1<-call(p2 = oid,name p3 = argn, args)
-        CALLEFUN  = 120, // p1<-call(p2 = name, p3 = argn, args)
-        CHKPARAM  = 123, // chkparam
+        CALLNEAR  = 108, // p1<-call(p2 = function_no, p3 = argn)
+        CALLFAR   = 111, // p1<-call(p2 = constant:component_no,function_no, p3 = argn)
+        CALLNAME  = 114, // p1<-call(p2 = constant:name, p3 = argn)
+        CALLOTHER = 117, // p1<-call(p2 = oid,name p3 = argn)
+        CALLEFUN  = 120, // p1<-call(p2 = name, p3 = argn)
         RET       = 126, // ret p1
         LOOPIN    = 129, // loop(p1=p2 to p3)
         LOOPRANGE = 132, // loop(p1 in p2)
@@ -114,13 +124,30 @@ struct Instruction
         LE = 5,
     };
 
-    Code      code;
-    ParaType  t1;
-    ParaType  t2;
-    ParaType  t3;
-    ParaValue p1;
-    ParaValue p2;
-    ParaValue p3;
+    // MSVC can use Uint8 for enum automatically
+    Code      code; // Code type
+    ParaType  pt;
+    union
+    {
+        ParaValue p1i;
+        UnsignedParaValue p1u;
+    };
+    union
+    {
+        struct
+        {
+            ParaValue p2i;
+            ParaValue p3i;
+        };
+        struct
+        {
+            UnsignedParaValue p2u;
+            UnsignedParaValue p3u;
+        };
+        Int32  p23i;
+        Uint32 p23u;
+        float  p23f;
+    };
 
     // Valid range for p1-p3
     enum
@@ -129,13 +156,42 @@ struct Instruction
         PARA_SMIN = -32768,
         PARA_SMAX = 32767,
     };
+
+    Instruction()
+    {
+    }
+
+    Instruction(Code _code, ParaValue _p1, ParaValue _p2, ParaValue _p3) :
+        code(_code),
+        pt((decltype(pt))0),
+        p1i(_p1),
+        p2i(_p2),
+        p3i(_p3)
+    {
+    }
+
+    Instruction(Code _code, ParaValue _p1, ParaValue23 _p23) :
+        code(_code),
+        pt((decltype(pt))0),
+        p1i(_p1),
+        p23i(_p23)
+    {
+    }
+
+    Instruction(Code _code, ParaType _pt, ParaValue _p1, ParaValue23 _p23) :
+        code(_code),
+        pt(_pt),
+        p1i(_p1),
+        p23i(_p23)
+    {
+    }
 };
 
 // Component class for interpreter
 class InterpreterComponent : public AbstractComponent
 {
 public:
-    Value interpreter(Thread *_thread, Value *__args, ArgNo __n);
+    void interpreter(Thread *_thread, ArgNo __n);
 };
 
 // The simulator
@@ -158,14 +214,18 @@ public:
     static void shutdown();
 
 private:
-    inline Value *get_parameter_value(int index);
-    inline int get_parameter_imm(int index);
-
-private:
-    Value *m_args;          // All arguments
-    Value *m_locals;        // All local variables & registers
-    Value *m_constants;     // All constants in program
-    Value *m_object_vars;   // All object vars in this object
+    union
+    {
+        struct
+        {
+            // Don't change the sequence. The position must be matched
+            // LOCAL_VAR(0), CONSTANT(1), OBJECT_VAR(2)
+            Value* m_frame;         // Base pointer of this frame
+            Value* m_constants;     // All constants in program
+            Value* m_object_vars;   // All object vars in this object
+        };
+        Value* m_value_ptrs[3];         // Alias to the values pointer
+    };
     ArgNo  m_argn;
     LocalNo m_localn;
     ConstantIndex m_constantn;
@@ -179,14 +239,18 @@ private:
     const Function *m_function;
     const Instruction *m_byte_codes;
     const Instruction *m_ip;
-    const Instruction *m_this_code;
+    Instruction m_this_code;
 
 public:
-    static Value interpreter(AbstractComponent *_component, Thread *_thread, Value *__args, ArgNo __n);
+    static void interpreter(AbstractComponent *_component, Thread *_thread, ArgNo __n);
     static Integer make_function_constant(ComponentNo component_no, FunctionNo function_no);
 
 public:
-    Value run();
+    void run();
+
+private:
+    // Check callee arguments
+    void check_arguments();
 
 private:
     // All instructions
@@ -251,6 +315,9 @@ private:
     void xLDI();
     void xLDR();
     void xLDX();
+    void xSTI();
+    void xSTR();
+    void xSTX();
     void xLDARGN();
     void xRIDXXX();
     void xLIDXXX();
@@ -258,6 +325,7 @@ private:
     void xMKIARR();
     void xMKEMAP();
     void xMKIMAP();
+    void xPUSHNX();
     void xJMP();
     void xJCOND();
     void xCALLNEAR();
@@ -265,7 +333,6 @@ private:
     void xCALLNAME();
     void xCALLOTHER();
     void xCALLEFUN();
-    void xCHKPARAM();
     void xRET();
     void xLOOPIN();
     void xLOOPRANGE();

@@ -21,11 +21,12 @@ class __feature_name_impl : public AbstractComponent
 {
 public:
     // Function 0
-    Value set_name(Thread *_thread, Value *__args, ArgNo __n)
+    void set_name(Thread *_thread, ArgNo __n)
     {
         if (__n < 1)
             throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
+        auto* __args = &_thread->get_arg(0);
         if (__args[0].m_type != ValueType::STRING)
             throw_error("Parameter 1 'name' is not string.\n");
 
@@ -35,24 +36,26 @@ public:
         Value& m_name = this->m_object_vars[0];
 
         m_name = name;
-        return m_name;
+        _thread->set_ret(m_name);
     }
 
     // Function 1
-    Value get_name(Thread *_thread, Value *__args, ArgNo __n)
+    void get_name(Thread *_thread, ArgNo __n)
     {
         if (__n != 0)
-            throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
+            throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)0, (Int64)__n);
 
         Value& m_name = this->m_object_vars[0];
-        return m_name;
+        _thread->set_ret(m_name);
     }
 
     // Function 2
-    Value test_call_private(Thread *_thread, Value *__args, ArgNo __n)
+    void test_call_private(Thread *_thread, ArgNo __n)
     {
         if (__n != 1)
             throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
+
+        auto* __args = &_thread->get_arg(0);
 
         ObjectId other_oid;
         other_oid.i64 = __args[0].m_int;
@@ -63,15 +66,21 @@ public:
 
         auto *__this_object = _thread->get_this_object();
 
+        auto r = ReserveStack(6, _thread);
+        Value &r1 = _thread->get_local(-1);
+        Value &fun_name = _thread->get_local(-2);
+        Value &set_to = _thread->get_local(-3);
+        Value &str_a = _thread->get_local(-4);
+        Value &str_b = _thread->get_local(-5);
+        Value &m = _thread->get_local(-6);
+
         std_freq_t b, e;
         Integer i;
         double t;
-        Value fun_name = NIL;
-        Value set_to = NIL;
 #if 1
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
-            call_near(_thread, this, &__feature_name_impl::get_name);
+            call_near(_thread, this, &__feature_name_impl::get_name, &r1);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
@@ -79,11 +88,11 @@ public:
         printf("Per %-12s is %5.3gns/%.3fM cps.\n", "near-call", t, (1000. / t));
 #endif
 
-#if 0
+#if 1
         set_to = "Name was set.1";
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
-            call_near(_thread, this, &__feature_name_impl::set_name, set_to, set_to, set_to, set_to, set_to, set_to);
+            call_near(_thread, this, &__feature_name_impl::set_name, &r1, set_to, set_to, set_to, set_to, set_to, set_to);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
@@ -92,7 +101,7 @@ public:
 
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
-            call_far(_thread, 0, 1);
+            call_far(_thread, 0, 1, &r1);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
@@ -102,7 +111,7 @@ public:
         set_to = "Name was set.2";
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
-            call_far(_thread, 0, 0, set_to, set_to, set_to, set_to, set_to, set_to);
+            call_far(_thread, 0, 0, &r1, set_to, set_to, set_to, set_to, set_to, set_to);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
@@ -112,7 +121,7 @@ public:
         fun_name = "get_name";
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
-            call_other(_thread, __this_object->get_oid(), fun_name);
+            call_other(_thread, __this_object->get_oid(), fun_name, &r1);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
@@ -122,7 +131,7 @@ public:
         fun_name = "set_name";
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
-            call_other(_thread, __this_object->get_oid(), fun_name, set_to, set_to, set_to, set_to, set_to, set_to);
+            call_other(_thread, __this_object->get_oid(), fun_name, &r1, set_to, set_to, set_to, set_to, set_to, set_to);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
@@ -132,7 +141,7 @@ public:
         fun_name = "do_nothing";
         b = std_get_current_us_counter();
         for (i = 0; i < 10000; i++)
-            call_other(_thread, other_oid, fun_name);
+            call_other(_thread, other_oid, fun_name, &r1);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
@@ -143,79 +152,92 @@ public:
         set_to = "Name was set";
         b = std_get_current_us_counter();
         for (i = 0; i < 1000; i++)
-            call_other(_thread, other_oid, fun_name, set_to, set_to, set_to, set_to, set_to, set_to);////---
+            call_other(_thread, other_oid, fun_name, &r1, set_to, set_to, set_to, set_to, set_to, set_to);////---
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
         printf("Per %-12s is %5.3gns/%.4fM cps.\n", "domain-calls", t, (1000. / t));
 
-        Value str_a = "a", str_b = "b";
-        Value m = Map(8);
-        m.set(str_a, 1);
-        m.set(str_b, 2);
+        str_a = "a", str_b = "b";
+        m = XNEW(MapImpl, 8);
+        m.set(str_a, r1 = 1);
+        m.set(str_b, r1 = 2);
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
-            m.get(str_a);
+            m.get(str_a, &r1);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
         printf("Per %-12s is %5.3gns/%.4fM cps.\n", "mapping-rd", t, (1000. / t));
 
-        m = Map(8);
-        m.set(str_a, 1);
-        m.set(str_b, 2);
+        m = XNEW(MapImpl, 8);
+        m.set(str_a, r1 = 1);
+        m.set(str_b, r1 = 2);
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
-            m.set(str_b, 5);
+            m.set(str_b, r1 = 5);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
         printf("Per %-12s is %5.3gns/%.4fM cps.\n", "mapping-wr", t, (1000. / t));
 #endif
-        Value ret = call_other(_thread, other_oid, String("print"));
-        ret = Value(5);
-        return ret;
+
+        call_other(_thread, other_oid, fun_name = "print", &r1);
+        _thread->set_ret(r1);
     }
 
     // Function 3
-    Value test_call(Thread *_thread, Value *__args, ArgNo __n)
+    void test_call(Thread *_thread, ArgNo __n)
     {
         if (__n != 1)
             throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
+
+        auto* __args = &_thread->get_arg(0);
 
         ObjectId other_oid;
         other_oid.i64 = __args[0].m_int;
 
         auto *__this_object = _thread->get_this_object();
 
-        Value ret = __this_object->get_program()->invoke_self(_thread, "test_call_private", __args, __n);
-        return ret;
+        auto r = ReserveStack(2, _thread);
+        Value &r1 = _thread->get_local(-1);
+        Value &temp = _thread->get_local(-2);
+
+        // Push argument
+        _thread->push(__args[0]);
+        __this_object->get_program()->invoke_self(_thread, temp = "test_call_private", &r1, __n);
+        _thread->set_ret(r1);
     }
 
     // Function 4
-    Value do_nothing(Thread *_thread, Value *__args, ArgNo __n)
+    void do_nothing(Thread *_thread, ArgNo __n)
     {
         if (__n != 0)
             throw_error("Bad parameters, expected %lld, got %lld.", (Integer)0, (Integer)__n);
-        return NIL;
     }
 
     // Function 5
     // (other_oid, msg)
-    Value test_error(Thread *_thread, Value *__args, ArgNo __n)
+    void test_error(Thread *_thread, ArgNo __n)
     {
         if (__n != 2)
             throw_error("Bad parameters, expected %lld, got %lld.", (Integer)0, (Integer)__n);
  
+        auto* __args = &_thread->get_arg(0);
+
         auto *this_call_context = _thread->get_this_call_context();
         try
         {
             ObjectId other_oid;
             other_oid.i64 = __args[0].m_int;
-            Value ret = call_other(_thread, other_oid, String("perror"), __args[1], "More", 1.5);
+            auto r = ReserveStack(3, _thread);
+            Value &r1 = _thread->get_local(-1);
+            Value &temp = _thread->get_local(-2);
+            Value &temp2 = _thread->get_local(-3);
+            Value ret = call_other(_thread, other_oid, temp = "perror", &r1, __args[1], temp2 = "More", 1.5);
         }
         catch (const char *str)
         {
@@ -226,7 +248,6 @@ public:
         {
             _thread->restore_call_stack_for_error(this_call_context);
         }
-        return NIL;
     }
 };
 

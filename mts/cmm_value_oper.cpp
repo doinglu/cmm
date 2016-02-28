@@ -10,54 +10,54 @@
 namespace cmm
 {
     
-Value operator +(const Value& a, const Value& b)
+Value& Value::op_add(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int + b.m_int;
+            return *ptr = a.m_int + b.m_int;
 
         if (b.m_type == REAL)
-            return (Real)a.m_int + b.m_real;
+            return *ptr = (Real)a.m_int + b.m_real;
 
         break;
 
     case REAL:
         if (b.m_type == REAL)
-            return a.m_real + b.m_real;
+            return *ptr = a.m_real + b.m_real;
 
         if (b.m_type == INTEGER)
-            return a.m_real + (Real)b.m_int;
+            return *ptr = a.m_real + (Real)b.m_int;
 
         break;
 
     case STRING:
         if (b.m_type == STRING)
         {
-            return a.m_string->concat(b.m_string);
+            return *ptr = a.m_string->concat(b.m_string);
         } else
         {
             Output output;
-            return a.m_string->concat(output.type_value(&b).ptr());
+            return *ptr = a.m_string->concat(output.type_value(&b).c_str());
         }
         break;
 
     case BUFFER:
         if (b.m_type == BUFFER)
-            return a.m_buffer->concat(b.m_buffer);
+            return *ptr = a.m_buffer->concat(b.m_buffer);
 
         break;
 
     case ARRAY:
         if (b.m_type == ARRAY)
-            return a.m_array->concat(b.m_array);
+            return *ptr = a.m_array->concat(b.m_array);
 
         break;
 
     case MAPPING:
         if (b.m_type == MAPPING)
-            return a.m_map->concat(b.m_map);
+            return *ptr = a.m_map->concat(b.m_map);
 
         break;
 
@@ -70,25 +70,25 @@ Value operator +(const Value& a, const Value& b)
                 Value::type_to_name(b.m_type));
 }
 
-Value operator -(const Value& a, const Value& b)
+Value& Value::op_sub(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int - b.m_int;
+            return *ptr = a.m_int - b.m_int;
 
         if (b.m_type == REAL)
-            return (Real)a.m_int - b.m_real;
+            return *ptr = (Real)a.m_int - b.m_real;
 
         break;
 
     case REAL:
         if (b.m_type == REAL)
-            return a.m_real - b.m_real;
+            return *ptr = a.m_real - b.m_real;
 
         if (b.m_type == INTEGER)
-            return a.m_real - (Real)b.m_int;
+            return *ptr = a.m_real - (Real)b.m_int;
 
         break;
 
@@ -101,25 +101,25 @@ Value operator -(const Value& a, const Value& b)
                 Value::type_to_name(b.m_type));
 }
 
-Value operator *(const Value& a, const Value& b)
+Value& Value::op_mul(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int * b.m_int;
+            return *ptr = a.m_int * b.m_int;
 
         if (b.m_type == REAL)
-            return (Real)a.m_int * b.m_real;
+            return *ptr = (Real)a.m_int * b.m_real;
 
         break;
 
     case REAL:
         if (b.m_type == REAL)
-            return a.m_real * b.m_real;
+            return *ptr = a.m_real * b.m_real;
 
         if (b.m_type == INTEGER)
-            return a.m_real * (Real)b.m_int;
+            return *ptr = a.m_real * (Real)b.m_int;
 
         break;
 
@@ -132,25 +132,25 @@ Value operator *(const Value& a, const Value& b)
                 Value::type_to_name(b.m_type));
 }
 
-Value operator /(const Value& a, const Value& b)
+Value& Value::op_div(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int / b.m_int;
+            return *ptr = a.m_int / b.m_int;
 
         if (b.m_type == REAL)
-            return (Real)a.m_int / b.m_real;
+            return *ptr = (Real)a.m_int / b.m_real;
 
         break;
 
     case REAL:
         if (b.m_type == REAL)
-            return a.m_real / b.m_real;
+            return *ptr = a.m_real / b.m_real;
 
         if (b.m_type == INTEGER)
-            return a.m_real / (Real)b.m_int;
+            return *ptr = a.m_real / (Real)b.m_int;
 
         break;
 
@@ -163,25 +163,25 @@ Value operator /(const Value& a, const Value& b)
                 Value::type_to_name(b.m_type));
 }
 
-Value operator %(const Value& a, const Value& b)
+Value& Value::op_mod(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int % b.m_int;
+            return *ptr = a.m_int % b.m_int;
 
         if (b.m_type == REAL)
-            return fmod((Real)a.m_int, b.m_real);
+            return *ptr = fmod((Real)a.m_int, b.m_real);
 
         break;
 
     case REAL:
         if (b.m_type == REAL)
-            return fmod(a.m_real, b.m_real);
+            return *ptr = fmod(a.m_real, b.m_real);
 
         if (b.m_type == INTEGER)
-            return fmod(a.m_real, (Real)b.m_int);
+            return *ptr = fmod(a.m_real, (Real)b.m_int);
 
         break;
 
@@ -194,13 +194,13 @@ Value operator %(const Value& a, const Value& b)
                 Value::type_to_name(b.m_type));
 }
 
-Value operator &(const Value& a, const Value& b)
+Value& Value::op_and(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int & b.m_int;
+            return *ptr = a.m_int & b.m_int;
 
         break;
 
@@ -213,13 +213,13 @@ Value operator &(const Value& a, const Value& b)
                 Value::type_to_name(b.m_type));
 }
 
-Value operator |(const Value& a, const Value& b)
+Value& Value::op_or(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int | b.m_int;
+            return *ptr = a.m_int | b.m_int;
 
         break;
 
@@ -232,13 +232,13 @@ Value operator |(const Value& a, const Value& b)
                 Value::type_to_name(b.m_type));
 }
 
-Value operator ^(const Value& a, const Value& b)
+Value& Value::op_xor(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int ^ b.m_int;
+            return *ptr = a.m_int ^ b.m_int;
 
         break;
 
@@ -251,12 +251,12 @@ Value operator ^(const Value& a, const Value& b)
                 Value::type_to_name(b.m_type));
 }
 
-Value operator ~(const Value& a)
+Value& Value::op_rev(Value* ptr, const Value& a)
 {
     switch (a.m_type)
     {
     case INTEGER:
-        return ~a.m_int;
+        return *ptr = ~a.m_int;
 
     default:
         break;
@@ -266,15 +266,15 @@ Value operator ~(const Value& a)
                 Value::type_to_name(a.m_type));
 }
 
-Value operator -(const Value& a)
+Value& Value::op_neg(Value* ptr, const Value& a)
 {
     switch (a.m_type)
     {
     case INTEGER:
-        return -a.m_int;
+        return *ptr = -a.m_int;
         
     case REAL:
-        return -a.m_real;
+        return *ptr = -a.m_real;
 
     default:
         break;
@@ -284,13 +284,13 @@ Value operator -(const Value& a)
                 Value::type_to_name(a.m_type));
 }
 
-Value operator <<(const Value& a, const Value& b)
+Value& Value::op_lsh(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int << b.m_int;
+            return *ptr = a.m_int << b.m_int;
 
         break;
 
@@ -303,13 +303,13 @@ Value operator <<(const Value& a, const Value& b)
                 Value::type_to_name(b.m_type));
 }
 
-Value operator >>(const Value& a, const Value& b)
+Value& Value::op_rsh(Value* ptr, const Value& a, const Value& b)
 {
     switch (a.m_type)
     {
     case INTEGER:
         if (b.m_type == INTEGER)
-            return a.m_int >> b.m_int;
+            return *ptr = a.m_int >> b.m_int;
 
         break;
 

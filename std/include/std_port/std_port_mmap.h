@@ -5,6 +5,8 @@
 #ifndef _STD_PORT_MMAP_H_
 #define _STD_PORT_MMAP_H_
 
+#include "std_port.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -12,26 +14,22 @@ extern "C" {
 #define STD_PAGE_READ           0x0010
 #define STD_PAGE_WRITE          0x0020
 #define STD_PAGE_EXECUTE        0x0040
+#define STD_PAGE_NO_ACCESS      0x8000
 #define STD_PAGE_ALL_ACCESS     (STD_PAGE_READ | STD_PAGE_WRITE | STD_PAGE_EXECUTE)
-
-#define STD_PAGE_SIZE           4096
 
 extern void* std_mem_reserve(void* address, size_t size);
 extern int   std_mem_release(void* address, size_t size);
 extern int   std_mem_commit(void* address, size_t size, int flags);
 extern int   std_mem_decommit(void* address, size_t size);
+extern int   std_mem_protect(void* address, size_t size, int flags);
 
 // Align size
-inline size_t std_align_size(size_t size)
-{
-    return (size + STD_PAGE_SIZE - 1) & ~(STD_PAGE_SIZE - 1);
-}
+#define std_align_size(size) \
+    (((size) + STD_MEM_PAGE_SIZE - 1) & ~(STD_MEM_PAGE_SIZE - 1))
 
 // Align pointer
-inline void* std_align_ptr(void *ptr)
-{
-    return (void*)std_align_size((size_t)ptr & ~(STD_PAGE_SIZE - 1));
-}
+#define std_align_ptr(ptr) \
+    ((void*)((size_t)(ptr) & ~(STD_MEM_PAGE_SIZE - 1)))
 
 #ifdef __cplusplus
 }

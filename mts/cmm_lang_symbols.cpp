@@ -92,7 +92,7 @@ void LangSymbols::remove_ident_info_by_tag(int tag)
         {
             // Remove & free the ident unit
             auto* next = p->next; 
-            BUFFER_DELETE(p);
+            LANG_DELETE(m_lang_context, p);
             p = next;
         }
         if (!p)

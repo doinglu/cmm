@@ -108,7 +108,6 @@ const char* ast_node_type_to_c_str(AstNodeType nodeType)
     case AST_LOOP_RANGE: return "Loop-Range";
     case AST_LVALUE: return "LValue";
     case AST_PROTOTYPE: return "Prototype";
-    case AST_REGISTER: return "Register";
     case AST_RETURN: return "Return";
     case AST_WHILE_LOOP: return "While-Loop";
     case AST_STATEMENTS: return "Statements";
@@ -170,21 +169,7 @@ simple::string ast_var_type_to_string(AstVarType var_type)
 // Value type
 const char* value_type_to_c_str(ValueType value_type)
 {
-    switch (value_type)
-    {
-    case NIL:       return "nil";
-    case INTEGER:   return "int";
-    case REAL:      return "real";
-    case STRING:    return "string";
-    case BUFFER:    return "buffer";
-    case OBJECT:    return "object";
-    case FUNCTION:  return "function";
-    case ARRAY:     return "array";
-    case MAPPING:   return "mapping";
-    case TVOID:     return "void";
-    default:
-    case MIXED:     return "mixed";
-    }
+    return Value::type_to_name(value_type);
 }
 
 // eg. default
@@ -208,9 +193,14 @@ simple::string AstDeclaration::to_string()
 
 simple::string AstExpr::to_string()
 {
+    char buf[32];
     simple::string str = ast_var_type_to_string(var_type);
-    if (is_constant)
-        str += " (constant)";
+    snprintf(buf, sizeof(buf), ":%c%d%s",   // type index "(constant)"
+             output.type == OUTPUT_OBJECT_VAR ? 'm' :
+             output.type == OUTPUT_LOCAL_VAR ? 'l' : 'r',
+             (int)output.index,
+             is_constant ? " (constant)" : "");
+    str += buf;
     return str;
 }
 
@@ -324,7 +314,7 @@ simple::string AstLoopRange::to_string()
 // eg. private void write
 simple::string AstPrototype::to_string()
 {
-    simple::string ret = ast_function_attrib_to_string((AstFunctionAttrib)attrib);
+    simple::string ret = ast_function_attrib_to_string(attrib);
     if (ret.length() > 0)
         ret += " ";
     ret += ast_var_type_to_string(ret_var_type);

@@ -97,7 +97,7 @@ public:
     void delete1(const char *file, int line, T *p)
     {
         auto* node = (BlockNode*)((Uint8*)p - sizeof(BlockNode));
-        destruct_and_free_node(file, line, p);
+        destruct_and_free_node(file, line, node);
     }
 
     template<typename T>
@@ -135,7 +135,7 @@ public:
     void deleten(const char *file, int line, T *p)
     {
         auto* node = (BlockNode*)((Uint8*)p - sizeof(BlockNode));
-        destruct_and_free_node(file, line, p);
+        destruct_and_free_node(file, line, node);
     }
 
 private:

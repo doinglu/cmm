@@ -320,7 +320,7 @@ bool Lang::pass1()
 
     // Lookup the AST from bottom to top
     // Work out type of all expressions
-    lookup_expr_types(m_root);
+    lookup_expr_types_and_output(m_root);
 
     // Lookup functions in whole AST
     if (m_error_code != ErrorCode::OK)
@@ -408,7 +408,18 @@ void Lang::lookup_and_map_identifiers(AstNode *node)
         auto* info = LANG_NEW(this, IdentInfo, this);
         info->function_no = function->no;
         info->type = IDENT_OBJECT_FUN;
+        info->function = function;
         m_symbols.add_ident_info(function->prototype->name, info, node);
+
+        // Add all arguments to symbol table
+        for (auto* p = function->prototype->arg_list; p != 0; p = (decltype(p))p->sibling)
+        {
+            info = LANG_NEW(this, IdentInfo, this);
+            info->local_var_no = p->arg_no;
+            info->type = IDENT_LOCAL_VAR;
+            info->arg = p;
+            m_symbols.add_ident_info(p->name, info, p);
+        }
         break;
     }
 
@@ -439,6 +450,18 @@ void Lang::lookup_and_map_identifiers(AstNode *node)
         }
         variable->var_type = info->decl->var_type;
         variable->is_constant = false; // Variant, not constant
+
+        if (info->type == IDENT_LOCAL_VAR)
+        {
+            variable->output.type = OUTPUT_LOCAL_VAR;
+            variable->output.index = info->local_var_no;
+        } else
+        {
+            STD_ASSERT(("Bad type of indent, expect LOCAL_VAR or OBJECT_VAR",
+                       info->type == IDENT_OBJECT_VAR));
+            variable->output.type = OUTPUT_OBJECT_VAR;
+            variable->output.index = info->object_var_no;
+        }
         break;
     }
 
@@ -457,10 +480,10 @@ void Lang::lookup_and_map_identifiers(AstNode *node)
 
 // Lookup the whole AST from bottom to top
 // Derive expr types
-void Lang::lookup_expr_types(AstNode *node)
+void Lang::lookup_expr_types_and_output(AstNode *node)
 {
     for (auto* p = node->children; p != 0; p = p->sibling)
-        lookup_expr_types(p);
+        lookup_expr_types_and_output(p);
 
     switch (node->get_node_type())
     {
@@ -469,16 +492,16 @@ void Lang::lookup_expr_types(AstNode *node)
             // Get constant value type
             auto* expr = (AstExprConstant*)node;
             expr->var_type.basic_var_type = expr->value.m_type;
-            expr->var_type.var_attrib = 0;
+            expr->var_type.var_attrib = (AstVarAttrib)0;
             expr->is_constant = true;
-            break;
+            return;
         }
         case AST_EXPR_CLOSURE :
         {
             // The closure is a function
             auto* expr = (AstExprClosure*)node;
             expr->var_type.basic_var_type = FUNCTION;
-            expr->var_type.var_attrib = 0;
+            expr->var_type.var_attrib = (AstVarAttrib)0;
             break;
         }
         case AST_EXPR_ASSIGN:
@@ -509,18 +532,19 @@ void Lang::lookup_expr_types(AstNode *node)
             if (expr->op == OP_ASSIGN)
             {
                 // Assign directly
-                // eg. int a; a = 12;
+                // eg. a = 12;
                 result_var_type = expr->expr2->var_type;
             } else
             {
                 // Operate then assign
+                // eg. a += 12
                 Op map_op;
                 if (!try_map_assign_op_to_op(expr->op, &map_op))
                     STD_FATAL("Not found such assign operator.");
 
                 result_var_type.basic_var_type =
                     derive_type_of_op(expr, map_op, operand1_type, operand2_type, ANY_TYPE);
-                result_var_type.var_attrib = 0;
+                result_var_type.var_attrib = (AstVarAttrib)0;
             }
 
             // Check type to assign
@@ -560,6 +584,14 @@ void Lang::lookup_expr_types(AstNode *node)
 
             // Got result type
             expr->var_type = result_var_type;
+
+            if (expr->expr1->get_node_type() == AST_EXPR_VARIABLE)
+            {
+                // Assign to variable, use left as output
+                expr->expr2->output = expr->expr1->output;
+                expr->output = expr->expr1->output;
+                return;
+            }
             break;
         }
         case AST_EXPR_CAST:
@@ -574,9 +606,17 @@ void Lang::lookup_expr_types(AstNode *node)
                 this->syntax_warns(this,
                     "%s(%d): warning %d: cast to %s? is useless\n",
                     expr->location.file->c_str(), expr->location.line,
-                    C_CAST_USELESS_QMARK,
+                    C_CAST_USELESS,
                     value_type_to_c_str(to_type));
                 expr->var_type.var_attrib &= ~AST_VAR_MAY_NIL;
+            }
+            if (expr->var_type.basic_var_type == MIXED)
+            {
+                this->syntax_warns(this,
+                    "%s(%d): warning %d: cast to mixed is useless\n",
+                    expr->location.file->c_str(), expr->location.line,
+                    C_CAST_USELESS,
+                    value_type_to_c_str(to_type));
             }
             if (!(expr->var_type.var_attrib & AST_VAR_CONST) &&
                 (expr->expr1->var_type.var_attrib & AST_VAR_CONST))
@@ -665,21 +705,38 @@ void Lang::lookup_expr_types(AstNode *node)
             if (p->sibling)
             {
                 while (p->sibling->sibling)
+                {
+                    // Free non-last expr's output
+                    free_expr_output((AstExpr*)p);
                     p = p->sibling;
+                }
             }
 
-            expr->var_type = ((AstExpr*)p)->var_type;
+            // Use last expr's output
+            auto* last_expr = (AstExpr*)p;
+            expr->var_type = last_expr->var_type;
+            expr->output = last_expr->output;
+            return;
         }
         default:
-            // Skip
-            break;
+            // Not expression
+            return;
     }
+
+    // Free all children's output
+    auto* expr = (AstExpr*)node;
+    for (auto p = expr->children; p != 0; p = p->sibling)
+        free_expr_output((AstExpr*)p);
+
+    // Allocate if output is not specified
+    if (expr->output.type == OUTPUT_NONE)
+        alloc_expr_output(expr);
 }
 
-// Allocate an anonymouse local variable with specified type
-LocalNo Lang::alloc_anonymouse_local(ValueType type)
+// Allocate a virtual register with specified type
+VirtualRegNo Lang::alloc_virtual_reg(ValueType type, bool may_nil)
 {
-    if (type < ValueType::REFERENCE_VALUE)
+    if (!may_nil && type < ValueType::REFERENCE_VALUE)
         // Primitive type
         type = ValueType::PRIMITIVE_TYPE;
     else
@@ -687,30 +744,47 @@ LocalNo Lang::alloc_anonymouse_local(ValueType type)
         type = ValueType::MIXED;
 
     // Get allocation information
-    for (LocalNo i = 0; i < m_anon_locals.size(); i++)
+    
+    for (LocalNo i = 0; i < m_virtual_regs.size(); i++)
     {
-        auto& local_info = m_anon_locals[i];
-        if (local_info.type == type && !local_info.used)
+        auto& info = m_virtual_regs[i];
+        if (info.type == type && !info.used)
         {
             // Found a free local
-            local_info.used = true;
+            info.used = true;
             return i;
         }
     }
 
     // Allocate new
-    LocalInfo new_info;
+    VirtualRegInfo new_info;
     new_info.type = type;
     new_info.used = true;
-    m_anon_locals.push_back(new_info);
-    return (LocalNo)(m_anon_locals.size() - 1);
+    m_virtual_regs.push_back(new_info);
+    return (LocalNo)(m_virtual_regs.size() - 1);
 }
 
-// Free the allocated local variable
-void Lang::free_anonymouse_local(LocalNo no)
+// Free the allocated virtual register
+void Lang::free_virtual_reg(VirtualRegNo no)
 {
-    STD_ASSERT(("The specified local is not allocated.", m_anon_locals[no].used == true));
-    m_anon_locals[no].used = false;
+    STD_ASSERT(("The specified local is not allocated.", m_virtual_regs[no].used == true));
+    m_virtual_regs[no].used = false;
+}
+
+// Allocate virtual register for expr output
+void Lang::alloc_expr_output(AstExpr* expr)
+{
+    expr->output.type = OUTPUT_VIRTUAL_REG;
+    expr->output.index = alloc_virtual_reg(expr->var_type.basic_var_type,
+                                           (expr->var_type.var_attrib & AST_VAR_MAY_NIL) ? true : false);
+}
+
+// Free output allocated by expr
+void Lang::free_expr_output(AstExpr* expr)
+{
+    if (expr->output.type == OUTPUT_VIRTUAL_REG)
+        // Output to an allocated local, free it
+        free_virtual_reg(expr->output.index);
 }
 
 // Are all the children constant expr?

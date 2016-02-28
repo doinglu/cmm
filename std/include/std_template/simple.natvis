@@ -14,25 +14,14 @@
             </ArrayItems>
         </Expand>
     </Type>
-    <Type Name="simple::hash_map&lt;*&gt;" Inheritable="false">
+    <Type Name="simple::hash_base&lt;*&gt;" Inheritable="false">
         <DisplayString>{{ size={m_size} }}</DisplayString>
         <Expand HideRawView="true">
-            <Item Name="[capacity]" ExcludeView="simple">m_pairs.m_space</Item>
+            <Item Name="[capacity]" ExcludeView="simple">m_elements.m_space</Item>
             <Item Name="[size]" ExcludeView="simple">m_size</Item>
             <ArrayItems>
-                <Size>m_pairs.m_size</Size>
-                <ValuePointer>m_pairs.m_array</ValuePointer>
-            </ArrayItems>
-        </Expand>
-    </Type>
-    <Type Name="simple::hash_set&lt;*&gt;" Inheritable="false">
-        <DisplayString>{{ size={m_size} }}</DisplayString>
-        <Expand HideRawView="false">
-            <Item Name="[capacity]" ExcludeView="simple">m_keys.m_space</Item>
-            <Item Name="[size]" ExcludeView="simple">m_size</Item>
-            <ArrayItems>
-                <Size>m_keys.m_size</Size>
-                <ValuePointer>m_keys.m_array</ValuePointer>
+                <Size>m_elements.m_size</Size>
+                <ValuePointer>m_elements.m_array</ValuePointer>
             </ArrayItems>
         </Expand>
     </Type>
@@ -44,13 +33,13 @@
     </Type>
     <Type Name="simple::manual_list&lt;*&gt;" Inheritable="true">
         <DisplayString>{{ size={m_size} }}</DisplayString>
-        <Expand HideRawView="true">
+        <Expand HideRawView="false">
             <Item Name="[size]" ExcludeView="simple">m_size</Item>
             <LinkedListItems>
                 <Size>m_size</Size>
-                <HeadPointer>m_head->next</HeadPointer>
+                <HeadPointer>m_head</HeadPointer>
                 <NextPointer>next</NextPointer>
-                <ValueNode>value</ValueNode>
+                <ValueNode>next</ValueNode>
             </LinkedListItems>
         </Expand>
     </Type>

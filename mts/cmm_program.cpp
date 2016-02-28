@@ -231,7 +231,7 @@ Program::~Program()
 // The string.m_string may be updated if find in pool
 bool Program::convert_to_shared(StringImpl** string)
 {
-    if (!((*string)->attrib & ReferenceImpl::SHARED))
+    if (!((*string)->attrib & ReferenceImplAttrib::SHARED))
     {
         // Not shared? Lookup in pool
         auto* string_impl_in_pool = find_string(*string);
@@ -461,7 +461,7 @@ class __clone_entity
 {
 public:
     // Routine 0 of this component
-    Value print_hello(Value* __args, ArgNo __n)
+    Value& print_hello(Thread* _thread, Value* ret, ArgNo __n)
     {
         ...
         printf("Hello! %s\n", call_far(1, 7).m_string->c_str()); // Component 1, routine 7 - /feature/name::get_name()
@@ -478,7 +478,7 @@ private:
 
 public:
     // Routine 0 of this component
-    Value set(Value* __args, ArgNo __n)
+    Value& set(Thread* _thread, Value* ret, ArgNo __n)
     {
         ...
         m_dbase[__args[0]] = __args[1];
@@ -486,7 +486,7 @@ public:
     }
 
     // Routine 1 of this component
-    Value query(Value* __args, ArgNo __n)
+    Value& query(Thread* _thread, Value* ret, ArgNo __n)
     {
         ...
         return m_dbase[__args[0]];
@@ -500,7 +500,7 @@ class __feature_name
     // Skip 6 routines
 
     // Routine 6 of this component
-    Value set_name(Value* __args, ArgNo __n)
+    Value& set_name(Thread* _thread, Value* ret, ArgNo __n)
     {
         ...
         return call_far(1, 0, Value("name"), __args[0]); // Component 1, routine 0 - /feature/dbase::set()
@@ -508,7 +508,7 @@ class __feature_name
     }
 
     // Routine 7 of this component
-    Value get_name(Value* __args, ArgNo __n)
+    Value& get_name(Thread* _thread, Value* ret, ArgNo __n)
     {
         ...
         return call_far(1, 1, Value("name")); // Component 1, routine 1 - /feature/dbase::query()
@@ -635,7 +635,7 @@ void Program::update_program()
 void Program::mark_constant(Value* value)
 {
     auto* reference = value->m_reference;
-    if (reference->attrib & ReferenceImpl::CONSTANT)
+    if (reference->attrib & ReferenceImplAttrib::CONSTANT)
         // It's already a constant value
         return;
 
@@ -647,7 +647,7 @@ void Program::mark_constant(Value* value)
     }
 
     // Move non-string reference value to this program
-    reference->attrib |= ReferenceImpl::CONSTANT;
+    reference->attrib |= ReferenceImplAttrib::CONSTANT;
     reference->unbind();
     m_value_list.append_value(reference);
     switch (value->m_type)
@@ -787,26 +787,30 @@ Object* Program::new_instance(Domain* domain)
 }
 
 // Invoke a function in program
-// ATTENTION: args[0..n) should be in local stack (see call_other)
-Value Program::invoke(Thread* thread, ObjectId oid, const Value& function_name, Value* args, ArgNo n) const
+Value& Program::invoke(Thread* thread, ObjectId oid, const Value& function_name, Value* ret, ArgNo n) const
 {
     CalleeInfo callee;
 
-    // Make sure args in local stack ([0..64K] from &thread) 
-    STD_ASSERT(!args || (void*)args > (void*)&thread);
-    STD_ASSERT(!args || (char*)args - (char*)&thread < 65536);
-
     if (function_name.m_type != ValueType::STRING)
+    {
         // Bad type of function name
-        return NIL;
+        *ret = NIL;
+        return *ret;
+    }
 
     if (!get_public_callee_by_name((String*)&function_name, &callee))
+    {
         // No such function
-        return NIL;
+        *ret = NIL;
+        return *ret;
+    }
 
-    if (!thread->try_switch_object_by_id(thread, oid, args, n, Thread::get_stack_pointer_func()()))
+    if (!thread->try_switch_object_by_id(thread, oid, n))
+    {
         // The object is not existed or just destructed
-        return NIL;
+        *ret = NIL;
+        return *ret;
+    }
 
     // Call
     auto* object = Object::get_object_by_id(oid);
@@ -815,30 +819,28 @@ Value Program::invoke(Thread* thread, ObjectId oid, const Value& function_name, 
     auto* component_impl = (AbstractComponent*)(((Uint8*)object) + offset);
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
 
-    thread->push_call_context(object, callee.function, args, n, component_no);
-    // Push domain context with first argument as start_sp since when do GC, wo need to
-    // scan all arguments
-    // ATTENTION: When program executed here, it should push all registeres before calling
-    // this routine into stack(>=stack pointer). Since the GC will trace all root pointers
-    // in local stack. It will lose root if any registered was not saved now.
-    thread->push_domain_context(args + n);
+    thread->push_call_context(object, callee.function, n, component_no);
+    thread->push_domain_context();
     thread->get_current_domain()->check_gc();  // Check target domain GC after copied arguments
-    Value other_ret = (component_impl->*func)(thread, args, n);
-    Value this_ret = thread->pop_domain_context(other_ret);
-    thread->pop_call_context();
+    (component_impl->*func)(thread, n);
+    thread->pop_domain_context();
+    thread->pop_call_context(ret);
     thread->get_current_domain()->check_gc();  // Check source domain GC after copied return value
-    return this_ret; // Return value was in this_ret
+    return *ret; // Return value was in *ret
 }
 
 // Invoke self function
 // Call public function in this program OR private function of this component
-Value Program::invoke_self(Thread* thread, const Value& function_name, Value* args, ArgNo n) const
+Value& Program::invoke_self(Thread* thread, const Value& function_name, Value* ret, ArgNo n) const
 {
     CalleeInfo callee;
 
     if (function_name.m_type != ValueType::STRING)
+    {
         // Bad type of function name
-        return NIL;
+        *ret = NIL;
+        return *ret;
+    }
 
     // Get program of the current module
     auto* object = thread->get_this_object();
@@ -846,17 +848,20 @@ Value Program::invoke_self(Thread* thread, const Value& function_name, Value* ar
     auto* to_program = m_components[component_no].program;
 
     if (!to_program->get_self_callee_by_name((String*)&function_name, &callee))
+    {
         // No such function
-        return NIL;
+        *ret = NIL;
+        return *ret;
+    }
 
     // Call
     ComponentOffset offset = m_components[component_no].offset;
     auto* component_impl = (AbstractComponent*)(((Uint8*)object) + offset);
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
-    thread->push_call_context(object, callee.function, args, n, component_no);
-    Value ret = (component_impl->*func)(thread, args, n);
-    thread->pop_call_context();
-    return ret;
+    thread->push_call_context(object, callee.function, n, component_no);
+    (component_impl->*func)(thread, n);
+    thread->pop_call_context(ret);
+    return *ret;
 }
 
 // Get program by name

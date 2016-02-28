@@ -67,7 +67,7 @@ StringImpl *StringPool::find_or_insert(StringImpl* const str_impl)
     {
         // Not found in pool, create new "CONSTANT" string
         string_in_pool = STRING_ALLOC(str_impl);
-        string_in_pool->attrib |= (ReferenceImpl::CONSTANT | ReferenceImpl::SHARED);
+        string_in_pool->attrib |= (ReferenceImplAttrib::CONSTANT | ReferenceImplAttrib::SHARED);
         // Attention: The key (String) must use the same StringImpl * as value
         m_pool.put(string_in_pool);
     }
@@ -92,7 +92,7 @@ StringImpl *StringPool::find_or_insert(const char* c_str, size_t len)
     {
         // Not found in pool, create new "CONSTANT" string
         string_in_pool = STRING_ALLOC(c_str, len);
-        string_in_pool->attrib |= (ReferenceImpl::CONSTANT | ReferenceImpl::SHARED);
+        string_in_pool->attrib |= (ReferenceImplAttrib::CONSTANT | ReferenceImplAttrib::SHARED);
         // Attention: The key (String) must use the same StringImpl * as value
         m_pool.put(string_in_pool);
     }

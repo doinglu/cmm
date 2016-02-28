@@ -494,7 +494,7 @@ void Lexer::handle_cond(IntR c)
 
     if (!c)
         skip_to("else", "endif");
-    p = (IfStatement *) LANG_NEW(m_lang_context, IfStatement);
+    p = (IfStatement *) BUFFER_NEW(IfStatement);
     p->next = this->m_if_top;
     this->m_if_top = p;
     p->state = c ? IfStatement::EXPECT_ENDIF : IfStatement::EXPECT_ELSE;

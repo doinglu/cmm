@@ -91,9 +91,15 @@ private:
     bool            pass1();
     void            init_symbol_table();
     void            lookup_and_map_identifiers(AstNode *node);
-    void            lookup_expr_types(AstNode *node);
-    LocalNo         alloc_anonymouse_local(ValueType type);
-    void            free_anonymouse_local(LocalNo no);
+    void            lookup_expr_types_and_output(AstNode *node);
+
+private:
+    VirtualRegNo    alloc_virtual_reg(ValueType type, bool may_nil);
+    void            free_virtual_reg(VirtualRegNo no);
+
+private:
+    void            alloc_expr_output(AstExpr* expr);
+    void            free_expr_output(AstExpr* expr);
 
     // Pass2 - Create final result
 private:
@@ -158,13 +164,13 @@ public:
     simple::vector<simple::string> m_components;
 
     // All anonymouse local information
-    struct LocalInfo
+    struct VirtualRegInfo
     {
         ValueType type;
         bool used;
     };
-    typedef simple::vector<LocalInfo> LocalInfos;
-    LocalInfos m_anon_locals;
+    typedef simple::vector<VirtualRegInfo> VirtualRegInfos;
+    VirtualRegInfos m_virtual_regs;
 
     // long jump buffer
     jmp_buf m_jmp_buf;

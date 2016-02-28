@@ -30,7 +30,7 @@ class Buffer;
 class Array;
 class Map;
 
-class PushValue;
+class Call;
 class ValueList;
 class ValueStack;
 
@@ -45,34 +45,32 @@ struct StringImpl;
 struct MarkValueState;
 
 // Base type of VM referenced  value
+typedef enum : Uint8
+{
+    CONSTANT = 0x01,    // Unchanged/freed Referenced value
+    SHARED = 0x80,      // Shared in a values pool
+    MARKABLE = 0x40,    // Is this referring to other values?
+} ReferenceImplAttrib;
+DECLARE_BITS_ENUM(ReferenceImplAttrib, Uint8);
+
 struct ReferenceImpl
 {
 friend Value;
 
 public:
-    typedef enum
-    {
-        CONSTANT = 0x01,    // Unchanged/freed Referenced value
-        SHARED = 0x80,      // Shared in a values pool
-        MARKABLE = 0x40,    // Is this referring to other values?
-    } Attrib;
-
-public:
 	ReferenceImpl(ValueType _type) :
-        attrib(0),
+        attrib((ReferenceImplAttrib)0),
         type(_type),
         hash_cache(0),
         owner(0),
 #if USE_VECTOR_IN_VALUE_LIST
-        offset(0)
-#else
-        prev(0),
-        next(0)
+        offset(0),
 #endif
-    {
+        next(0)
+	{
         if (type != STRING)
-            attrib |= MARKABLE;
-	}
+            attrib |= ReferenceImplAttrib::MARKABLE;
+    }
 
     virtual ~ReferenceImpl()
     {
@@ -83,7 +81,7 @@ public:
     // Is this value a constant value?
     bool is_constant() const
     {
-        return attrib & CONSTANT;
+        return (attrib & ReferenceImplAttrib::CONSTANT) ? true : false;
     }
 
 public:
@@ -132,19 +130,17 @@ public:
     virtual void mark(MarkValueState& value_map) { }
 
 public:
-#if USE_LIST_IN_VALUE_LIST
     // These node should be better to be defined @ head of struct for manual_list
     struct ReferenceImpl *next;
     struct ReferenceImpl *prev;
-#endif
 
 public:
-    Uint16 attrib;           // 16bits only (Don't use enum)
-    Uint16 type;             // Type of me
-    mutable Uint hash_cache; // Cache of hash value
-    ValueList *owner;        // Owned by domain or thread
+    ReferenceImplAttrib attrib; // 16bits only (Don't use enum)
+    ValueType type;             // Type of me
+    mutable Uint hash_cache;    // Cache of hash value
+    ValueList *owner;           // Owned by domain or thread
 #if USE_VECTOR_IN_VALUE_LIST
-    size_t offset;           // Offset of value in value list
+    size_t offset;              // Offset of value in value list
 #endif
 };
 
@@ -163,16 +159,17 @@ class Value
 {
 friend AstExprConstant;////---- To be removed
 friend Array;
+friend Call;
 friend Map;
 friend MMMValue;////----
 friend Object;
-friend PushValue;
 friend String;
 friend Thread;
 friend ValueStack;
 friend ValueInContainer;
 template <typename T>
 friend class TypedValue;
+#if 0
 template<class... Types>
 friend Value& call_efun(Thread *thread, const Value& function_name, Value* ret, Types&&... args);
 template<class... Types>
@@ -181,7 +178,7 @@ template<typename F, class... Types>
 friend Value& call_near(Thread *thread, AbstractComponent *component, F fptr, Value* ret, Types&&... args);
 template<class... Types>
 friend Value& call_other(Thread *thread, ObjectId oid, const Value& function_name, Value* ret, Types&&... args);
-
+#endif
 public:
     // Instantiated hash routine for simple::string
     struct hash_func
@@ -212,6 +209,12 @@ private:
         m_intptr = 0;
     }
 
+    Value(ValueType value_type)
+    {
+        m_type = value_type;
+        m_intptr = 0;
+    }
+
     // Raw constructor (Do nothing, just copy)
     // ATTENTION: When use this interface?
     // eg. copy_to_local() will copy the reference value to thread local
@@ -222,7 +225,6 @@ private:
         m_intptr = intptr;
     }
 
-public:
     // Construct for integer 
     Value(int v)
     {
@@ -308,15 +310,8 @@ public:
         *this = value;
     }
 
-    // Initialize to NIL
-    // ValueType unused should be NIL only
-    Value(ValueType type)
-    {
-        *this = type;
-    }
-
 public:
-    // Copy
+    // Copy value
     Value& operator =(const Value& value)
     {
         m_part1 = value.m_part1;
@@ -564,10 +559,24 @@ public:
     Value& set(const Value& key, const Value& value);
 
     // Get index from container
-    Value get(const Value& key) const;
+    const Value& get(const Value& key, Value* ptr_value) const;
+
+public:
+    // Common operators for convenience
+    static Value& op_add(Value* ptr, const Value& a, const Value& b);
+    static Value& op_sub(Value* ptr, const Value& a, const Value& b);
+    static Value& op_mul(Value* ptr, const Value& a, const Value& b);
+    static Value& op_div(Value* ptr, const Value& a, const Value& b);
+    static Value& op_mod(Value* ptr, const Value& a, const Value& b);
+    static Value& op_and(Value* ptr, const Value& a, const Value& b);
+    static Value& op_or(Value* ptr, const Value& a, const Value& b);
+    static Value& op_xor(Value* ptr, const Value& a, const Value& b);
+    static Value& op_rev(Value* ptr, const Value& a);
+    static Value& op_neg(Value* ptr, const Value& a);
+    static Value& op_lsh(Value* ptr, const Value& a, const Value& b);
+    static Value& op_rsh(Value* ptr, const Value& a, const Value& b);
 
 #define VVVV
-
 public:
     union
     {
@@ -899,7 +908,7 @@ public:
         return set(index.get_int(), val);
     }
 
-    Value get(Integer index) const
+    const Value& get(Integer index, Value* ptr) const
     {
         if (index < 0 || index >= (Integer)a.size())
             throw_error("Index out of range to array, got %lld.\n", (Int64)index);
@@ -911,12 +920,12 @@ public:
                 throw_error("Index out of range to array, got %lld.", (Int64)index);
         }
 
-        return a[index];
+        return *(ValueInContainer*)ptr = a[index];
     }
 
-    Value get(const Value& index) const
+    const Value& get(const Value& index, Value* ptr) const
     {
-        return get(index.get_int());
+        return get(index.get_int(), ptr);
     }
 
     // Append an element
@@ -980,11 +989,11 @@ public:
         return m[(const ValueInContainer&)index] = (const ValueInContainer&)value;
     }
 
-    Value get(const Value& index) const
+    const Value& get(const Value& index, Value* ptr) const
     {
-        Value ret = NIL;
-        m.try_get((const ValueInContainer&)index, (ValueInContainer*)&ret);
-        return ret;
+        if (!m.try_get((const ValueInContainer&)index, (ValueInContainer*)ptr))
+            *ptr = NIL;
+        return *ptr;
     }
 
     // Contains key?
@@ -1029,7 +1038,7 @@ public:
     TypedValue(V arg)
     {
         *(Value*)this = arg;
-        STD_ASSERT(("Bad type of Value when construct.", m_type == T::this_type || m_type == NIL));
+        STD_ASSERT(("Bad type of Value when construct.", m_type == T::this_type || m_type != NIL));
     }
 
 public:
@@ -1125,13 +1134,6 @@ private:
     {
     }
 #endif
-
-public:
-    // Init to NIL only
-    String(ValueType value_type) :
-        TypedValue(value_type)
-    {
-    }
 
     String(const char *c_str, size_t len = SIZE_MAX) :
         TypedValue(STRING_ALLOC(c_str, len))
@@ -1243,12 +1245,6 @@ public:
     {
     }
 
-    // Init to NIL only
-    Buffer(ValueType value_type) :
-        TypedValue(value_type)
-    {
-    }
-
     // Redirect function to impl()
     // ATTENTION:
     // Why not override -> or * (return T *) for redirection call?
@@ -1269,25 +1265,20 @@ private:
     {
     };
 
+#if false
+    Array(ArrayImpl *impl) :
+        TypedValue(impl)
+    {
+    }
+#endif
+
+    Array(size_t size_hint);
+
 public:
     Array(const Value& value) :
           TypedValue(value)
     {
     }
-
-    // Init to NIL only
-    Array(ValueType value_type) :
-        TypedValue(value_type)
-    {
-    }
-
-    // Init with impl
-    Array(ArrayImpl *impl) :
-        TypedValue(impl)
-    {
-    }
-
-    Array(size_t size_hint);
 
 public:
     Value& set(const Value& index, const Value& value) const
@@ -1296,11 +1287,11 @@ public:
     Value& set(Integer index, const Value& value) const
         { return impl().set(index, value); }
 
-    Value get(const Value& index) const
-        { return impl().get(index); }
+    const Value& get(const Value& index, Value* ptr) const
+        { return impl().get(index, ptr); }
 
-    Value get(Integer index) const
-        { return impl().get(index); }
+    const Value& get(Integer index, Value* ptr) const
+        { return impl().get(index, ptr); }
 
     void push_back(const Value& value)
         { impl().push_back(value); }
@@ -1325,32 +1316,32 @@ private:
     {
     }
 
+#if false
+    Map(MapImpl *impl) :
+        TypedValue(impl)
+    {
+    }
+#endif
+
+    Map(size_t size_hint);
+
 public:
     Map(const Value& value) :
         TypedValue(value)
     {
     }
 
-    // Init to NIL only
-    Map(ValueType value_type) :
-        TypedValue(value_type)
-    {
-    }
-
-    // Init with impl
-    Map(MapImpl *impl) :
-        TypedValue(impl)
-    {
-    }
-
-    Map(size_t size_hint);
-
 public:
+    static MapImpl* allocate(size_t size_hint)
+    {
+        return XNEW(MapImpl, size_hint);
+    }
+
     Value& set(const Value& index, const Value& value)
         { return impl().set(index, value); }
 
-    Value get(const Value& index) const
-        { return impl().get(index); }
+    const Value& get(const Value& index, Value* ptr) const
+        { return impl().get(index, ptr); }
 
     Value& keys(Value* ptr) const
         { return impl().keys(ptr); }
@@ -1367,20 +1358,6 @@ public:
     auto end() -> decltype(impl().m.begin())
         { return impl().m.end(); }
 };
-
-// Common operators for convenience
-Value operator +(const Value& a, const Value& b);
-Value operator -(const Value& a, const Value& b);
-Value operator *(const Value& a, const Value& b);
-Value operator /(const Value& a, const Value& b);
-Value operator %(const Value& a, const Value& b);
-Value operator &(const Value& a, const Value& b);
-Value operator |(const Value& a, const Value& b);
-Value operator ^(const Value& a, const Value& b);
-Value operator ~(const Value& a);
-Value operator -(const Value& a);
-Value operator <<(const Value& a, const Value& b);
-Value operator >>(const Value& a, const Value& b);
 
 // Compare operators
 bool operator !(const Value& a);

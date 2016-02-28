@@ -13,9 +13,7 @@
 #include "std_template/simple_string.h"
 #include "std_port/std_port.h"
 #include "std_port/std_port_type.h"
-#include "std_port/std_port_mmap.h"
 #include "std_memmgr/std_memmgr.h"
-#include "std_memmgr/std_bin_alloc.h"
 #include "cmm_buffer_new.h"
 #include "cmm_domain.h"
 #include "cmm_efun.h"
@@ -161,9 +159,11 @@ int main_body(int argn, char *argv[]);
 void test_gc()
 {
     Uint8 ins[] = { 0x48, 0x89, 0x43, 0x08 };
-    Value key = NIL;
-    Value value = NIL;
-    Value mo = NIL;
+    auto* thread = Thread::get_current_thread();
+    auto r = ReserveStack(20);
+    Value& key = r[0];
+    Value& value = r[1];
+    Value& mo = r[2];
 #if 1
     // Prepare some old mappings
     mo = XNEW(MapImpl, 8);
@@ -172,25 +172,23 @@ void test_gc()
     {
         char str[100];
         snprintf(str, 100, "m_%d", i);
-        auto& mx = mo.set(str, XNEW(MapImpl));
+        auto& mx = mo.set(key = str, value = XNEW(MapImpl));
 
         for (int k = 0; k < 100; k++)
         {
             char str[100];
             snprintf(str, 100, "m_%d", k);
-            mx.set(str, k);
+            mx.set(key = str, value = k);
         }
     }
 #endif
 
     auto b = std_get_current_us_counter();
     
-#if 1
-    Value m = NIL;
+    Value& m = r[3];
     m = XNEW(MapImpl);
     printf("m.m_map = %p\n", m.m_map);
-    void *p = malloc(65536*4);
-    free(p);
+#if 1
     for (int i = 0; i < 2000000; i++)
     {   
         char str[100];
@@ -200,107 +198,40 @@ void test_gc()
         m.set(key, value);
     }
 #else
-    Value i = 0;
-    Value k = 0;
-    Value counter = 0;
-    Value flag = 0;
+    Value& i = key;
+    Value& k = value;
+    Value& counter = mo;
+    Value& flag = m;
+    Value& num_0 = r[4];
+    Value& num_1 = r[5];
+    Value& num_2 = r[6];
+    Value& num_max = r[7];
+    Value& r1 = r[8];
+    num_0 = 0;
+    num_1 = 1;
+    num_2 = 2;
+    num_max = 1000000;
+
     counter = 1;
-    for (i = 3; i < 1000000; i = i + 2)
+    for (i = 3; i < num_max; Value::op_add(&i, i, num_2))
     {
         flag = 1;
-        for (k = 2; k * k <= i; k = k + 1)
-            if (i % k == 0)
+        for (k = 2; Value::op_mul(&r1, k,  k) <= i; Value::op_add(&k, k, num_1))
+            if (Value::op_mod(&r1, i, k) == num_0)
             {
                 flag = 0;
                 break;
             }
-        counter = counter + 1;
+        Value::op_add(&counter, counter, num_1);
     }
 #endif
     auto e = std_get_current_us_counter();
     printf("mo.size = %zu.\n", mo.as_map().m_map->size());
     printf("Total Cost = %dus.\n\n", (int)(e - b));
-    printf("p = %p.\n", p);
 }
 
 void tgc()
 {
-}
-
-#if 1
-#define MEM_ALLOC(size)     std_ba_alloc(&pool, size)
-#define MEM_FREE(p, size)   std_ba_free(&pool, p, size)
-#else
-#define MEM_ALLOC(size)     malloc(size)
-#define MEM_FREE(p, size)   free(p)
-#endif
-
-int test_ba()
-{
-    typedef struct ainfo
-    {
-        void *p;
-        size_t size;
-    } ainfo_t;
-
-    std_bin_alloc_t pool;
-    size_t s11 = STD_BIN_PAGE_SIZE * 30 - 5;
-    size_t s21 = STD_BIN_PAGE_SIZE * 60 - 3;
-    size_t s12 = STD_BIN_PAGE_SIZE * 30 - 6;
-    void* p11;
-    void* p21;
-    void* p12;
-    std_ba_create(&pool, (size_t)1024 * 1024 * 1024 * 2);
-    p11 = std_ba_alloc(&pool, s11);
-    p21 = std_ba_alloc(&pool, s21);
-    p12 = std_ba_alloc(&pool, s12);
-
-    auto b = std_get_os_us_counter();
-
-    enum { COUNT = 10000 };
-    ainfo_t ai[COUNT];
-    size_t total = 0;
-    for (size_t i = 0; i < COUNT; i++)
-    {
-        size_t size = ((((size_t)rand()<<16) + rand()) % (524288/2)) | 1;
-        ai[i].size = size;
-        ai[i].p = MEM_ALLOC(size);
-        total += size;
-        if (!ai[i].p)
-            throw "Failed to allocate.\n";
-    }
-    size_t range = (char*)ai[COUNT - 1].p - (char*)ai[0].p;
-#if 1
-    // shuffle
-    for (size_t i = 0; i < COUNT; i++)
-    {
-        ainfo_t aswap;
-        size_t k = rand() % COUNT;
-        aswap = ai[i];
-        ai[i] = ai[k];
-        ai[k] = aswap;
-    }
-#endif
-    // Free
-    size_t used = pool.current_used;
-#if 1
-    for (size_t i = 0; i < COUNT; i++)
-    {
-        int ret = 0;
-        MEM_FREE(ai[i].p, ai[i].size);
-        //printf("Free %p[%zu] = %d, used = %zu\n", ai[i].p, ai[i].size, (int)ret, pool.current_used);
-    }
-#endif
-
-    auto e = std_get_os_us_counter();
-    printf("Cost: %zuus.\n", (size_t)(e - b));
-    printf("Total = %zu, Pool.size = %zu, range = %zu.\n", total, used, range);
-
-    std_ba_free(&pool, p12, s12);
-    std_ba_free(&pool, p21, s21);
-    std_ba_free(&pool, p11, s11);
-    std_ba_destruct(&pool);
-    return 0;
 }
 
 int main(int argn, char *argv[])
@@ -349,7 +280,7 @@ int main(int argn, char *argv[])
     Object::shutdown();
 
     Value::shutdown();
-    printf("Stat for USE-NATIVE-STACK.\n");
+    printf("Stat for USE-VALUE-STACK.\n");
 }
 
 void ttt();
@@ -359,7 +290,7 @@ void compile()
     FILE *fp;
 
     /* Create compile context */
-    auto* context = XNEW(Lang);
+    auto* context = BUFFER_NEW(Lang);
 
     /* Start new file in lex */ 
     fp = fopen("../script.c", "r");
@@ -373,7 +304,6 @@ void compile()
     // Debug output
     context->print_ast(context->m_root, 0);
 
-    XDELETE(context);
     fclose(fp);
 }
 
@@ -382,6 +312,8 @@ int main_body(int argn, char *argv[])
     static bool flag = 1;
 
     auto* thread = Thread::get_current_thread();
+    auto r = ReserveStack(20);
+
 #if 0
     simple::vector<int> arr;
     arr.push_back(123);
@@ -432,17 +364,17 @@ int main_body(int argn, char *argv[])
 
 #if 1
     
-    Value _v1 = NIL;
-    Value _v2 = NIL;
-    Value _v3 = NIL;
-    Value _v4 = NIL;
-    Value _v5 = NIL;
-    Value _v6 = NIL;
-    Value _v7 = NIL;
-    Value _v8 = NIL;
+    Value& _v1 = r[0];
+    Value& _v2 = r[1];
+    Value& _v3 = r[2];
+    Value& _v4 = r[3];
+    Value& _v5 = r[4];
+    Value& _v6 = r[5];
+    Value& _v7 = r[6];
+    Value& _v8 = r[7];
 
-    Value key = NIL;
-    Value value = NIL;
+    Value& key = r[8];
+    Value& value = r[9];
 
     _v1 = NIL;
     _v2 = 88;
@@ -471,7 +403,8 @@ int main_body(int argn, char *argv[])
 
     Program::update_all_programs();
 
-    call_efun(thread, key = "printf", "a=%d\n", 555);
+    Value& r1 = r[17];
+    call_efun(thread, key = "printf", &r1, "*** a=%d ***\n", 555);
 
     auto *a1 = BUFFER_NEW(AAA, 888);
     auto *a2 = BUFFER_NEWN(AAA, 3);
@@ -489,21 +422,24 @@ int main_body(int argn, char *argv[])
     //printf("a1 = %p, a2 = %p, a11 = %p, a21 = %p\n", a1, a2, a11, a21);
     printf("&argn = %p\n", (Uint8*) &argn - 0x20);
     printf("thread start = %zu, end = %zu\n",
-           (size_t)thread->get_this_domain_context()->value.m_start_sp,
-           (size_t)thread->get_this_domain_context()->value.m_end_sp);
+           thread->get_this_domain_context()->value.m_start_sp,
+           thread->get_this_domain_context()->value.m_end_sp);
 
-    auto *domain = XNEW(Domain, "test1");
+    auto *domain = XNEW(Domain, "domain_test1");
     auto *program = Program::find_program_by_name((key = "/clone/entity").m_string);
     auto *ob = program->new_instance(domain);
 
-    auto *domain2 = XNEW(Domain, "test2");
+    auto *domain2 = XNEW(Domain, "domain_test2");
     auto *ob2 = program->new_instance(domain2);
-    call_other(thread, ob->get_oid(), key = "create");
-    call_other(thread, ob2->get_oid(), key = "create");
+    call_other(thread, ob->get_oid(), key = "create", &r1);
+    call_other(thread, ob2->get_oid(), key = "create", &r1);
     auto b = std_get_os_us_counter();
-//    Value ret = call_other(thread, ob->get_oid(), key = "printf", ob2->get_oid());
-    Value ret = call_other(thread, ob->get_oid(), key = "test_call", ob2->get_oid());
-//    printf("ret = %d.\n", (int) ret.m_int);
+#if 1
+    Value ret = call_other(thread, ob->get_oid(), key = "printf", &r1, value = "result: %O\n", ob2->get_oid());
+#else
+    Value ret = call_other(thread, ob->get_oid(), key = "test_call", &r1, ob2->get_oid());
+#endif
+    //    printf("ret = %d.\n", (int) ret.m_int);
     auto e = std_get_os_us_counter();
     printf("Total cost: %zuus.\n", (size_t)(e - b));
     XDELETE(ob);

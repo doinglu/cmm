@@ -47,8 +47,11 @@ bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, con
         // Failed to add efun
         return false;
 
+    auto r = ReserveStack(2);
+    String& temp = (String&)r[0];
+
     // Create the function
-    auto *function = program->define_function(prototype.fun_name, entry);
+    auto *function = program->define_function(temp = prototype.fun_name, entry);
 
     // Set attrib of function
     function->m_attrib = Function::EXTERNAL;
@@ -76,12 +79,11 @@ bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, con
         if (it.has_default)
             attrib = (Parameter::Attrib)(attrib | Parameter::DEFAULT);
 
-        function->define_parameter(it.name, it.type.basic_type, attrib);
+        function->define_parameter(temp = it.name, it.type.basic_type, attrib);
     }
     function->finish_adding_parameters();
 
-    auto* thread = Thread::get_current_thread();
-    String fun_name_with_prefix = NIL;
+    String& fun_name_with_prefix = (String&)r[1];
 
     // Add name->function to efun map
     // For system package, add two entries, one for short name (without package prefix)
@@ -99,8 +101,12 @@ bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, con
 // Add multiple efuns
 void Efun::add_efuns(const String& package_name, EfunDef *efun_def_array)
 {
+    auto r = ReserveStack(2);
+    String& prefix = (String&)r[0];
+    String& temp = (String&)r[1];
+
     // Is package_name lead by "system."?
-    String prefix = package_name;
+    prefix = package_name;
     prefix.concat(".");
 
     // Create program for this package
@@ -109,7 +115,7 @@ void Efun::add_efuns(const String& package_name, EfunDef *efun_def_array)
 
     // Add all efuns
     for (size_t i = 0; efun_def_array[i].entry; ++i)
-        add_efun(program, prefix, efun_def_array[i].entry, efun_def_array[i].prototype);
+        add_efun(program, prefix, efun_def_array[i].entry, temp = efun_def_array[i].prototype);
 }
 
 // Parse prototype & generate function
@@ -145,36 +151,39 @@ bool Efun::parse_efun_prototype(const String& text, PrototypeGrammar::Prototype 
 
 // Invoke an efun by name
 // See ATTENTION of Program::invoke
-Value Efun::invoke(Thread *thread, const Value& function_name, Value *args, ArgNo n)
+Value& Efun::invoke(Thread *thread, const Value& function_name, Value* ret, ArgNo n)
 {
     if (function_name.m_type != ValueType::STRING)
     {
         // Bad type of function name
-        return NIL;
+        *ret = NIL;
+        return *ret;
     }
 
     if (!Program::convert_to_shared((StringImpl**)&function_name.m_string))
     {
         // Not found name in shared string pool, no such efun
-        return NIL;
+        *ret = NIL;
+        return *ret;
     }
 
     Function *function;
     if (!m_efun_map->try_get(simple::raw_type(function_name.m_string), &function))
     {
         // Function is not found
-        return NIL;
+        *ret = NIL;
+        return *ret;
     }
 
     auto func_entry = function->get_efun_entry();
-    thread->push_call_context(thread->get_this_object(), (void *)func_entry, args, n,
+    thread->push_call_context(thread->get_this_object(), (void *)func_entry, n,
                               thread->get_this_component_no());
-    Value ret = func_entry(thread, args, n);
-    thread->pop_call_context();
+    func_entry(thread, n);
+    thread->pop_call_context(ret);
     STD_ASSERT(("Bad return type of efun function.",
-                (ret.m_type == function->m_ret_type) ||
-                (ret.m_type == ValueType::NIL && (function->m_attrib & Function::Attrib::RET_NULLABLE))));
-    return ret;
+                (ret->m_type == function->m_ret_type) ||
+                (ret->m_type == ValueType::NIL && (function->m_attrib & Function::Attrib::RET_NULLABLE))));
+    return *ret;
 }
 
 // Get an efun by name

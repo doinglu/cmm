@@ -69,9 +69,12 @@ Simulator::InstructionInfo Simulator::m_instruction_info[] =
     _INST(CAST,     3, "$$ $1, ($2.type)$3"),
     _INST(ISTYPE,   3, "$$ $1, $3 is $2.type"),
     _INST(LDMULX,   3, "$$ $1, $2 x$3"),
-    _INST(LDI,      2, "$$ $1, $23.imm"),
-    _INST(LDR,      2, "$$ $1, $23.immf"),
+    _INST(LDI,      2, "$$ $1, $23.i"),
+    _INST(LDR,      2, "$$ $1, $23.f"),
     _INST(LDX,      2, "$$ $1, $2"),
+    _INST(STI,      2, "$$ $1.pt, $23.i"),
+    _INST(STR,      2, "$$ $1.pt, $23.f"),
+    _INST(STX,      2, "$$ $1.pt, $2"),
     _INST(LDARGN,   1, "$$ $1, argn"),
     _INST(RIDXXX,   3, "$$ $1, $2[$3]"),
     _INST(LIDXXX,   3, "$$ $1[$3], $2"),
@@ -79,14 +82,14 @@ Simulator::InstructionInfo Simulator::m_instruction_info[] =
     _INST(MKIARR,   3, "$$ $1, [$3... x$2]"),
     _INST(MKEMAP,   3, "$$ $1, {} capacity:$2"),
     _INST(MKIMAP,   3, "$$ $1, {$3:... x$2}"),
-    _INST(JMP,      1, "$$ $1.offset"),
-    _INST(JCOND,    2, "$$ $1.offset when $2 != 0"),
-    _INST(CALLNEAR, 2, "$$ $1.fun($2...)"),
-    _INST(CALLFAR,  3, "$$ $31.fun($2...)"),
-    _INST(CALLNAME, 2, "$$ $1($2...)"),
-    _INST(CALLOTHER,3, "$$ $1($2...)"),
-    _INST(CALLEFUN, 3, "$$ $1($2...)"),
-    _INST(CHKPARAM, 0, "$$"),
+    _INST(PUSHNX,   2, "$$ $1..x$2"),
+    _INST(JMP,      1, "$$ $23.offset"),
+    _INST(JCOND,    2, "$$ $23.offset when $1 != 0"),
+    _INST(CALLNEAR, 2, "$$ $1=$2.fun($3)"),
+    _INST(CALLFAR,  3, "$$ $1=$2.farfun($3)"),
+    _INST(CALLNAME, 2, "$$ $1=$2.name($3)"),
+    _INST(CALLOTHER,3, "$$ $1=$2.other_fun($3)"),
+    _INST(CALLEFUN, 3, "$$ $1=$2.efun($3)"),
     _INST(RET,      1, "$$ $1"),
     _INST(LOOPIN,   3, "$$ ($1=$2 to $3)"),
     _INST(LOOPRANGE,3, "$$ ($1 in $2)"),
@@ -109,6 +112,7 @@ void Simulator::shutdown()
 {
 }
 
+#if 0
 // Get value by parameter
 // If "is_imm_only" is false, get the value offset by type:imm, or return
 // the imm (in Value *) directly 
@@ -128,10 +132,10 @@ Value *Simulator::get_parameter_value(int index)
     Value *p = 0;
     switch (type)
     {
-    case Instruction::CONSTANT: p = m_constants;    break;
-    case Instruction::ARGUMENT: p = m_args;         break;
-    case Instruction::LOCAL:    p = m_locals;       break;
-    case Instruction::MEMBER:   p = m_object_vars;  break;
+    case Instruction::CONSTANT:   p = m_constants;    break;
+    case Instruction::ARGUMENT:   p = m_frame;        break;
+    case Instruction::LOCAL_VAR:  p = m_frame;        break;
+    case Instruction::OBJECT_VAR: p = m_object_vars;  break;
     default: break;
     }
 
@@ -139,9 +143,9 @@ Value *Simulator::get_parameter_value(int index)
 }
 
 // Get immediately value in parameter
-int Simulator::get_parameter_imm(int index)
+Instruction::ParaValue Simulator::get_parameter_imm(int index)
 {
-    int imm = 0;        // Immidiate number
+    Instruction::ParaValue imm = 0;        // Immidiate number
     switch (index)
     {
     case 0: imm = m_this_code->p1; break;
@@ -151,15 +155,16 @@ int Simulator::get_parameter_imm(int index)
     }
     return imm;
 }
+#endif
 
 // Interpter of VM
-Value InterpreterComponent::interpreter(Thread *_thread, Value *__args, ArgNo __n)
+void InterpreterComponent::interpreter(Thread *_thread, ArgNo __n)
 {
-    return Simulator::interpreter(this, _thread, __args, __n);
+    Simulator::interpreter(this, _thread, __n);
 }
 
 // Interpter of VM
-Value Simulator::interpreter(AbstractComponent *_component, Thread *_thread, Value *__args, ArgNo __n)
+void Simulator::interpreter(AbstractComponent *_component, Thread *_thread, ArgNo __n)
 {
     // Create simulation context
     Simulator sim;
@@ -169,20 +174,27 @@ Value Simulator::interpreter(AbstractComponent *_component, Thread *_thread, Val
     sim.m_function = _thread->get_this_function();
     sim.m_program = sim.m_function->get_program();
     sim.m_argn = __n;
-    sim.m_args = __args;
+    sim.m_frame = _thread->get_stack_top();
+    sim.check_arguments();
+
+    // Reserve locals
     sim.m_localn = sim.m_function->get_max_local_no();
-    sim.m_locals = (Value *)STD_ALLOCA(sizeof(Value) * sim.m_localn);
+    _thread->reserve_stack(sim.m_localn);
+    memset(_thread->get_stack_top(), 0, sim.m_localn * sizeof(Value));
+    _thread->get_this_call_context()->m_local_no = sim.m_localn;
+
+    // Get context information
     sim.m_constantn = sim.m_program->get_constants_count();
     sim.m_constants = sim.m_program->get_constant(0);
     sim.m_object_varn = sim.m_component->m_program->get_object_vars_count();
     sim.m_object_vars = sim.m_component->m_object_vars;
-    memset(sim.m_locals, 0, sizeof(Value) * sim.m_localn);
+    memset(sim.m_frame - sim.m_localn, 0, sizeof(Value) * sim.m_localn);
 
     // Set byte codes
     sim.m_byte_codes = sim.m_function->get_byte_codes_addr();
 
     // Start simulation
-    return sim.run();
+    sim.run();
 }
 
 // Make a constant include component_no:function_no
@@ -191,41 +203,172 @@ Integer Simulator::make_function_constant(ComponentNo component_no, FunctionNo f
     return (((Integer)component_no << 16) | function_no);
 }
 
-#define GET_P1      Value *p1 = get_parameter_value(0)
-#define GET_P2      Value *p2 = get_parameter_value(1)
-#define GET_P3      Value *p3 = get_parameter_value(2)
-#define GET_P1_IMM  int p1 = get_parameter_imm(0)
-#define GET_P2_IMM  int p2 = get_parameter_imm(1)
-#define GET_P3_IMM  int p3 = get_parameter_imm(2)
+#define GET_P1      Value* p1 = &m_frame[m_this_code.p1i]
+#define GET_P2      Value* p2 = &m_frame[m_this_code.p2i]
+#define GET_P3      Value* p3 = &m_frame[m_this_code.p3i]
+
+#define _CASE(id)    case Instruction::id: x##id(); break;
 
 // Run the function
-Value Simulator::run()
+void Simulator::run()
 {
     m_ip = m_byte_codes;
     for (;;)
     {
-        if (m_ip->code == Instruction::RET)
-        {
-            GET_P1;
-            return *p1;
-        }
-
         // Get index of InstructionInfo for this code
         size_t index = m_code_map[m_ip->code];
-        auto *info = &m_instruction_info[index];
-        m_this_code = m_ip;
+        auto* info = &m_instruction_info[index];
+        m_this_code = *m_ip;
+
         m_ip++;
-        (this->*info->entry)();
+        switch (m_this_code.code)
+        {
+            _CASE(NOP);
+            _CASE(ADDI);
+            _CASE(ADDR);
+            _CASE(ADDX);
+            _CASE(SUBI);
+            _CASE(SUBR);
+            _CASE(SUBX);
+            _CASE(MULI);
+            _CASE(MULR);
+            _CASE(MULX);
+            _CASE(DIVI);
+            _CASE(DIVR);
+            _CASE(DIVX);
+            _CASE(MODI);
+            _CASE(MODR);
+            _CASE(MODX);
+            _CASE(EQI);
+            _CASE(EQR);
+            _CASE(EQX);
+            _CASE(NEI);
+            _CASE(NER);
+            _CASE(NEX);
+            _CASE(GTI);
+            _CASE(GTR);
+            _CASE(GTX);
+            _CASE(LTI);
+            _CASE(LTR);
+            _CASE(LTX);
+            _CASE(GEI);
+            _CASE(GER);
+            _CASE(GEX);
+            _CASE(LEI);
+            _CASE(LER);
+            _CASE(LEX);
+            _CASE(ANDI);
+            _CASE(ANDX);
+            _CASE(ORI);
+            _CASE(ORX);
+            _CASE(XORI);
+            _CASE(XORX);
+            _CASE(REVI);
+            _CASE(REVX);
+            _CASE(NEGI);
+            _CASE(NEGX);
+            _CASE(LSHI);
+            _CASE(LSHX);
+            _CASE(RSHI);
+            _CASE(RSHX);
+            _CASE(CAST);
+            _CASE(ISTYPE);
+            _CASE(LDMULX);
+            _CASE(LDI);
+            _CASE(LDR);
+            _CASE(LDX);
+            _CASE(STI);
+            _CASE(STR);
+            _CASE(STX);
+            _CASE(LDARGN);
+            _CASE(RIDXXX);
+            _CASE(LIDXXX);
+            _CASE(MKEARR);
+            _CASE(MKIARR);
+            _CASE(MKEMAP);
+            _CASE(MKIMAP);
+            _CASE(PUSHNX);
+            _CASE(JMP);
+            _CASE(JCOND);
+            _CASE(CALLNEAR);
+            _CASE(CALLFAR);
+            _CASE(CALLNAME);
+            _CASE(CALLOTHER);
+            _CASE(CALLEFUN);
+            _CASE(LOOPIN);
+            _CASE(LOOPRANGE);
+            _CASE(LOOPEND);
+            case Instruction::RET:
+            {
+                GET_P1;
+                m_thread->set_ret(*p1);
+                return;
+            }
+            default:
+                throw_error("Unknown code: %d.\n", (int)m_this_code.code);
+                break;
+        }
 
 #ifdef _DEBUG
-        {
-            // The return value (p1) must be binded to current domain
-            GET_P1;
-            STD_ASSERT(p1->m_type < REFERENCE_VALUE ||
-                       (p1->m_reference->attrib & ReferenceImpl::CONSTANT) ||
-                       p1->m_reference->owner == m_domain->get_value_list());
-        }
+        // Get the pointer to return value (p1)
+        GET_P1;
+        // The return value (p1) must be binded to current domain
+        STD_ASSERT(p1->m_type < REFERENCE_VALUE ||
+                   (p1->m_reference->attrib & ReferenceImplAttrib::CONSTANT) ||
+                    p1->m_reference->owner == m_domain->get_value_list());
 #endif
+    }
+}
+
+#undef _CASE
+
+void Simulator::check_arguments()
+{
+    // Check the count & type of all arguments
+    // Pad default if necessary
+    if (m_argn < m_function->get_min_arg_no())
+        throw_error("Two few arguments to %s, expected %d, got %d.\n",
+                    m_function->get_name()->c_str(),
+                    m_function->get_min_arg_no(), m_argn);
+
+    if (m_argn > m_function->get_min_arg_no() &&
+        !m_function->get_attrib() & Function::RANDOM_ARG)
+        throw_error("Two many arguments to %s, expected %d, got %d.\n",
+                    m_function->get_name()->c_str(),
+                    m_function->get_max_arg_no(), m_argn);
+
+    // Check types
+    auto& parameters = (Parameters&)m_function->get_parameters();
+    Value *p = m_frame;
+    for (auto& it : parameters)
+    {
+        if (it->get_type() != p->m_type &&
+            (!it->is_nullable() || p->m_type != NIL))
+            // Type is not matched
+            throw_error("Bad type of arguments %s, expected %s, got %s.\n",
+                        it->get_name()->c_str(),
+                        Value::type_to_name(it->get_type()), Value::type_to_name(p->m_type));
+        p++;
+    }
+    // Append the default parameters if necessary
+    if (m_argn < m_function->get_max_arg_no())
+    {
+        STD_ASSERT(("Bad m_frame.", m_frame == m_thread->get_stack_top()));
+        auto move = m_function->get_max_arg_no() - m_argn;
+        m_thread->reserve_stack(move);
+
+        // Update frame base pointer & this_call_context
+        m_frame = m_thread->get_stack_top();
+        m_thread->get_this_call_context()->m_frame = m_frame;
+        m_thread->get_this_call_context()->m_arg_no = m_function->get_max_arg_no();
+        // Move the arguments to new location
+        memmove(m_frame, m_frame + move, m_argn * sizeof(Value));
+        // Insert new values as default arguments
+        while (m_argn < m_function->get_max_arg_no())
+        {
+            m_frame[m_argn] = parameters[m_argn]->get_default();
+            m_argn++;
+        }
     }
 }
 
@@ -252,7 +395,7 @@ void Simulator::xADDR()
 void Simulator::xADDX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 + *p3;
+    Value::op_add(p1, *p2, *p3);
 }
 
 void Simulator::xSUBI()
@@ -272,7 +415,7 @@ void Simulator::xSUBR()
 void Simulator::xSUBX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 - *p3;
+    Value::op_sub(p1, *p2, *p3);
 }
 
 void Simulator::xMULI()
@@ -292,7 +435,7 @@ void Simulator::xMULR()
 void Simulator::xMULX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 * *p3;
+    Value::op_mul(p1, *p2, *p3);
 }
 
 void Simulator::xDIVI()
@@ -312,7 +455,7 @@ void Simulator::xDIVR()
 void Simulator::xDIVX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 / *p3;
+    Value::op_div(p1, *p2, *p3);
 }
 
 void Simulator::xMODI()
@@ -332,7 +475,7 @@ void Simulator::xMODR()
 void Simulator::xMODX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 % *p3;
+    Value::op_mod(p1, *p2, *p3);
 }
 
 void Simulator::xEQI()
@@ -465,7 +608,7 @@ void Simulator::xANDI()
 void Simulator::xANDX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 & *p3;
+    Value::op_and(p1, *p2, *p3);
 }
 
 void Simulator::xORI()
@@ -478,7 +621,7 @@ void Simulator::xORI()
 void Simulator::xORX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 | *p3;
+    Value::op_or(p1, *p2, *p3);
 }
 
 void Simulator::xXORI()
@@ -491,7 +634,7 @@ void Simulator::xXORI()
 void Simulator::xXORX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 ^ *p3;
+    Value::op_xor(p1, *p2, *p3);
 }
 
 void Simulator::xREVI()
@@ -504,7 +647,7 @@ void Simulator::xREVI()
 void Simulator::xREVX()
 {
     GET_P1; GET_P2;
-    *p1 = ~*p2;
+    Value::op_rev(p1, *p2);
 }
 
 void Simulator::xNEGI()
@@ -517,7 +660,7 @@ void Simulator::xNEGI()
 void Simulator::xNEGX()
 {
     GET_P1; GET_P2;
-    *p1 = -*p2;
+    Value::op_neg(p1, *p2);
 }
 
 void Simulator::xLSHI()
@@ -530,7 +673,7 @@ void Simulator::xLSHI()
 void Simulator::xLSHX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 << *p3;
+    Value::op_lsh(p1, *p2, *p3);
 }
 
 void Simulator::xRSHI()
@@ -543,19 +686,20 @@ void Simulator::xRSHI()
 void Simulator::xRSHX()
 {
     GET_P1; GET_P2; GET_P3;
-    *p1 = *p2 >> *p3;
+    Value::op_rsh(p1, *p2, *p3);
 }
 
 void Simulator::xCAST()
 {
-    GET_P1; GET_P2_IMM; GET_P3;
-    if (p3->m_type == (ValueType)p2)
+    GET_P1; GET_P3;
+    auto type = (ValueType)m_this_code.p2i;
+    if (p3->m_type == type)
     {
         *p1 = *p3;
         return;
     }
 
-    switch ((ValueType)p2)
+    switch (type)
     {
     case INTEGER:
         *p1 = p3->cast_int();
@@ -584,46 +728,67 @@ void Simulator::xCAST()
     default:
         throw_error("Failed to do cast %s to %s.\n",
                     Value::type_to_name(p3->m_type),
-                    Value::type_to_name((ValueType)p2));
+                    Value::type_to_name(type));
     }
 }
 
 void Simulator::xISTYPE()
 {
-    GET_P1; GET_P2_IMM; GET_P3;
+    GET_P1; GET_P3;
+    auto type = (ValueType)m_this_code.p2i;
     p1->m_type = INTEGER;
-    p1->m_int = (Integer)(p3->m_type == (ValueType)p2);
+    p1->m_int = (Integer)(p3->m_type == type);
 }
 
 void Simulator::xLDMULX()
 {
     GET_P1; GET_P2; GET_P3;
     // P1 must be local for LDMULX
-    STD_ASSERT(("p1 must be local variables for LDMULX.\n",
-                m_this_code->t1 == Instruction::LOCAL));
-    if (m_this_code->p1 + p3->m_int > m_localn)
+    if (m_this_code.p1i + p3->m_int > m_argn)
         throw_error("Overflow when copy values (%lld) to local (offset = %lld).\n",
-                    (Int64)p3->m_int, (Int64)m_this_code->p1);
+                    (Int64)p3->m_int, (Int64)m_this_code.p1i);
     memcpy(p1, p2, sizeof(Value) * p3->m_int);
 }
 
 void Simulator::xLDI()
 {
-    GET_P1; GET_P2_IMM; GET_P3_IMM;
+    GET_P1;
     p1->m_type = INTEGER;
-    p1->m_int = (((Integer)p2) << 16) | (Integer)p3;
+    p1->m_int = (Integer)m_this_code.p23i;
 }
 
 void Simulator::xLDR()
 {
-    GET_P1; GET_P2_IMM; GET_P3_IMM;
+    GET_P1;
     p1->m_type = REAL;
-    p1->m_real = (Real)p2 + (Real)p3/10000.0;
+    p1->m_real = (Real)m_this_code.p23f;
 }
 
 void Simulator::xLDX()
 {
-    GET_P1; GET_P2;
+    GET_P1;
+    auto* p2 = &m_value_ptrs[m_this_code.pt][m_this_code.p2i];
+    *p1 = *p2;
+}
+
+void Simulator::xSTI()
+{
+    auto* p1 = &m_object_vars[m_this_code.p1u];
+    p1->m_type = INTEGER;
+    p1->m_int = (Integer)m_this_code.p23i;
+}
+
+void Simulator::xSTR()
+{
+    auto* p1 = &m_object_vars[m_this_code.p1u];
+    p1->m_type = REAL;
+    p1->m_real = (Real)m_this_code.p23f;
+}
+
+void Simulator::xSTX()
+{
+    auto* p1 = &m_object_vars[m_this_code.p1u];
+    GET_P2;
     *p1 = *p2;
 }
 
@@ -665,12 +830,12 @@ void Simulator::xRIDXXX()
             if (p3->m_int < 0 || p3->m_int >= (Integer)p2->m_array->size())
                 throw_error("Index (%lld) is out of array range (%zu).\n",
                             (Int64)p3->m_int, p2->m_array->size());
-            *p1 = p2->m_array->get(p3->m_int);
+            p2->m_array->get(p3->m_int, p1);
             break;
         }
 
     case MAPPING:
-        *p1 = p2->m_map->get(*p3);
+        p2->m_map->get(*p3, p1);
         break;
 
     default:
@@ -749,26 +914,31 @@ void Simulator::xMKIMAP()
         p1->m_map->set(p3[i * 2], p3[i * 2 + 1]);
 }
 
+// Push N values to stack
+void Simulator::xPUSHNX()
+{
+    GET_P1; GET_P2;
+    auto* ptr = m_thread->reserve_stack_without_init((size_t)p2->m_int);
+    memcpy(ptr, p1, (size_t)p2->m_int * sizeof(Value));
+}
+
 void Simulator::xJMP()
 {
-    GET_P2_IMM; GET_P3_IMM;
-    int offset = (p2 << 16) | p3;
-    m_ip += offset;
+    m_ip += m_this_code.p23i;
 }
 
 void Simulator::xJCOND()
 {
-    GET_P1; GET_P2_IMM; GET_P3_IMM;
-    int offset = (p2 << 16) | p3;
+    GET_P1;
     if (p1->is_non_zero())
-        m_ip += offset;
+        m_ip += m_this_code.p23i;
 }
 
 void Simulator::xCALLNEAR()
 {
-    GET_P1; GET_P2_IMM; GET_P3;
-    auto function_no = (FunctionNo)p2;
-    *p1 = call_far(m_thread, 0/* current component */, function_no, p3 + 1, (ArgNo)p3->m_int);
+    GET_P1; GET_P2; GET_P3;
+    auto function_no = (FunctionNo)p2->m_int;
+    Call::invoke_far_impl(m_thread, 0/* current component */, function_no, p1 /* ret */, (ArgNo)p3->m_int);
 }
 
 void Simulator::xCALLFAR()
@@ -777,7 +947,7 @@ void Simulator::xCALLFAR()
     // p2 is constant: FunctionNo & ComponentNo
     auto function_no = (FunctionNo)(p2->m_int >> 16);
     auto component_no = (ComponentNo)(p2->m_int & 0xFFFF);
-    *p1 = call_far(m_thread, component_no, function_no, p3 + 1, (ArgNo)p3->m_int);
+    Call::invoke_far_impl(m_thread, component_no, function_no, p1 /* ret */, (ArgNo)p3->m_int);
 }
 
 void Simulator::xCALLNAME()
@@ -787,7 +957,7 @@ void Simulator::xCALLNAME()
         throw_error("Bad type to call, expected string got %s.\n",
                     Value::type_to_name(p1->m_type));
     // p2 is constant: name
-    *p1 = m_program->invoke_self(m_thread, p2[0], p3 + 1, (ArgNo)p3->m_int);
+    m_program->invoke_self(m_thread, p2[0] /* function name */, p1 /* ret */, (ArgNo)p3->m_int);
 }
 
 void Simulator::xCALLOTHER()
@@ -796,8 +966,8 @@ void Simulator::xCALLOTHER()
     if (p2->m_type != STRING)
         throw_error("Bad type to call, expected string got %s.\n",
                     Value::type_to_name(p1->m_type));
-    // p2 is locals: oid, name
-    *p1 = m_program->invoke(m_thread, p2[0].m_oid, p2[1], p3 + 1, (ArgNo)p3->m_int);
+    // p2 is locals: name, oid
+    m_program->invoke(m_thread, p2[1].m_oid /* object */, p2[0] /* function name */, p1 /* ret */, (ArgNo)p3->m_int);
 }
 
 void Simulator::xCALLEFUN()
@@ -806,48 +976,7 @@ void Simulator::xCALLEFUN()
     if (p2->m_type != STRING)
         throw_error("Bad type to call, expected string got %s.\n",
                     Value::type_to_name(p1->m_type));
-    // p2 is locals: oid, name
-    *p1 = call_efun(m_thread, p2[0], p3 + 1, (ArgNo)p3->m_int);
-}
-
-void Simulator::xCHKPARAM()
-{
-    // Check the count & type of all arguments
-    // Pad default if necessary
-    if (m_argn < m_function->get_min_arg_no())
-        throw_error("Two few arguments to %s, expected %d, got %d.\n",
-                    m_function->get_name()->c_str(),
-                    m_function->get_min_arg_no(), m_argn);
-
-    if (m_argn > m_function->get_min_arg_no() &&
-        !m_function->get_attrib() & Function::RANDOM_ARG)
-        throw_error("Two many arguments to %s, expected %d, got %d.\n",
-                    m_function->get_name()->c_str(),
-                    m_function->get_max_arg_no(), m_argn);
-
-    // Check types
-    auto& parameters = (Parameters&)m_function->get_parameters();
-    Value *p = m_args;
-    for (auto& it : parameters)
-    {
-        if (it->get_type() != p->m_type &&
-            (!it->is_nullable() || p->m_type != NIL))
-            // Type is not matched
-            throw_error("Bad type of arguments %s, expected %s, got %s.\n",
-                        it->get_name()->c_str(),
-                        it->get_type(), p->m_type);
-    }
-    // Append the default parameters if necessary
-    if (m_argn < m_function->get_min_arg_no())
-    {
-        auto *new_args = (Value *)STD_ALLOCA(sizeof(Value) * m_function->get_max_arg_no());
-        memcpy(new_args, m_args, sizeof(Value) * m_argn);
-        while (m_argn < m_function->get_min_arg_no())
-        {
-            new_args[m_argn] = parameters[m_argn]->get_default();
-            m_argn++;
-        }
-    }
+    Efun::invoke(m_thread, p2[0] /* function name */, p1 /* ret */, (ArgNo)p3->m_int);
 }
 
 void Simulator::xRET()

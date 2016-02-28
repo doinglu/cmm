@@ -83,7 +83,7 @@ public:
         m_tail = (node *)&m_end_stub;
         m_size = 0;
     }
-        
+
     // Find element in manual_list
     iterator find(const T& element)
     {
@@ -94,6 +94,23 @@ public:
              p = p->next, i++)
         {
             if (p->value == element)
+                return iterator(*this, i, p);
+        }
+
+        // Not found
+        return end();
+    }
+
+    // Get the index of node. Return -1 if the node in not in list?
+    iterator find_node(const node* node)
+    {
+        size_t i = 0;
+        auto *p = m_head->next;
+        for (;
+             p != m_tail;
+             p = p->next, i++)
+        {
+            if (p == node)
                 return iterator(*this, i, p);
         }
 
@@ -381,8 +398,7 @@ private:
         m_size = the_list.size();
         STD_ASSERT(("Expect valid index in [0..m_size].", index <= m_size));
 #endif
-        STD_ASSERT(index == 0 && p == the_list.m_head->next ||
-                   index == the_list.size() && p == the_list.m_tail);
+        STD_ASSERT(index >= 0 && index <= the_list.size());
         m_index = index;
         m_cursor_ptr = p;
     }

@@ -20,8 +20,8 @@ bool Value::init()
     EMPTY_STRING = STRING_ALLOC("");
     EMPTY_BUFFER = BUFFER_ALLOC((size_t)0);
 
-    EMPTY_STRING->attrib |= ReferenceImpl::CONSTANT;
-    EMPTY_BUFFER->attrib |= ReferenceImpl::CONSTANT;
+    EMPTY_STRING->attrib |= ReferenceImplAttrib::CONSTANT;
+    EMPTY_BUFFER->attrib |= ReferenceImplAttrib::CONSTANT;
     return true;
 }
 
@@ -35,7 +35,7 @@ void Value::shutdown()
 // This value must be NEW one & never be binded
 void ReferenceImpl::bind_to_current_domain()
 {
-    if (attrib & (ReferenceImpl::CONSTANT | ReferenceImpl::SHARED))
+    if (attrib & (ReferenceImplAttrib::CONSTANT | ReferenceImplAttrib::SHARED))
         // For constant/shared value, don't bind
         return;
 
@@ -56,7 +56,10 @@ void ReferenceImpl::bind_to_current_domain()
 // Unbind me if already binded
 void ReferenceImpl::unbind()
 {
-    STD_ASSERT(("Value is not belong to any list.", owner != 0));
+    if (owner == 0)
+        // Not binded yet, do nothing
+        return;
+
     owner->remove(this);
 }
 
@@ -408,13 +411,13 @@ Value& Value::set(const Value& key, const Value& value)
 }
 
 // Get index from container
-Value Value::get(const Value& key) const
+const Value& Value::get(const Value& key, Value* ptr_value) const
 {
     switch (m_type)
     {
-    case STRING: return (*m_string).get(key);
-    case MAPPING: return (*m_map).get(key);
-    case ARRAY: return (*m_array).get(key);
+    case STRING: return *ptr_value = (*m_string).get(key);
+    case MAPPING: return (*m_map).get(key, ptr_value);
+    case ARRAY: return (*m_array).get(key, ptr_value);
     default: throw_error("Bad type of value to index.\n");
     }
 }

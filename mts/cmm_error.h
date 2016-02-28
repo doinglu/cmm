@@ -68,7 +68,7 @@ enum ErrorCode
     C_ASSIGN_TO_CONST           = 3892,
 
     // Compiling warning codes (with prefix C_)
-    C_CAST_USELESS_QMARK        = 3001,
+    C_CAST_USELESS              = 3001,
 };
 
 // Print variables of function

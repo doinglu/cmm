@@ -157,45 +157,34 @@ void Domain::gc_internal(Thread* thread)
     auto b = std_get_current_us_counter();////----
 
     MarkValueState state(&m_value_list);
-    ////----printf("Values before GC = %zu\n", m_value_list.get_count());////----
-#if REV_COLLECT
-    simple::hash_set<ReferenceImpl*> ptrs_set(1024);
-#endif
+////----    printf("Values before GC = %zu\n", m_value_list.get_count());////----
 
     auto b1 = std_get_current_us_counter();////----
     // Scan all thread contexts of this domain
     for (auto& context: m_context_list)
     {
-        // Put all possible reference values into set
-        auto* p = (ReferenceImpl**)context.m_start_sp;
-        while (--p > (ReferenceImpl**)context.m_end_sp)
-            if (state.is_possible_pointer(*p))
-#if REV_COLLECT
-                ptrs_set.put(*p);
-#else
-                state.mark_value(*p);
-#endif
+        // Mark all values in stack
+        size_t bp = context.m_start_sp;
+        size_t ep = context.m_end_sp;
+        Value* value_ptr = context.m_thread->get_stack_offset(bp - 1);
+        for (size_t i = bp; i > ep; i--, value_ptr--)
+            if (value_ptr->is_reference_value())
+                state.mark_value(value_ptr->m_reference);
     }
 
+    // Thread.m_ret should be NIL when GC
+    STD_ASSERT(!thread || thread->get_ret().m_type == NIL);
+
     // Scan all member objects in this domain
-    for (auto& object : m_objects)
+    for (auto& object: m_objects)
         object->get_program()->mark_value(state, object);
+    auto e1 = std_get_current_us_counter();////----
+    ////----printf("GC mark: %zuus.\n", (size_t)(e1 - b1));////----
 
 #if USE_LIST_IN_VALUE_LIST
     // Get pointer of pointer to first node 
     ReferenceImpl** pp = &state.value_list->get_container().begin().get_node()->prev->next;
     ReferenceImpl* p;
-    p = *pp;
-    while (p->next)
-    {
-        if (p->owner && ptrs_set.contains(p))
-            state.mark_value(p);
-        p = p->next;
-    }
-
-    auto e1 = std_get_current_us_counter();////----
-    printf("GC mark: %zuus.\n", (size_t)(e1 - b1));////----
-
     while ((p = *pp)->next)
     {
         // Not end stub node, check this node
@@ -207,48 +196,14 @@ void Domain::gc_internal(Thread* thread)
         } else
         {
             // Drop this, don't update pp since *pp will be changed
-            p->owner = 0;
-            state.container->remove_node(p);
+            STD_ASSERT(("Value is not belonged to the list when free.", p->owner == state.value_list));
+            p->unbind();
             XDELETE(p);
         }
     }
 #elif USE_VECTOR_IN_VALUE_LIST
-    auto e1 = std_get_current_us_counter();////----
-    ////----printf("GC mark: %zuus.\n", (size_t)(e1 - b1));////----
-
     // Free all non-refered values & regenerate value list
     ReferenceImpl** head_address = state.value_list->get_head_address();
-    size_t offset = 0;
-    size_t size = state.value_list->get_count();
-    ReferenceImpl* low = (ReferenceImpl*)(size_t)-1;
-    ReferenceImpl* high = 0;
-    for (auto i = 0; i < size; i++)
-    {
-        auto* p = head_address[i];
-        if (p->owner == 0)
-        {
-            p->owner = state.value_list;
-            p->offset = offset;
-            head_address[offset] = p;
-            if (p > high)
-                high = p;
-            if (p < low)
-                low = p;
-            offset++;
-        } else
-        {
-            // Free the value
-            p->owner = 0;
-            XDELETE(p);
-        }
-    }
-    // Findout the bound & update the value list
-    state.value_list->set_bound(low, high);
-
-#if false
-    auto e1 = std_get_current_us_counter();////----
-    printf("GC mark: %zuus.\n", (size_t)(e1 - b1));////----
-
     // Sort state.list to
     // [Valid] [Valid] .... [Valid] [Free] [Free] ... [Free]
     // 0                            offset              size()
@@ -277,7 +232,6 @@ void Domain::gc_internal(Thread* thread)
             XDELETE(head_address[i]);
         }
     }
-#endif
     STD_ASSERT(("Value list is not correct after GC.", state.container->size() >= offset));
     state.container->shrink(offset);
 #else
@@ -300,12 +254,12 @@ void Domain::gc_internal(Thread* thread)
 #endif
 
     // Reset gc counter
-    m_gc_counter = m_value_list.get_count();
-    if (m_gc_counter < 1024)
-        m_gc_counter = 1024;
+    m_gc_counter = (IntR)m_value_list.get_count();
+    if (m_gc_counter < 2048)
+        m_gc_counter = 2048;
     else
-    if (m_gc_counter > 4 * 1024 * 1024)
-        m_gc_counter = 4 * 1024 * 1024;
+    if (m_gc_counter > 4*1024*1024)
+        m_gc_counter = 4*1024*1024;
 
     auto e = std_get_current_us_counter();
     ////----printf("GC cost: %zuus (alive: %zu).\n", (size_t)(e - b), m_value_list.get_count());////----
@@ -326,17 +280,20 @@ void Domain::object_was_destructed(Object *ob)
 }
 
 // Generate a map for detail information
-Map Domain::get_domain_detail()
+Map& Domain::get_domain_detail(Value* map)
 {
-    Value map = NIL;
-    map = XNEW(MapImpl, 7);
-    map.set("type", m_type);
-    map.set("id", m_id);
-    map.set("name", m_name);
-    map.set("running", m_running);
-    map.set("wait_counter", m_wait_counter);
-    map.set("thread_holder_id", (size_t)m_thread_holder_id);
-    return map;
+    auto* thread = Thread::get_current_thread();
+    auto r = ReserveStack(1, thread);
+    Value& val = r[0];
+    Value& key = r[1];
+    *map = XNEW(MapImpl, 7);
+    map->set(key = "type", val = m_type);
+    map->set(key = "id", val = m_id);
+    map->set(key = "name", val = m_name);
+    map->set(key = "running", val = m_running);
+    map->set(key = "wait_counter", val = m_wait_counter);
+    map->set(key = "thread_holder_id", val = (size_t)m_thread_holder_id);
+    return (Map&)*map;
 }
 
 } // End of namespace: cmm

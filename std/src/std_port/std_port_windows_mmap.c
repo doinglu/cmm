@@ -10,6 +10,9 @@
 #include "std_port/std_port_mmap.h"
 #include <windows.h>
 
+// Get privilege from flags
+static int _std_get_page_privilege(int flags);
+
 // Reserve memory, can not be allocated by others
 // Argument address can be 0 or specified address
 extern void* std_mem_reserve(void* address, size_t size)
@@ -36,8 +39,50 @@ extern int std_mem_release(void* address, size_t size)
 // Return 1 means OK
 extern int std_mem_commit(void* address, size_t size, int flags)
 {
-    DWORD protect = 0;
+    int protect = _std_get_page_privilege(flags);
     void *p;
+
+
+    p = VirtualAlloc(address, size, MEM_COMMIT, protect);
+    if (p != NULL)
+        return 1;
+
+    STD_TRACE("std_port_mem_commit(VirtualAlloc).Error = %d.\n", (int)GetLastError());
+    return 0;
+}
+
+// Decommit memory, stop acessing
+// The address can not be NULL
+// Return 1 means OK
+extern int std_mem_decommit(void* address, size_t size)
+{
+    if (VirtualFree(address, size, MEM_DECOMMIT))
+        return 1;
+
+    STD_TRACE("std_port_mem_decommit(VirtualFree).Error = %d.\n", (int)GetLastError());
+    return 0;
+}
+
+// Change pages' privilege
+extern int std_mem_protect(void* address, size_t size, int flags)
+{
+    DWORD old;
+    DWORD protect = (DWORD)_std_get_page_privilege(flags);
+
+    if (VirtualProtect(address, size, protect, &old))
+        return 1;
+
+    STD_TRACE("std_port_mem_protect(mprotect).Error = %d.\n", (int)GetLastError());
+    return 0;
+}
+
+// Get privilege from flags
+static int _std_get_page_privilege(int flags)
+{
+    DWORD protect = 0;
+
+    if (flags & STD_PAGE_NO_ACCESS)
+        return PAGE_NOACCESS;
 
     switch (flags & (STD_PAGE_READ | STD_PAGE_WRITE | STD_PAGE_EXECUTE))
     {
@@ -66,24 +111,7 @@ extern int std_mem_commit(void* address, size_t size, int flags)
         STD_FATAL("Bad flags of access.");
     }
 
-    p = VirtualAlloc(address, size, MEM_COMMIT, protect);
-    if (p != NULL)
-        return 1;
-
-    STD_TRACE("std_port_mem_commit(VirtualAlloc).Error = %d.\n", (int)GetLastError());
-    return 0;
-}
-
-// Decommit memory, stop acessing
-// The address can not be NULL
-// Return 1 means OK
-extern int std_mem_decommit(void* address, size_t size)
-{
-    if (VirtualFree(address, size, MEM_DECOMMIT))
-        return 1;
-
-    STD_TRACE("std_port_mem_decommit(VirtualFree).Error = %d.\n", (int)GetLastError());
-    return 0;
+    return protect;
 }
 
 #endif  /* End of _WINDOWS */

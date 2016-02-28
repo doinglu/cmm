@@ -91,6 +91,7 @@ void ValueList::remove(ReferenceImpl* value)
     STD_ASSERT(("Value is not in this list.", value->owner == this));
 
 #if USE_LIST_IN_VALUE_LIST
+    ////----STD_ASSERT(("Value is not in this container.", m_container.find_node(value) != m_container.end()));
     m_container.remove_node(value);
 #elif USE_VECTOR_IN_VALUE_LIST
     STD_ASSERT(("Value offset is invalid.", value->offset < get_count()));
@@ -176,6 +177,8 @@ void MarkValueState::mark_value(ReferenceImpl* ptr_value)
         if (!ptr_value->owner)
             // Already marked
             return;
+
+        STD_ASSERT(("The value will be marked is not belonged to this domain.", ptr_value->owner == value_list));
 
         // set owner to 0 means marked already
         ptr_value->owner = 0;

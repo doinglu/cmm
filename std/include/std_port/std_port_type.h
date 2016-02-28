@@ -19,16 +19,16 @@
 #include "std_port_platform.h"
 
 #ifndef Int8
-#define Int8    char
-#define Int16   short
-#define Int32   int        
+#define Int8    char                
+#define Int16   short               
+#define Int32   int
 #define Int64   long long
 #endif
 
 #ifndef Uint8
 #define Uint8   unsigned char
 #define Uint16  unsigned short
-#define Uint32  unsigned
+#define Uint32  unsigned int
 #define Uint64  unsigned long long
 #endif
 

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <stdarg.h>
 #include <stddef.h>
 #include "cmm_domain.h"
 #include "cmm_efun.h"
@@ -16,66 +17,160 @@ namespace cmm
 // Get member offset of a class
 #define MEMBER_OFFSET(m)     ((MemberOffset)offsetof(Self, m))
 
-// Call external function
-inline Value call_efun(Thread *thread, const Value& function_name, Value *args, ArgNo n)
+#define call_efun       Call::invoke_efun
+#define call_near       Call::invoke_near
+#define call_far        Call::invoke_far
+#define call_other      Call::invoke_other
+
+class Call
 {
-    Value ret = Efun::invoke(thread, function_name, args, n);
-    return ret;
+
+public:
+
+// Call external function
+static inline Value& invoke_efun(Thread *thread, const Value& function_name, Value* ret)
+{
+    Efun::invoke(thread, function_name, ret, 0);
+    return *ret;
 }
 
 template<class... Types>
-inline Value call_efun(Thread *thread, const Value& function_name, Types&&... args)
+static inline Value& invoke_efun(Thread *thread, const Value& function_name, Value* ret, Types&&... args)
 {
-    Value params[] = { args... };
-    ArgNo n = sizeof(params) / sizeof(params[0]);
-    return call_efun(thread, function_name, params, n);
+    ArgNo n = sizeof...(args);
+    Value* ptr_args = thread->reserve_stack_without_init(n);
+    push_args(ptr_args, args...);
+
+    Efun::invoke(thread, function_name, ret, n);
+    return *ret;
 }
 
+// Call function in other component
+static Value& invoke_far_impl(Thread *thread, ComponentNo component_no, FunctionNo function_no, Value* ret, ArgNo n);
+
 // Call function in other component in this object (without parameter)
-Value call_far(Thread *thread, ComponentNo component_no, FunctionNo function_no, Value *args = 0, ArgNo n = 0);
+static inline Value& invoke_far(Thread *thread, ComponentNo component_no, FunctionNo function_no, Value* ret)
+{
+    invoke_far_impl(thread, component_no, function_no, ret, 0);
+    return *ret;
+}
 
 // Call function in other component in this object (with parameter)
 template<class... Types>
-inline Value call_far(Thread *thread, ComponentNo component_no, FunctionNo function_no, Types&&... args)
+static inline Value& invoke_far(Thread *thread, ComponentNo component_no, FunctionNo function_no, Value* ret, Types&&... args)
 {
-    Value params[] = { args... };
-    ArgNo n = sizeof(params) / sizeof(params[0]);
-    return call_far(thread, component_no, function_no, params, n);
+    ArgNo n = sizeof...(args);
+    Value* ptr_args = thread->reserve_stack_without_init(n);
+    push_args(ptr_args, args...);
+
+    invoke_far_impl(thread, component_no, function_no, ret, n);
+    return *ret;
 }
 
 // Call function in same componenet (without parameter)
 template<typename F>
-inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Value *args = 0, ArgNo n = 0)
+static inline Value& invoke_near(Thread *thread, AbstractComponent *component, F fptr, Value* ret)
 {
     auto func = (Function::ScriptEntry) fptr;
     // Use the function pointer instead of function to optimize
     // the speed of near call
-    thread->push_call_context(thread->get_this_object(), *(void **)&func, args, n,
+    thread->push_call_context(thread->get_this_object(), *(void **)&func, 0,
                               thread->get_this_component_no());
-    Value ret = (component->*func)(thread, args, n);
-    thread->pop_call_context();
-    return ret;
+    (component->*func)(thread, 0);
+    thread->pop_call_context(ret);
+    return *ret;
 };
 
 // Call function in same componenet (with parameter)
 template<typename F, class... Types>
-inline Value call_near(Thread *thread, AbstractComponent *component, F fptr, Types&&... args)
+static inline Value& invoke_near(Thread *thread, AbstractComponent *component, F fptr, Value* ret, Types&&... args)
 {
-    Value params[] = { args... };
-    ArgNo n = sizeof(params) / sizeof(params[0]);
-    return call_near(thread, component, fptr, params, n);
+    ArgNo n = sizeof...(args);
+    Value* ptr_args = thread->reserve_stack_without_init(n);
+    push_args(ptr_args, args...);
+
+    auto func = (Function::ScriptEntry) fptr;
+    // Use the function pointer instead of function to optimize
+    // the speed of near call
+    thread->push_call_context(thread->get_this_object(), *(void **)&func, n,
+                              thread->get_this_component_no());
+    (component->*func)(thread, n);
+    thread->pop_call_context(ret);
+    return *ret;
 };
 
 // Call function in other object (without parameter)
-Value call_other(Thread *thread, ObjectId oid, const Value& function_name, Value *args = 0, ArgNo n = 0);
+static Value& invoke_other_impl(Thread *thread, ObjectId oid, const Value& function_name, Value* ret, ArgNo n);
+
+static inline Value& invoke_other(Thread *thread, ObjectId oid, const Value& function_name, Value* ret)
+{
+    invoke_other_impl(thread, oid, function_name, ret, 0);
+    return *ret;
+}
 
 // Call function in other object (with parameter)
 template<class... Types>
-inline Value call_other(Thread *thread, ObjectId oid, const Value& function_name, Types&&... args)
+static inline Value& invoke_other(Thread *thread, ObjectId oid, const Value& function_name, Value* ret, Types&&... args)
 {
-    Value params[] = { args... };
-    ArgNo n = sizeof(params) / sizeof(params[0]);
-    return call_other(thread, oid, function_name, params, n);
+    ArgNo n = sizeof...(args);
+    Value* ptr_args = thread->reserve_stack_without_init(n);
+    push_args(ptr_args, args...);
+
+    invoke_other_impl(thread, oid, function_name, ret, n);
+    return *ret;
 }
+
+// Push arguments
+template<typename T1>
+static inline void push_args(Value* ptr_values, T1 arg1)
+{
+    ptr_values[0] = arg1;
+}
+
+template<typename T1, typename T2>
+static inline void push_args(Value* ptr_values, T1 arg1, T2 arg2)
+{
+    ptr_values[0] = arg1;
+    ptr_values[1] = arg2;
+}
+
+template<typename T1, typename T2, typename T3>
+static inline void push_args(Value* ptr_values, T1 arg1, T2 arg2, T3 arg3)
+{
+    ptr_values[0] = arg1;
+    ptr_values[1] = arg2;
+    ptr_values[2] = arg3;
+}
+
+template<typename T1, typename T2, typename T3, typename T4>
+static inline void push_args(Value* ptr_values, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+{
+    ptr_values[0] = arg1;
+    ptr_values[1] = arg2;
+    ptr_values[2] = arg3;
+    ptr_values[3] = arg4;
+}
+
+template<typename T1, typename T2, typename T3, typename T4, typename T5>
+static inline void push_args(Value* ptr_values, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
+{
+    ptr_values[0] = arg1;
+    ptr_values[1] = arg2;
+    ptr_values[2] = arg3;
+    ptr_values[3] = arg4;
+    ptr_values[4] = arg5;
+}
+
+template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
+static inline void push_args(Value* ptr_values, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6)
+{
+    ptr_values[0] = arg1;
+    ptr_values[1] = arg2;
+    ptr_values[2] = arg3;
+    ptr_values[3] = arg4;
+    ptr_values[4] = arg5;
+    ptr_values[5] = arg6;
+}
+};
 
 }

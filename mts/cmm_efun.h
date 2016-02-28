@@ -9,11 +9,11 @@ namespace cmm
 {
 
 #define DECLARE_EFUN(name) \
-    extern Value efun_##name(Thread *_thread, Value *__args, ArgNo __n);
+    extern void efun_##name(Thread *_thread, ArgNo __n);
 
 #define DEFINE_EFUN(type, name, arguments) \
     const char *efun_##name##_prototype = #type " " #name #arguments; \
-    Value efun_##name(Thread *_thread, Value *__args, ArgNo __n)
+    void efun_##name(Thread *_thread, ArgNo __n)
 
 #define EFUN_ITEM(name) \
     efun_##name, efun_##name##_prototype
@@ -27,7 +27,7 @@ class Value;
 struct StringImpl;
 
 // External function entry
-typedef Value (*EfunEntry)(Thread *_thread, Value *_args, ArgNo n);
+typedef void (*EfunEntry)(Thread *_thread, ArgNo n);
 
 // Efun definition
 typedef struct
@@ -60,7 +60,7 @@ public:
 
 public:
     // Invoke
-    static Value invoke(Thread *thread, const Value& function_name, Value *args, ArgNo n);
+    static Value& invoke(Thread *thread, const Value& function_name, Value* ret, ArgNo n);
 
     // Get efun
     static Function* get_efun(const Value& function_name);

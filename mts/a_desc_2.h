@@ -14,19 +14,21 @@ private:
 public:
     static Program *create_program()
     {
-        Program *program = XNEW(Program, "/feature/desc", Program::COMPILED_TO_NATIVE);
+        auto r = ReserveStack(1);
+        String& temp = (String&)r[0];
+        Program *program = XNEW(Program, temp = "/feature/desc", Program::COMPILED_TO_NATIVE);
 
-        program->define_object_var("desc", STRING);
+        program->define_object_var(temp = "desc", STRING);
 
-        program->add_component("/feature/desc");
-        program->add_component("/feature/name");
+        program->add_component(temp = "/feature/desc");
+        program->add_component(temp = "/feature/name");
 
         Function *function;
-        program->define_function("print", (Function::ScriptEntry)&Impl::print, 0, 0);
-        function = program->define_function("perror", (Function::ScriptEntry)&Impl::perror, 3, 0);
-        function->define_parameter("a1", ValueType::MIXED, (Parameter::Attrib)0);
-        function->define_parameter("a2", ValueType::MIXED, (Parameter::Attrib)0);
-        function->define_parameter("a3", ValueType::MIXED, (Parameter::Attrib)0);
+        program->define_function(temp = "print", (Function::ScriptEntry)&Impl::print, 0, 0);
+        function = program->define_function(temp = "perror", (Function::ScriptEntry)&Impl::perror, 3, 0);
+        function->define_parameter(temp = "a1", ValueType::MIXED, (Parameter::Attrib)0);
+        function->define_parameter(temp = "a2", ValueType::MIXED, (Parameter::Attrib)0);
+        function->define_parameter(temp = "a3", ValueType::MIXED, (Parameter::Attrib)0);
         function->finish_adding_parameters();
 
         return program;

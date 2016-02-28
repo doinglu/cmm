@@ -16,21 +16,23 @@ namespace cmm
 void print_variables(const Variables& variables, const char *type, Value *arr, ArgNo n)
 {
     Output output;
+    auto r = ReserveStack(1);
+    Value& ret = r[0];
 
     ArgNo i = 0;
     for (auto &it : (Variables&)variables)
     {
         printf("%s %s(%d) = ", type, it->get_name()->c_str(), i + 1);
-        String str = output.type_value(&arr[i]);
-        printf("%s\n", str.c_str());
+        ret = output.type_value(&arr[i]);
+        printf("%s\n", ret.m_string->c_str());
         i++;
     }
 
     while (i < n)
     {
         printf("%s $%d = ", type, i + 1);
-        String str = output.type_value(&arr[i]);
-        printf("%s\n", str.c_str());
+        ret = output.type_value(&arr[i]);
+        printf("%s\n", ret.m_string->c_str());
         i++;
     }
 }

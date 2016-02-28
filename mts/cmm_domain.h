@@ -56,9 +56,7 @@ public:
     // Bind a value to this domain
     void bind_value(ReferenceImpl *value, size_t count = 1)
     {
-#if USE_LIST_IN_VALUE_LIST
         STD_ASSERT(("Value is already binded to domain.", !value->next));
-#endif
         STD_ASSERT(("Value is already binded to domain.", !value->owner));
         m_value_list.append_value(value);
 
@@ -75,6 +73,8 @@ public:
     }
 
     // Concat a value list
+    // ATTENTION: We won't do GC during or after this operation since this
+    // operation was done in function call
     void concat_value_list(ValueList *list)
     {
         m_gc_counter -= (IntR)list->get_count();
@@ -122,7 +122,7 @@ public:
     bool is_running() const { return m_running ? true : false; }
 
     // Return domain in a mapping value
-    Map get_domain_detail();
+    Map& get_domain_detail(Value* map);
 
 private:
     // Get domain 0

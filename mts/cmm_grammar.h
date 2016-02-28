@@ -119,7 +119,7 @@ typedef union YYSTYPE
 {
 
 /* Line 1676 of yacc.c  */
-#line 113 "Z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 113 "Z:\\doing\\Project\\mts_bak\\mts\\cmm_grammar.yyy"
 
     Integer             number;
     Real                real;
@@ -136,8 +136,9 @@ typedef union YYSTYPE
     AstPrototype*       prototype;
 
     ValueType           basic_var_type;
-    Uint8               var_attrib;
+    AstVarAttrib        var_attrib;
     AstVarType          var_type;
+    AstFunctionAttrib   fun_attrib;
 
     int                 int_val;
     Op                  op;
@@ -145,7 +146,7 @@ typedef union YYSTYPE
 
 
 /* Line 1676 of yacc.c  */
-#line 149 "Z:\\doing\\Project\\mts\\mts\\cmm_grammar.hpp"
+#line 150 "Z:\\doing\\Project\\mts_bak\\mts\\cmm_grammar.hpp"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

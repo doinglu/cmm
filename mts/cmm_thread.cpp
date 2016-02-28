@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include "std_port/std_port_compiler.h"
+#include "std_port/std_port_mmap.h"
 #include "std_port/std_port_os.h"
 #include "cmm_domain.h"
 #include "cmm_object.h"
@@ -16,8 +17,38 @@ namespace cmm
 Thread::GetStackPointerFunc Thread::m_get_stack_pointer_func = 0;
 size_t Thread::m_max_call_context_level = 128;  // Default
 size_t Thread::m_max_domain_context_level = 64; // Default
+size_t Thread::m_max_value_stack_size = 1024;   // Default
 
 std_tls_t Thread::m_thread_tls_id = STD_NO_TLS_ID;
+
+ValueStack::ValueStack(size_t size)
+{
+    auto alloc_size = STD_MEM_PAGE_SIZE * 2 + size * sizeof(Value);
+    m_mem = XNEWN(char, alloc_size);
+
+    // Align to next page
+    auto* p = (char*)((size_t)(m_mem + STD_MEM_PAGE_SIZE - 1) & ~(STD_MEM_PAGE_SIZE - 1));
+
+    // Get start pointer of value stack
+    m_base = (Value*)(p + STD_MEM_PAGE_SIZE);
+
+    // Get size of stack
+    m_size = (m_mem + alloc_size - (char*)m_base) / sizeof(Value);
+    STD_ASSERT(("Value stack size is smaller than expected.", m_size >= size));
+
+    // Grant privilege to the page (No access in case of stack overflow)
+    std_mem_protect(p, STD_MEM_PAGE_SIZE, STD_PAGE_NO_ACCESS);
+
+    m_sp = m_size;
+}
+
+ValueStack::~ValueStack()
+{
+    auto* p = (char*)m_base - STD_MEM_PAGE_SIZE;
+    std_mem_protect(p, STD_MEM_PAGE_SIZE, STD_PAGE_READ | STD_PAGE_WRITE);
+
+    XDELETEN(m_mem);
+}
 
 #if defined(__GNUC__)
 // Disable optimization to compile GetStackPointerFunc
@@ -53,7 +84,8 @@ void Thread::shutdown()
     std_free_tls(m_thread_tls_id);
 }
 
-Thread::Thread(const char *name)
+Thread::Thread(const char *name) :
+    m_value_stack(m_max_value_stack_size)
 {
     // Set default values
     m_current_domain = 0;
@@ -107,11 +139,15 @@ void Thread::start()
     m_start_domain = XNEW(Domain, buf);
     switch_domain(m_start_domain);
 
-    // Create a domain context for this thread
-    // Calculate the start sp of this thread (alignment to 4K)
-    void *start_sp = (Uint8 *)m_get_stack_pointer_func() + 8 * sizeof(size_t);
-    start_sp = (void *)(((size_t)start_sp | 0xFFF) + 1);
-    push_domain_context(start_sp);
+    // Init domain context for this thread
+    m_this_domain_context++;
+    memset(m_this_domain_context, 0, sizeof(*m_this_domain_context));
+    m_this_domain_context->value.m_thread = this;
+    m_this_domain_context->value.m_call_context = m_this_call_context;
+    m_this_domain_context->value.m_domain = m_current_domain;
+    m_this_domain_context->value.m_start_sp = m_value_stack.m_size;
+    // Link to domain
+    m_current_domain->m_context_list.append_node(m_this_domain_context);
 }
 
 // Thread will be stopped
@@ -153,23 +189,29 @@ Function *Thread::get_this_function()
 }
 
 // Push new domain context
-void Thread::push_domain_context(void *sp)
+void Thread::push_domain_context()
 {
     if (m_this_domain_context >= m_end_domain_context)
         throw "Too depth domain context.\n";
+
+    // Update previous end_sp
+    size_t arg_p = (m_this_call_context->m_frame - m_value_stack.m_base) + m_this_call_context->m_arg_no;
+    m_this_domain_context->value.m_end_sp = arg_p;
+
     m_this_domain_context++;
     m_this_domain_context->value.m_thread = this;
     m_this_domain_context->value.m_call_context = m_this_call_context;
     m_this_domain_context->value.m_domain = m_current_domain;
-    m_this_domain_context->value.m_start_sp = sp;
-    m_this_domain_context->value.m_end_sp = sp;
+    m_this_domain_context->value.m_start_sp = arg_p;
+    m_this_domain_context->value.m_end_sp = m_value_stack.m_sp;
 
     // Link to domain
     m_current_domain->m_context_list.append_node(m_this_domain_context);
 }
 
 // Restore previous domain context
-Value Thread::pop_domain_context(const Value& ret)
+// Put the result to ret
+void Thread::pop_domain_context()
 {
     STD_ASSERT(("There must be existed current_domain.", m_current_domain));
     m_current_domain->m_context_list.remove_node(m_this_domain_context);
@@ -179,10 +221,14 @@ Value Thread::pop_domain_context(const Value& ret)
     Domain *prev_domain = m_this_domain_context->value.m_domain;
 
     // Domain will be changed, try to copy ret to target domain
-    Value new_ret = ret.copy_to_local(this);
+    // ATTENTION: Because there may be GC during siwtch_domain, so
+    // I put the local value in temp_ret first. It will be concated
+    // after domain switched.
+    Value temp_ret = m_ret.copy_to_local(this);
+    m_ret = TVOID;
     switch_domain(prev_domain);
     transfer_values_to_current_domain();
-    return new_ret;
+    m_ret = temp_ret;
 }
 
 // Restore when error occurred
@@ -193,6 +239,7 @@ void Thread::restore_call_stack_for_error(CallContext *to_call_context)
 
     STD_ASSERT(("Try to restore to bad call context.\n",
                to_call_context >= get_all_call_contexts() - 1));
+    m_ret = TVOID;
     while (call_context >= to_call_context)
     {
         // Switch to previous domain
@@ -200,7 +247,7 @@ void Thread::restore_call_stack_for_error(CallContext *to_call_context)
                m_this_domain_context->value.m_call_context > call_context)
         {
             // Back to previous domain context according the call context
-            pop_domain_context(NIL);
+            pop_domain_context();
         }
 
         call_context--;
@@ -247,12 +294,11 @@ void Thread::trace_call_stack()
             // For random arg function, m_arg_no in call_context is the
             // count of arugments passed when calling
             n = call_context->m_arg_no;
-        print_variables(function->get_parameters(), "Argument",
-                        call_context->m_args, n);
+        auto* args = call_context->m_frame;
+        print_variables(function->get_parameters(), "Argument", args, n);
 
         // Print all local variables
-        print_variables(function->get_local_variables(), "Local variables",
-                        call_context->m_locals, 0);
+        print_variables(function->get_local_variables(), "Local variables", args, 0);
 
         call_context--;
     }
@@ -282,7 +328,7 @@ void Thread::switch_domain(Domain *to_domain)
 // Switch object by oid
 // Since the object may be destructed in other thread, I must lock the
 // object & switch to it
-bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *args, ArgNo n, void* end_sp)
+bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, ArgNo n)
 {
     // ATTENTION:
     // We can these values no matter the entry is freed or allocated, since
@@ -294,11 +340,9 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
 
     if (m_current_domain != to_domain)
     {
-        // Save sp to current domain context before switching
-        m_this_domain_context->value.m_end_sp = end_sp;
-
         // Domain will be changed
         // Copy arguments to thread local value list & pass to target
+        auto* args = thread->get_stack_top();
         for (ArgNo i = 0; i < n; i++)
             args[i] = args[i].copy_to_local(thread);
 
@@ -359,7 +403,7 @@ void Thread::free_values()
 //     ])
 //     ...
 // })
-Value Thread::get_domain_context_list()
+Value& Thread::get_domain_context_list(Value* ptr)
 {
     // Get count of context list
     size_t count = 0;
@@ -373,15 +417,22 @@ Value Thread::get_domain_context_list()
     // Update the end_sp
     update_end_sp_of_current_domain_context();
 
+    auto r = ReserveStack(4);
+    Map& detail = (Map&)r[0];
+    Value& temp = r[1];
+    Value& start_sp = r[2];
+    Value& end_sp = r[3];
+    Array& arr = (Array&)*ptr;
+
     // Allocate array for return
-    Array arr(count);
+    *ptr = XNEW(ArrayImpl, count);
     p = m_this_domain_context;
     while (p)
     {
-        Map map = p->value.m_domain->get_domain_detail();
-        map.set("stack_top", (size_t)p->value.m_start_sp);
-        map.set("stack_bottom", (size_t)p->value.m_end_sp);
-        arr.push_back(map);
+        p->value.m_domain->get_domain_detail(&detail);
+        detail.set(temp = "stack_begin", start_sp = (size_t)p->value.m_start_sp);
+        detail.set(temp = "stack_end", end_sp = (size_t)p->value.m_end_sp);
+        arr.push_back(detail);
         p = p->prev;
     }
 

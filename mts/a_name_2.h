@@ -14,23 +14,26 @@ private:
 public:
     static Program *create_program()
     {
-        Program *program = XNEW(Program, "/feature/name", Program::COMPILED_TO_NATIVE);
+        auto r = ReserveStack(1);
+        String& temp = (String&)r[0];
 
-        program->define_object_var("name", STRING);
-        program->define_object_var("unused", MIXED);
+        Program *program = XNEW(Program, temp = "/feature/name", Program::COMPILED_TO_NATIVE);
 
-        program->add_component("/feature/name");
-        program->add_component("/feature/desc");
+        program->define_object_var(temp = "name", STRING);
+        program->define_object_var(temp = "unused", MIXED);
+
+        program->add_component(temp = "/feature/name");
+        program->add_component(temp = "/feature/desc");
 
         Function *function;
-        program->define_function("set_name", (Function::ScriptEntry)&Impl::set_name, 1, 1);
-        program->define_function("get_name", (Function::ScriptEntry)&Impl::get_name, 0, 0);
-        program->define_function("test_call_private", (Function::ScriptEntry)&Impl::test_call_private, 0, 0, Function::Attrib::PRIVATE);
-        program->define_function("test_call", (Function::ScriptEntry)&Impl::test_call, 0, 0);
-        program->define_function("do_nothing", (Function::ScriptEntry)&Impl::do_nothing, 0, 0);
-        function = program->define_function("test_error", (Function::ScriptEntry)&Impl::test_error, 2, 0);
-        function->define_parameter("other_oid", ValueType::OBJECT, (LocalVariable::Attrib)0);
-        function->define_parameter("msg", ValueType::STRING, (LocalVariable::Attrib)0);
+        program->define_function(temp = "set_name", (Function::ScriptEntry)&Impl::set_name, 1, 1);
+        program->define_function(temp = "get_name", (Function::ScriptEntry)&Impl::get_name, 0, 0);
+        program->define_function(temp = "test_call_private", (Function::ScriptEntry)&Impl::test_call_private, 0, 0, Function::Attrib::PRIVATE);
+        program->define_function(temp = "test_call", (Function::ScriptEntry)&Impl::test_call, 0, 0);
+        program->define_function(temp = "do_nothing", (Function::ScriptEntry)&Impl::do_nothing, 0, 0);
+        function = program->define_function(temp = "test_error", (Function::ScriptEntry)&Impl::test_error, 2, 0);
+        function->define_parameter(temp = "other_oid", ValueType::OBJECT, (LocalVariable::Attrib)0);
+        function->define_parameter(temp = "msg", ValueType::STRING, (LocalVariable::Attrib)0);
         function->finish_adding_parameters();
 
         return program;

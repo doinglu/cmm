@@ -14,27 +14,27 @@ typedef simple::uchar_t uchar_t; // Unsigned character
 typedef IntR Handle;                // Handle
 
 #if 1
-typedef Uint16 ArgNo;               // Argument count/no
+typedef Int16  ArgNo;               // Argument count/no
 typedef Uint16 ComponentNo;         // Number of component in a program
 typedef Uint16 ConstantIndex;       // Constant index in a program
 typedef Uint32 ComponentOffset;     // Offset of component in class Object
 typedef Uint32 FunctionNo;          // Number of function in a program
-typedef Uint16 LocalNo;             // Local variables count/no
+typedef ArgNo  LocalNo;             // Local variables count/no: should be same as ArgNo
 typedef Uint32 MapOffset;           // MapImpl offset for component no map
 typedef Uint32 VariableNo;          // Index of member in AbstractClass object
 
 #else
-typedef size_t ArgNo;               // Argument count/no
+typedef IntR   ArgNo;               // Argument count/no
 typedef size_t ConstantIndex;       // Constant index in a program
 typedef size_t ComponentNo;         // Number of component in a program
 typedef size_t ComponentOffset;     // Offset of component in class Object
 typedef size_t FunctionNo;          // Number of function in a program
-typedef size_t LocalNo;             // Local variables count/no
+typedef ArgNo  LocalNo;             // Local variables count/no
 typedef size_t MapOffset;           // MapImpl offset for component no map
 typedef size_t VariableNo;          // Index of member in AbstractClass object
 #endif
 
-enum ValueType
+enum ValueType : Uint8
 {
     NIL = 0,            // Can be casted to any other type
     INTEGER = 1,        // Integer (int64)
@@ -101,5 +101,29 @@ struct global_id_hash_func
 
 typedef GlobalId ObjectId;
 typedef GlobalId DomainId;
+
+#define DECLARE_BITS_ENUM(_ENUM_TYPE, _VALUE_TYPE) \
+inline _ENUM_TYPE operator |(_ENUM_TYPE a, _ENUM_TYPE b) \
+{ \
+    return (_ENUM_TYPE)((_VALUE_TYPE)a | (_VALUE_TYPE)b); \
+} \
+inline _ENUM_TYPE operator |=(_ENUM_TYPE& a, _ENUM_TYPE b) \
+{ \
+    a = a | b; \
+    return a; \
+} \
+inline _ENUM_TYPE operator &(_ENUM_TYPE a, _ENUM_TYPE b) \
+{ \
+    return (_ENUM_TYPE)((_VALUE_TYPE)a & (_VALUE_TYPE)b); \
+} \
+inline _ENUM_TYPE operator &=(_ENUM_TYPE& a, _ENUM_TYPE b) \
+{ \
+    a = a & b; \
+    return a; \
+} \
+inline _ENUM_TYPE operator ~(_ENUM_TYPE a) \
+{ \
+    return (_ENUM_TYPE)~(_VALUE_TYPE)a; \
+}
 
 }

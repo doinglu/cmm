@@ -270,7 +270,7 @@ void Output::error_occurred(ErrorCode code)
  * this function is called again, or if it's going to be modified (esp.
  * if it risks being free()ed).
  */
-String Output::format_output(const char_t *format_str, Value *argv, ArgNo argc)
+simple::string Output::format_output(const char_t *format_str, Value *argv, ArgNo argc)
 {
     int      finfo;
     PadInfo  pad;     /* fs pad string */
@@ -480,12 +480,14 @@ String Output::format_output(const char_t *format_str, Value *argv, ArgNo argc)
             {
                 if ((finfo & INFO_T) == INFO_T_ANY)
                 {
-                    String str = sub.type_value(m_current_arg);
-                    printf("str.type = %d, int = %p.\n", str.m_type, (void*)str.m_intptr);////----
-                    m_current_arg = &str;
+                    simple::string str = sub.type_value(m_current_arg);
                     finfo ^= INFO_T_ANY;
                     finfo |= INFO_T_STRING;
-                }
+
+                    add_justified(str.c_str(), str.length(),
+                        &pad, fs, finfo,
+                        (((format_str[fpos] != '\n') && (format_str[fpos] != '\0'))));
+                } else
                 if ((finfo & INFO_T) == INFO_T_ERROR)
                 {
                     error_occurred(ERR_INVALID_FORMAT_STR);
@@ -620,15 +622,15 @@ String Output::format_output(const char_t *format_str, Value *argv, ArgNo argc)
         }
     } /* end of for (fpos=0; 1; fpos++) */
 
-    return String((char_t *)m_obuf.get_array_address(0), m_obuf.size());
+    return simple::string((char_t *)m_obuf.get_array_address(0), m_obuf.size());
 } /* end of formatted */
 
 // Output Value
-String Output::type_value(const Value *value)
+simple::string Output::type_value(const Value *value)
 {
     m_obuf.clear();
     type_value_at(value, 0);
-    return String((char_t *)m_obuf.get_array_address(0), m_obuf.size());
+    return simple::string((char_t *)m_obuf.get_array_address(0), m_obuf.size());
 }
 
 /* output vm value */

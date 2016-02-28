@@ -118,9 +118,9 @@ public:
 
     // Types of entry routine
     // For script functions
-    typedef Value (AbstractComponent::*ScriptEntry)(Thread*, Value*, ArgNo);
+    typedef void (AbstractComponent::*ScriptEntry)(Thread*, ArgNo);
     // For external functions
-    typedef Value (*EfunEntry)(Thread*, Value*, ArgNo);
+    typedef void (*EfunEntry)(Thread*, ArgNo);
     struct Entry
     {
         Entry(int zero = 0) { script_entry = 0; }
@@ -507,11 +507,11 @@ public:
     // function_name may be modified to shared string, IGNORE the const
     // ATTENTION: Must use Value for input parameter to avoid constructor String(),
     // or the modification of function_name (to lookup shared) would be useless.
-    Value invoke(Thread* thread, ObjectId oid, const Value& function_name, Value* args, ArgNo n) const;
+    Value& invoke(Thread* thread, ObjectId oid, const Value& function_name, Value* ret, ArgNo n) const;
 
     // Invoke routine can be accessed by self component
     // See ATTENTION of invoke
-    Value invoke_self(Thread* thread, const Value& function_name, Value* args, ArgNo n) const;
+    Value& invoke_self(Thread* thread, const Value& function_name, Value* ret, ArgNo n) const;
 
 public:
     // Get function by entry

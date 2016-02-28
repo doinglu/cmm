@@ -12,7 +12,8 @@ namespace cmm
 class MMMValue : public Value
 {
 public:
-    MMMValue()
+    MMMValue() :
+        Value(NIL)
     {
     }
 

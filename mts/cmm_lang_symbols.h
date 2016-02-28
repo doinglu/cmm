@@ -5,23 +5,27 @@
 #pragma once
 
 #include "std_template/simple_hash_map.h"
+#include "cmm.h"
 #include "cmm_mmm_value.h"
 
 namespace cmm
 {
 
 class  Lang;
+struct AstDeclaration;
 struct AstNode;
+struct AstFunction;
+struct AstFunctionArg;
 
 // To speed up cleaning the hash table, and identify the union
-enum IdentType
+enum IdentType : Uint16
 {
     IDENT_RESWORD       = 0x0001,
     IDENT_EFUN          = 0x0002,
     IDENT_OS_FUN        = 0x0004,
     IDENT_OBJECT_FUN    = 0x0008,
     IDENT_OBJECT_VAR    = 0x0010,
-    IDENT_LOCAL_VAR     = 0x0020,
+    IDENT_LOCAL_VAR     = 0x0020,   // Or argument
 
     IDENT_FUN           = (IDENT_EFUN | IDENT_OS_FUN | IDENT_OBJECT_FUN),
     IDENT_VAR           = (IDENT_OBJECT_VAR | IDENT_LOCAL_VAR),
@@ -33,18 +37,19 @@ struct IdentInfo
 {
     union
     {
-        FunctionNo  function_no;    // Function number
-        LocalNo     local_var_no;   // local variable number
-        VariableNo  object_var_no;  // Object variable number
-        VariableNo  var_no;         // Common variable number
+        FunctionNo  function_no;    // Function no
+        LocalNo     local_var_no;   // local variable/argument no
+        VariableNo  object_var_no;  // Object variable no
+        VariableNo  var_no;         // Common variable no
     };
     union
     {
         AstFunction*    function;   // AstNode of function definition
+        AstFunctionArg* arg;        // AstNode of function argument
         AstDeclaration* decl;       // AstNode of variable declaration
     };
-    Uint32 type;                    // Ident type
-    int    tag;                     // Tag (level) for this identifier 
+    IdentType  type;                // Ident type
+    int        tag;                 // Tag (level) for this identifier 
     IdentInfo* next;
 
     IdentInfo(Lang* context);

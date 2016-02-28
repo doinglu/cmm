@@ -39,8 +39,8 @@ Lang::Lang() :
     m_in_function = 0;
 
     // Create the entry function @ no:0
-    m_entry_function = LANG_NEW(this, AstFunction, this);
-    m_entry_function->prototype = LANG_NEW(this, AstPrototype, this);
+    m_entry_function = BUFFER_NEW(AstFunction, this);
+    m_entry_function->prototype = BUFFER_NEW(AstPrototype, this);
     m_entry_function->no = 0;
     m_functions.push_back(m_entry_function);
 
