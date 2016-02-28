@@ -104,7 +104,7 @@ public:
     size_t hash_value() const
     {
         if (!hash_cache)
-            hash_cache = (Uint) hash_this() + 1;
+            hash_cache = (size_t)hash_this() + 1;
 
         return hash_cache;
     }
@@ -137,7 +137,7 @@ public:
 public:
     ReferenceImplAttrib attrib; // 16bits only (Don't use enum)
     ValueType type;             // Type of me
-    mutable Uint hash_cache;    // Cache of hash value
+    mutable Uint32 hash_cache;  // Cache of hash value
     ValueList *owner;           // Owned by domain or thread
 #if USE_VECTOR_IN_VALUE_LIST
     size_t offset;              // Offset of value in value list
@@ -226,7 +226,7 @@ private:
     }
 
     // Construct for integer 
-    Value(int v)
+    Value(Int32 v)
     {
         m_type = INTEGER;
         m_int = (Integer)v;
@@ -238,7 +238,13 @@ private:
         m_int = (Integer)v;
     }
 
-    Value(size_t v)
+    Value(Uint32 v)
+    {
+        m_type = INTEGER;
+        m_int = (Integer)v;
+    }
+
+    Value(Uint64 v)
     {
         m_type = INTEGER;
         m_int = (Integer)v;
@@ -337,7 +343,7 @@ public:
     }
 
     // Construct for integer 
-    Value& operator =(int v)
+    Value& operator =(Int32 v)
     {
         m_type = INTEGER;
         m_int = (Integer)v;
@@ -351,7 +357,14 @@ public:
         return *this;
     }
 
-    Value& operator =(size_t v)
+    Value& operator =(Uint32 v)
+    {
+        m_type = INTEGER;
+        m_int = (Integer)v;
+        return *this;
+    }
+
+    Value& operator =(Uint64 v)
     {
         m_type = INTEGER;
         m_int = (Integer)v;
@@ -581,7 +594,7 @@ public:
     union
     {
         ValueType m_type;
-        UintR     m_part1;
+        Integer   m_part1;
     };
     union
     {
@@ -595,7 +608,7 @@ public:
         FunctionPtrImpl* VVVV m_function;
         ArrayImpl*       VVVV m_array;
         MapImpl*         VVVV m_map;
-        UintR            m_part2;
+        Integer          m_part2;
     };
 };
 
@@ -900,7 +913,7 @@ public:
                 throw_error("Index out of range to array, got %lld.", (Int64)index);
         }
 
-        return a[index] = (const ValueInContainer&)val;
+        return a[(size_t)index] = (const ValueInContainer&)val;
     }
 
     Value& set(const Value& index, const Value& val) const
@@ -920,7 +933,7 @@ public:
                 throw_error("Index out of range to array, got %lld.", (Int64)index);
         }
 
-        return *(ValueInContainer*)ptr = a[index];
+        return *(ValueInContainer*)ptr = a[(size_t)index];
     }
 
     const Value& get(const Value& index, Value* ptr) const

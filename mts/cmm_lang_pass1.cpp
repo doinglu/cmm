@@ -745,7 +745,7 @@ VirtualRegNo Lang::alloc_virtual_reg(ValueType type, bool may_nil)
 
     // Get allocation information
     
-    for (LocalNo i = 0; i < m_virtual_regs.size(); i++)
+    for (size_t i = 0; i < m_virtual_regs.size(); i++)
     {
         auto& info = m_virtual_regs[i];
         if (info.type == type && !info.used)

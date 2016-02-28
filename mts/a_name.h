@@ -151,7 +151,7 @@ public:
         fun_name = "set_name";
         set_to = "Name was set";
         b = std_get_current_us_counter();
-        for (i = 0; i < 1000; i++)
+        for (i = 0; i < 10000; i++)
             call_other(_thread, other_oid, fun_name, &r1, set_to, set_to, set_to, set_to, set_to, set_to);////---
         e = std_get_current_us_counter();
         t = (double)(e - b);

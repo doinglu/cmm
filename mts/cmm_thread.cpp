@@ -430,8 +430,8 @@ Value& Thread::get_domain_context_list(Value* ptr)
     while (p)
     {
         p->value.m_domain->get_domain_detail(&detail);
-        detail.set(temp = "stack_begin", start_sp = (size_t)p->value.m_start_sp);
-        detail.set(temp = "stack_end", end_sp = (size_t)p->value.m_end_sp);
+        detail.set(temp = "stack_begin", start_sp = (Integer)p->value.m_start_sp);
+        detail.set(temp = "stack_end", end_sp = (Integer)p->value.m_end_sp);
         arr.push_back(detail);
         p = p->prev;
     }

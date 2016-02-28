@@ -441,7 +441,7 @@ fun_attribs:
         {
             $$ = $1 | $2;            
 
-            if ($$ != 0xFFFFFFFF)
+            if ($$ != ~(AstFunctionAttrib)0)
             {
                 if (($$ & AST_PRIVATE) && ($$ & AST_PUBLIC))
                 {

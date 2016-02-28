@@ -31,8 +31,9 @@ extern int std_ba_create(std_bin_alloc_t* pool, size_t reserved)
         reserved |= reserved >> 4;
         reserved |= reserved >> 8;
         reserved |= reserved >> 16;
-        if (sizeof(size_t) > 4)
-            reserved |= reserved >> 32;
+#ifdef PLATFORM64
+        reserved |= reserved >> 32;
+#endif
         reserved++;
     }
 
@@ -88,8 +89,9 @@ extern void* std_ba_alloc(std_bin_alloc_t* pool, size_t size)
         bit_len |= bit_len >> 4;
         bit_len |= bit_len >> 8;
         bit_len |= bit_len >> 16;
-        if (sizeof(size_t) > 4)
-            bit_len |= bit_len >> 32;
+#ifdef PLATFORM64
+        bit_len |= bit_len >> 32;
+#endif
         bit_len++;
     }
     word_count = bit_len / (8 * sizeof(scan_type_t));
@@ -188,8 +190,9 @@ extern int std_ba_free(std_bin_alloc_t* pool, void *p, size_t size)
         bit_len |= bit_len >> 4;
         bit_len |= bit_len >> 8;
         bit_len |= bit_len >> 16;
-        if (sizeof(size_t) > 4)
-            bit_len |= bit_len >> 32;
+#ifdef PLATFORM64
+        bit_len |= bit_len >> 32;
+#endif
         bit_len++;
     }
     word_count = bit_len / (8 * sizeof(scan_type_t));

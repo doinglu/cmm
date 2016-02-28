@@ -15,7 +15,7 @@ CPPC = g++
 endif
 
 ARCH = -m64
-CFLAGS = -g -O3 -I../std/include
+CFLAGS = -g -O3 $(ARCH) -I../std/include
 CPPFLAGS = $(CFLAGS) -std=c++11 $(CPPFLAGS_MACRO)
 LFLAGS = $(ARCH) -lstdc++ $(LINK_PLATFORM)
 

@@ -148,18 +148,22 @@ void Domain::gc()
     gc_internal(thread);
 }
 
+// Flag for turn on/off diagnostic information
+#define GC_DIAGNOSTIC       false
+
 void Domain::gc_internal(Thread* thread)
 {
     if (!m_value_list.get_count())
         // Value list is empty
         return;
 
-    auto b = std_get_current_us_counter();////----
-
     MarkValueState state(&m_value_list);
-////----    printf("Values before GC = %zu\n", m_value_list.get_count());////----
+#if GC_DIAGNOSTIC
+    printf("Values before GC = %zu\n", m_value_list.get_count());
+    auto b = std_get_current_us_counter();
+    auto b1 = std_get_current_us_counter();
+#endif
 
-    auto b1 = std_get_current_us_counter();////----
     // Scan all thread contexts of this domain
     for (auto& context: m_context_list)
     {
@@ -178,8 +182,11 @@ void Domain::gc_internal(Thread* thread)
     // Scan all member objects in this domain
     for (auto& object: m_objects)
         object->get_program()->mark_value(state, object);
-    auto e1 = std_get_current_us_counter();////----
-    ////----printf("GC mark: %zuus.\n", (size_t)(e1 - b1));////----
+
+#if GC_DIAGNOSTIC
+    auto e1 = std_get_current_us_counter();
+    printf("GC mark: %zuus.\n", (size_t)(e1 - b1));
+#endif
 
 #if USE_LIST_IN_VALUE_LIST
     // Get pointer of pointer to first node 
@@ -261,8 +268,10 @@ void Domain::gc_internal(Thread* thread)
     if (m_gc_counter > 4*1024*1024)
         m_gc_counter = 4*1024*1024;
 
+#if GC_DIAGNOSTIC
     auto e = std_get_current_us_counter();
-    ////----printf("GC cost: %zuus (alive: %zu).\n", (size_t)(e - b), m_value_list.get_count());////----
+    printf("GC cost: %zuus (alive: %zu).\n", (size_t)(e - b), m_value_list.get_count());
+#endif
 }
 
 // Let object join in domain
@@ -292,7 +301,7 @@ Map& Domain::get_domain_detail(Value* map)
     map->set(key = "name", val = m_name);
     map->set(key = "running", val = m_running);
     map->set(key = "wait_counter", val = m_wait_counter);
-    map->set(key = "thread_holder_id", val = (size_t)m_thread_holder_id);
+    map->set(key = "thread_holder_id", val = m_thread_holder_id);
     return (Map&)*map;
 }
 

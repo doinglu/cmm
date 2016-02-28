@@ -17,13 +17,14 @@
 #define __STD_PORT_SPIN_LOCK_H__
 
 #include "std_port_compiler.h"
+#include "std_port_type.h"
 
 #ifdef std_cpu_lock_xchg
 
 /* Spin-lock */
 typedef struct std_spin_lock
 {
-    IntR locked;
+    AtomInt locked;
 } std_spin_lock_t;
 
 /* For auto initialized when declare */

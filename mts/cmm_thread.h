@@ -339,7 +339,7 @@ public:
     {
         assure_stack(n);
         m_value_stack.m_sp -= n;
-        for (auto i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
             m_value_stack.m_base[m_value_stack.m_sp + i] = ptr_value[i];
     }
 

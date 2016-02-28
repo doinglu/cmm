@@ -229,44 +229,17 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\std\src\std_memmgr\std_bin_alloc.c" />
-    <ClCompile Include="..\std\src\std_memmgr\std_memmgr.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\std\src\std_port\std_port.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\std\src\std_port\std_port_debug.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\std\src\std_port\std_port_internal.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="..\std\src\std_memmgr\std_memmgr.c" />
+    <ClCompile Include="..\std\src\std_port\std_port.c" />
+    <ClCompile Include="..\std\src\std_port\std_port_debug.c" />
+    <ClCompile Include="..\std\src\std_port\std_port_internal.c" />
     <ClCompile Include="..\std\src\std_port\std_port_unix_mmap.c" />
     <ClCompile Include="..\std\src\std_port\std_port_windows_mmap.c" />
-    <ClCompile Include="..\std\src\std_port\std_port_nothread.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\std\src\std_port\std_port_posix.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\std\src\std_port\std_port_unix.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\std\src\std_port\std_port_vxworks.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\std\src\std_port\std_port_windows.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="..\std\src\std_port\std_port_nothread.c" />
+    <ClCompile Include="..\std\src\std_port\std_port_posix.c" />
+    <ClCompile Include="..\std\src\std_port\std_port_unix.c" />
+    <ClCompile Include="..\std\src\std_port\std_port_vxworks.c" />
+    <ClCompile Include="..\std\src\std_port\std_port_windows.c" />
     <ClCompile Include="..\std\src\std_socket\std_os_epoll_linux.c" />
     <ClCompile Include="..\std\src\std_socket\std_os_epoll_sim.c" />
     <ClCompile Include="..\std\src\std_socket\std_os_socket_bsd.c" />
@@ -306,12 +279,6 @@
     <ClCompile Include="cmm_thread.cpp" />
     <ClCompile Include="cmm_value.cpp" />
     <ClCompile Include="mts.cpp" />
-    <ClCompile Include="stdafx.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
     <ClCompile Include="cmm_lang_const.cpp" />
     <ClCompile Include="cmm_lexer.cpp" />
     <ClCompile Include="cmm_file_path.cpp" />

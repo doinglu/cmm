@@ -60,11 +60,11 @@ typedef struct std_memory_grp
 {
     Uint32    block_size;
     Uint32    block_count;
-    UintR     peak_used;
-    UintR     used;
-    UintR     dropped;
-    UintR     peak_freedByOther;
-    UintR     freedByOther;
+    size_t    peak_used;
+    size_t    used;
+    size_t    dropped;
+    size_t    peak_freedByOther;
+    size_t    freedByOther;
     std_memory_header_t *free_list;
     std_memory_header_t *free_listByOtherThreads;
 } std_memory_grp_t;
@@ -143,7 +143,7 @@ static void* _std_internal_alloc(size_t size);
 static void  _std_internal_free(void* p, size_t size);
 static std_memory_header_t *_std_l2_allocate_memory(size_t size);
 static void  _std_l2_free_memory(std_memory_header_t *block);
-static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_grpNo);
+static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, size_t n_grpNo);
 static void  _std_get_mem_stat(std_mem_stat_t *mem_stat);
 static int   _std_is_blockIn_list(std_memory_header_t *block, const char *module_name, const char *file, int line);
 static char *_std_last_name(const char *file);
@@ -495,14 +495,14 @@ int std_shutdown_mem_mgr()
         _std_release_all_mem_spin_lock();
         std_memory_stat(2, &mem_stat, NULL, 0);
         _std_get_all_mem_spin_lock();
-        printf("Memory alloc times   = %u\n"
-               "Memory free times    = %u\n"
-               "Memory reserved size = %uK\n"
-               "Memory peak size     = %uK\n",
-               (int) mem_stat.alloc_times,
-               (int) mem_stat.free_times,
-               (int) ((mem_stat.total_reserved_size + 1023) / 1024),
-               (int) ((mem_stat.peak_reserved_size + 1023) / 1024));
+        printf("Memory alloc times   = %zu\n"
+               "Memory free times    = %zu\n"
+               "Memory reserved size = %zuK\n"
+               "Memory peak size     = %zuK\n",
+               mem_stat.alloc_times,
+               mem_stat.free_times,
+               ((mem_stat.total_reserved_size + 1023) / 1024),
+               ((mem_stat.peak_reserved_size + 1023) / 1024));
 
         return STD_MEMORY_BLOCK_ACTIVE;
     }
@@ -592,7 +592,7 @@ int std_get_tiny_block_page_lists_count(size_t *ptr_count)
 }
 
 // Return tiny block page list information
-int std_get_tiny_block_page_list(std_tiny_page_header_t **pp_lists, Uint index)
+int std_get_tiny_block_page_list(std_tiny_page_header_t **pp_lists, size_t index)
 {
     STD_ASSERT(pp_lists != NULL);
 
@@ -652,7 +652,7 @@ void *std_allocate_memory(size_t size, const char *module_name,
     std_lms_t           *lms;
     std_memory_grp_t    *grp;
     std_memory_header_t *block;
-    Uint i;
+    size_t i;
 
     STD_ASSERT(file != NULL);
     STD_ASSERT(module_name != NULL);
@@ -980,8 +980,8 @@ int std_lms_and_tiny_stat(char *msg, size_t size)
         p += strlen(p);
         for (i = 0; i < _block_groups; i++)
         {
-            UintR block_count = 0, used = 0, peak_used = 0;
-            UintR dropped = 0, freedByOther = 0, peak_freedByOther = 0;
+            size_t block_count = 0, used = 0, peak_used = 0;
+            size_t dropped = 0, freedByOther = 0, peak_freedByOther = 0;
 
             grp = &lms->mem_grp[i];
             block_count       = grp->block_count;
@@ -1003,7 +1003,7 @@ int std_lms_and_tiny_stat(char *msg, size_t size)
         p += strlen(p);
 
         // Copy to result
-        strncpy(msg, temp, (size_t) size - 1);
+        strncpy(msg, temp, size - 1);
         msg[size - 1] = 0;
         size -= strlen(msg);
         msg += strlen(msg);
@@ -1015,16 +1015,16 @@ int std_lms_and_tiny_stat(char *msg, size_t size)
     p = temp;
     sprintf(p,
             "Tiny stat:\n"
-            "Allocated times = %u\nAllocSize = %u\nFreed times = %u\nFreed size = %u\n"
-            "Total reserved size = %u\nPeak reserved size = %u\n",
-            (Uint) _tiny_mem_stat.alloc_times,
-            (Uint) _tiny_mem_stat.alloc_size,
-            (Uint) _tiny_mem_stat.free_times,
-            (Uint) _tiny_mem_stat.free_size,
-            (Uint) _tiny_mem_stat.total_reserved_size,
-            (Uint) _tiny_mem_stat.peak_reserved_size);
+            "Allocated times = %zu\nAllocSize = %zu\nFreed times = %zu\nFreed size = %zu\n"
+            "Total reserved size = %zu\nPeak reserved size = %zu\n",
+            _tiny_mem_stat.alloc_times,
+            _tiny_mem_stat.alloc_size,
+            _tiny_mem_stat.free_times,
+            _tiny_mem_stat.free_size,
+            _tiny_mem_stat.total_reserved_size,
+            _tiny_mem_stat.peak_reserved_size);
     // Copy to result
-    strncpy(msg, temp, (size_t) size - 1);
+    strncpy(msg, temp, (size_t)size - 1);
     msg[size - 1] = 0;
 
     _std_release_all_mem_spin_lock();
@@ -1079,8 +1079,8 @@ int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
         p += strlen(p);
         for (i = 0; i < _block_groups; i++)
         {
-            UintR block_count = 0, used = 0, peak_used = 0;
-            UintR dropped = 0, freedByOther = 0, peak_freedByOther = 0;
+            size_t block_count = 0, used = 0, peak_used = 0;
+            size_t dropped = 0, freedByOther = 0, peak_freedByOther = 0;
             std_lms_t *lms;
 
             // _count of all lms
@@ -1140,16 +1140,16 @@ int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
     {
         // Show runtime debug information
         sprintf(p,
-                "Allocated times = %u\nFree times = %u\nPeak memory reserved = %uK\n",
-                (int) mem_stat.alloc_times, (int) mem_stat.free_times,
-                (int) ((mem_stat.peak_reserved_size + 1023) / 1024));
+                "Allocated times = %zu\nFree times = %zu\nPeak memory reserved = %zuK\n",
+                mem_stat.alloc_times, mem_stat.free_times,
+                ((mem_stat.peak_reserved_size + 1023) / 1024));
         p += strlen(p);
     }
 
     // Copy to result
     if (msg != NULL)
     {
-        strncpy(msg, temp, (size_t) size - 1);
+        strncpy(msg, temp, (size_t)size - 1);
         msg[size - 1] = 0;
     } else
         // Print out statistics
@@ -1185,8 +1185,8 @@ int std_memory_list(int max,
     std_memory_header_t *block;
     size_t total_block_size, total_l2_size;
     size_t total_block_count, total_l2_count;
-    int    no;
-    int    i, k;
+    size_t no;
+    size_t i, k;
 
     if (std_is_mem_mgr_installed())
     {
@@ -1229,11 +1229,11 @@ int std_memory_list(int max,
                         // Show the information
                         max--;
                         printf("%5d. 0x%p(%7d)  BLK  %3s/%s  %5d@%s\n",
-                            (int) (no++),
-                            block + 1, (int) block->size,
+                            (int)(no++),
+                            block + 1, (int)block->size,
                             block->module,
                             _std_ctime(&block->allocate_time),
-                            (int) block->line, _std_last_name(block->file));
+                            (int)block->line, _std_last_name(block->file));
                     }
                 }
 
@@ -1539,7 +1539,7 @@ int std_dummemory_ptr(char *file_name)
     std_memory_grp_t    *grp;
     std_memory_header_t *block;
     FILE   *fp;
-    int     i, k;
+    size_t  i, k;
     size_t  n;
     time_t  ti;
 
@@ -1576,10 +1576,10 @@ int std_dummemory_ptr(char *file_name)
             grp = &_memory_ptr_grp[i];
 
             fprintf(fp,
-                "\nGroup: %u  Size: %u  Count: %u  Used: %u  Peak: %u  Dropped: %u\n\n",
-                (int) i, (int) grp->block_size,
-                (int) grp->block_count, (int) grp->used,
-                (int) grp->peak_used, (int) grp->dropped);
+                "\nGroup: %u  Size: %zu  Count: %zu  Used: %zu  Peak: %zu  Dropped: %zu\n\n",
+                (int) i, grp->block_size,
+                grp->block_count, grp->used,
+                grp->peak_used, grp->dropped);
 
             // Ok! Lookup blocks in this group
             block = grp->blockAt;
@@ -2053,7 +2053,7 @@ static void _std_l2_free_memory(std_memory_header_t *block)
 // Initialize them and put them into free list of the group
 // Reserve 1 block & return it
 // Make sure the allocation size being aligned to STD_BLOCKS_CLUSTER_SIZE
-static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_grpNo)
+static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, size_t n_grpNo)
 {
     std_memory_grp_t    *grp;
     std_Extend_grp_t    *extend_grp;
@@ -2409,10 +2409,10 @@ static int _std_destroy_lms(std_lms_t *lms)
 // _allocate a tiny block page
 static std_tiny_page_header_t *std_create_tiny_block_page(size_t tiny_block_size)
 {
-    Uint   count;
+    size_t count;
     size_t block_and_header_size;
     size_t page_size;
-    Uint   i;
+    size_t i;
     std_tiny_page_header_t   *page;
     Uint8                    *tiny_block_ptr;
 
@@ -2422,7 +2422,7 @@ static std_tiny_page_header_t *std_create_tiny_block_page(size_t tiny_block_size
     // _allocate a memory size <= STD_TINY_BLOCK_PAGE_SIZE & fill with blocks
     block_and_header_size = sizeof(std_tiny_memory_header_t) + tiny_block_size;
     STD_ASSERT(STD_TINY_BLOCK_PAGE_SIZE >= sizeof(std_tiny_page_header_t) + block_and_header_size);
-    count = (Uint) ((STD_TINY_BLOCK_PAGE_SIZE - sizeof(std_tiny_page_header_t)) / block_and_header_size);
+    count = (size_t)((STD_TINY_BLOCK_PAGE_SIZE - sizeof(std_tiny_page_header_t)) / block_and_header_size);
     STD_ASSERT(count <= 0xFFFF);
     page_size = sizeof(std_tiny_page_header_t) + count * block_and_header_size;
     page = (std_tiny_page_header_t *) std_allocate_memory(page_size, "TINY", __FILE__, __LINE__);

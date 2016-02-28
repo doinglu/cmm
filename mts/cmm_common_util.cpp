@@ -534,7 +534,7 @@ extern int stricmp(const char *s1, const char *s2)
 /* strstr without case sensitive */
 extern const char *stristr(const char *str, const char *sub)
 {
-    int i, k;
+    size_t i, k;
     size_t len, slen;
 
     len = strlen(str);
@@ -685,7 +685,7 @@ extern void trim_string(char *str)
 
 /* Read field information from ini file */
 size_t read_ini(const char *section, const char *key,
-                const char *def, char *buffer, int size,
+                const char *def, char *buffer, size_t size,
                 FILE *fp)
 {
     bool ok;

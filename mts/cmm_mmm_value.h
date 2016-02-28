@@ -23,17 +23,7 @@ public:
     }
 
     // Construct for integer 
-    MMMValue(int v) :
-        Value(v)
-    {
-    }
-
-    MMMValue(Int64 v) :
-        Value(v)
-    {
-    }
-
-    MMMValue(size_t v) :
+    MMMValue(Integer v) :
         Value(v)
     {
     }

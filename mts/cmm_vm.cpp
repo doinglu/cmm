@@ -747,7 +747,7 @@ void Simulator::xLDMULX()
     if (m_this_code.p1i + p3->m_int > m_argn)
         throw_error("Overflow when copy values (%lld) to local (offset = %lld).\n",
                     (Int64)p3->m_int, (Int64)m_this_code.p1i);
-    memcpy(p1, p2, sizeof(Value) * p3->m_int);
+    memcpy(p1, p2, sizeof(Value) * (size_t)p3->m_int);
 }
 
 void Simulator::xLDI()

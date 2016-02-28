@@ -205,25 +205,25 @@ void  _override_gslib_os_free(void *);
 /* Parameter for pdb_memoryStat */
 typedef struct std_mem_stat
 {
-    UintR  alloc_times;
-    UintR  alloc_size;
-    UintR  free_times;
-    UintR  free_size;
-    UintR  total_reserved_size;
-    UintR  total_used_size;
-    UintR  total_l2_size;
-    UintR  peak_reserved_size;
-    UintR  extend_size;
+    size_t alloc_times;
+    size_t alloc_size;
+    size_t free_times;
+    size_t free_size;
+    size_t total_reserved_size;
+    size_t total_used_size;
+    size_t total_l2_size;
+    size_t peak_reserved_size;
+    size_t extend_size;
 } std_mem_stat_t;
 
 /* Parameter for pdb_stable_heapStat */
 typedef struct std_stable_heap_stat
 {
-    UintR  stable_heap_allocated_size;
-    UintR  stable_heap_size;
-    UintR  stable_heap_free_list_times;
-    UintR  stable_heap_allocate_times;
-    UintR  stable_heap_allocateFailed;
+    size_t stable_heap_allocated_size;
+    size_t stable_heap_size;
+    size_t stable_heap_free_list_times;
+    size_t stable_heap_allocate_times;
+    size_t stable_heap_allocateFailed;
 } std_stable_heap_stat_t;
 
 struct std_lms;
@@ -240,7 +240,7 @@ void       std_free_mem_page(void *page);
 int        std_is_mem_mgr_installed();
 int        std_get_block_reserved(size_t *ptr_reserved_bytes);
 int        std_get_tiny_block_page_listsCount(size_t *ptr_count);
-int        std_get_tiny_block_page_list(std_tiny_page_header_t **pp_lists, Uint index);
+int        std_get_tiny_block_page_list(std_tiny_page_header_t **pp_lists, size_t index);
 
 void      *std_allocate_memory(size_t size, const char *moduleName, const char *file, int line);
 void      *std_reallocate_memory(void *ptr, size_t size, const char *moduleName, const char *file, int line);

@@ -434,7 +434,7 @@ int main_body(int argn, char *argv[])
     call_other(thread, ob->get_oid(), key = "create", &r1);
     call_other(thread, ob2->get_oid(), key = "create", &r1);
     auto b = std_get_os_us_counter();
-#if 1
+#if 0
     Value ret = call_other(thread, ob->get_oid(), key = "printf", &r1, value = "result: %O\n", ob2->get_oid());
 #else
     Value ret = call_other(thread, ob->get_oid(), key = "test_call", &r1, ob2->get_oid());

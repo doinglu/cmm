@@ -739,7 +739,7 @@ void Program::mark_value(MarkValueState& state, Object* object)
     {
         auto* p = (AbstractComponent*)(((Uint8*)object) + it.offset);
         size_t n = it.program->m_object_vars.size();
-        for (auto i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
         {
             auto* value = &p->m_object_vars[i];
             if (value->m_type >= REFERENCE_VALUE)

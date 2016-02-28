@@ -45,7 +45,7 @@ extern void        inettoa(char *str, unsigned int ip);
 extern Uint32      atoinet(const char *str);
 extern const char *get_line(char *buffer, size_t size, const char *content);
 extern void        trim_string(char *str);
-extern size_t      read_ini(const char *section, const char *key, const char *def, char *buffer, int size, FILE *fp);
+extern size_t      read_ini(const char *section, const char *key, const char *def, char *buffer, size_t size, FILE *fp);
 extern bool        is_finite(double n);
 extern Int32       real_to_fix32(double x);
 extern double      fix32_to_real(Int32 x);

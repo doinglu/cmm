@@ -32,10 +32,6 @@
 #define Uint64  unsigned long long
 #endif
 
-#ifndef Uint
-#define Uint    unsigned
-#endif
-
 #ifdef PLATFORM64
 #define IntR    Int64
 #define UintR   Uint64
@@ -44,6 +40,6 @@
 #define UintR   Uint32
 #endif
 
-#define AtomInt IntR
+#define AtomInt UintR
 
 #endif  /* end of __STD_PORT_tYPE_H__ */
