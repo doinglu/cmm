@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "cmm.h"
 #include "std_template/simple_hash_set.h"
+#include "std_template/simple_list.h"
+#include "cmm.h"
+#include "cmm_value.h"
 
 namespace cmm
 {
@@ -17,7 +19,9 @@ class ValueList
 friend struct MarkValueState;
 
 public:
-#if USE_VECTOR_IN_VALUE_LIST
+#if USE_LIST_IN_VALUE_LIST
+    typedef simple::manual_list<char, ReferenceImpl> ContainerType;
+#elif USE_VECTOR_IN_VALUE_LIST
     typedef simple::unsafe_vector<ReferenceImpl*> ContainerType;
 #else
     typedef simple::hash_set<ReferenceImpl*> ContainerType;
@@ -53,6 +57,19 @@ public:
     // Remove a value
     void remove(ReferenceImpl* value);
 
+    // Set bound of all pointers
+    void set_bound(ReferenceImpl* low, ReferenceImpl* high)
+    {
+        m_low = low;
+        m_high = high;
+    }
+
+    // Set name of me
+    void set_name(const char* name)
+    {
+        m_name = name;
+    }
+
 private:
     // Reset without free
     void reset()
@@ -64,9 +81,10 @@ private:
 
 private:
     // List of all reference values
-    ContainerType m_container;
-    ReferenceImpl* m_high;
+    const char*    m_name;
+    ContainerType  m_container;
     ReferenceImpl* m_low;
+    ReferenceImpl* m_high;
 };
 
 // Strcuture using by GC
@@ -94,7 +112,52 @@ public:
     }
 
     // Mark the possible pointer
-    void mark_value(ReferenceImpl* ptr_value);
+    inline void mark_value(ReferenceImpl* ptr_value)
+    {
+        // Try remove from set
+#if USE_LIST_IN_VALUE_LIST
+        if (true)
+#elif USE_VECTOR_IN_VALUE_LIST
+        size_t offset = ptr_value->offset;
+        if (offset < container->size() && impl_ptrs_address[offset] == ptr_value)
+#else
+        if (container->contains(ptr_value))
+#endif
+        {
+            // Got the valid pointer
+            if (!ptr_value->owner)
+                // Already marked
+                return;
+
+            // set owner to 0 means marked already
+            ptr_value->owner = 0;
+            if (ptr_value->need_mark_for_domain_gc())
+                ptr_value->mark(*this);
+            return;
+        }
+
+        // Not valid pointer, is this a class pointer?
+        auto* buffer_impl = (BufferImpl *)(((char*)ptr_value) - BufferImpl::RESERVE_FOR_CLASS_ARR - sizeof(BufferImpl));
+#if USE_LIST_IN_VALUE_LIST
+        // Shouldn't be here
+        STD_FATAL("No here.\n");
+#elif USE_VECTOR_IN_VALUE_LIST
+        offset = buffer_impl->offset;
+        if (offset < container->size() && impl_ptrs_address[offset] == buffer_impl)
+#else
+        if (container->contains(buffer_impl))
+#endif
+        {
+            // Got the valid pointer
+            if (!buffer_impl->owner)
+                // Already marked
+                return;
+
+            // set owner to 0 means marked already
+            buffer_impl->owner = 0;
+            buffer_impl->mark(*this);
+        }
+    }
 };
 
 } // End of namespace: cmm

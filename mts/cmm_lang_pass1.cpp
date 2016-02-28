@@ -20,6 +20,11 @@ struct ExprOpType
 };
 
 // Prototypes of operator (To derive the result type)
+// ATTENTION: What's different between ANY_TYPE & MIXED
+// ANY_TYPE means matched any type, such as int, float, string... and mixed.
+// MIXED means exactly mixed type. eg.
+// mixed a;
+// map["index"]; 
 ExprOpType expr_op_types[] =
 {
     // Unary operation
@@ -330,7 +335,7 @@ void Lang::init_symbol_table()
 {
     for (auto it : m_object_vars)
     {
-        auto* info = BUFFER_NEW(IdentInfo, this);
+        auto* info = LANG_NEW(this, IdentInfo, this);
         info->object_var_no = it->object_var_no;
         info->type = IDENT_OBJECT_VAR;
         info->decl = it;
@@ -342,7 +347,7 @@ void Lang::init_symbol_table()
         auto* prototype = it->prototype;
         if (!(prototype->attrib & AST_MEMBER_METHOD))
             continue;
-        auto* info = BUFFER_NEW(IdentInfo, this);
+        auto* info = LANG_NEW(this, IdentInfo, this);
         info->function_no = it->no;
         info->type = IDENT_OBJECT_FUN;
         info->function = it;
@@ -366,7 +371,7 @@ void Lang::lookup_and_map_identifiers(AstNode *node)
     {
     case AST_DECLARATION:
     {
-        auto* info = BUFFER_NEW(IdentInfo, this);
+        auto* info = LANG_NEW(this, IdentInfo, this);
         auto* decl = (AstDeclaration*)node;
         if (is_in_top_frame())
         {
@@ -400,7 +405,7 @@ void Lang::lookup_and_map_identifiers(AstNode *node)
         if (function->prototype->attrib & AST_MEMBER_METHOD)
             // Member method, already added into symbol table
             break;
-        auto* info = BUFFER_NEW(IdentInfo, this);
+        auto* info = LANG_NEW(this, IdentInfo, this);
         info->function_no = function->no;
         info->type = IDENT_OBJECT_FUN;
         m_symbols.add_ident_info(function->prototype->name, info, node);
@@ -416,7 +421,7 @@ void Lang::lookup_and_map_identifiers(AstNode *node)
         {
             this->syntax_errors(this,
                 "%s(%d): error %d: '%s': undeclared identifier\n",
-                node->location.file.c_str(), node->location.line,
+                node->location.file->c_str(), node->location.line,
                 C_UNDECLARED_IDENTIFER,
                 variable->name.c_str());
             this->m_error_code = PASS1_ERROR;
@@ -426,7 +431,7 @@ void Lang::lookup_and_map_identifiers(AstNode *node)
         {
             this->syntax_errors(this,
                 "%s(%d): error %d: '%s': identifier is not variable\n",
-                node->location.file.c_str(), node->location.line,
+                node->location.file->c_str(), node->location.line,
                 C_UNDECLARED_IDENTIFER,
                 variable->name.c_str());
             this->m_error_code = PASS1_ERROR;
@@ -537,7 +542,7 @@ void Lang::lookup_expr_types(AstNode *node)
                     // Not accept nil
                     this->syntax_errors(this,
                         "%s(%d): error %d: cannot assign %s with NIL\n",
-                        expr->location.file.c_str(), expr->location.line,
+                        expr->location.file->c_str(), expr->location.line,
                         C_CANNOT_OPER,
                         ast_var_type_to_string(expr->expr1->var_type).c_str());
                 }
@@ -547,7 +552,7 @@ void Lang::lookup_expr_types(AstNode *node)
                 // Assign with unacceptable type and not accept NIL
                 this->syntax_errors(this,
                     "%s(%d): error %d: cannot assign %s to %s\n",
-                    expr->location.file.c_str(), expr->location.line,
+                    expr->location.file->c_str(), expr->location.line,
                     C_CANNOT_OPER,
                     ast_var_type_to_string(result_var_type).c_str(),
                     ast_var_type_to_string(expr->expr1->var_type).c_str());
@@ -568,7 +573,7 @@ void Lang::lookup_expr_types(AstNode *node)
             {
                 this->syntax_warns(this,
                     "%s(%d): warning %d: cast to %s? is useless\n",
-                    expr->location.file.c_str(), expr->location.line,
+                    expr->location.file->c_str(), expr->location.line,
                     C_CAST_USELESS_QMARK,
                     value_type_to_c_str(to_type));
                 expr->var_type.var_attrib &= ~AST_VAR_MAY_NIL;
@@ -578,7 +583,7 @@ void Lang::lookup_expr_types(AstNode *node)
             {
                 this->syntax_errors(this,
                     "%s(%d): warning %d: cast const to non-const is forbidden\n",
-                    expr->location.file.c_str(), expr->location.line,
+                    expr->location.file->c_str(), expr->location.line,
                     C_CAST_TO_NON_CONST);
                 expr->var_type.var_attrib |= AST_VAR_CONST;
             }
@@ -671,6 +676,43 @@ void Lang::lookup_expr_types(AstNode *node)
     }
 }
 
+// Allocate an anonymouse local variable with specified type
+LocalNo Lang::alloc_anonymouse_local(ValueType type)
+{
+    if (type < ValueType::REFERENCE_VALUE)
+        // Primitive type
+        type = ValueType::PRIMITIVE_TYPE;
+    else
+        // Mixed type
+        type = ValueType::MIXED;
+
+    // Get allocation information
+    for (LocalNo i = 0; i < m_anon_locals.size(); i++)
+    {
+        auto& local_info = m_anon_locals[i];
+        if (local_info.type == type && !local_info.used)
+        {
+            // Found a free local
+            local_info.used = true;
+            return i;
+        }
+    }
+
+    // Allocate new
+    LocalInfo new_info;
+    new_info.type = type;
+    new_info.used = true;
+    m_anon_locals.push_back(new_info);
+    return (LocalNo)(m_anon_locals.size() - 1);
+}
+
+// Free the allocated local variable
+void Lang::free_anonymouse_local(LocalNo no)
+{
+    STD_ASSERT(("The specified local is not allocated.", m_anon_locals[no].used == true));
+    m_anon_locals[no].used = false;
+}
+
 // Are all the children constant expr?
 bool Lang::are_expr_list_constant(AstExpr* expr_list)
 {
@@ -730,7 +772,7 @@ ValueType Lang::derive_type_of_op(
     {
         this->syntax_errors(this,
             "%s(%d): error %d: cannot '%s' %s\n",
-            expr->location.file.c_str(), expr->location.line,
+            expr->location.file->c_str(), expr->location.line,
             C_CANNOT_OPER,
             ast_op_to_string(expr->op).c_str(),
             value_type_to_c_str(operand1_type));
@@ -740,7 +782,7 @@ ValueType Lang::derive_type_of_op(
     {
         this->syntax_errors(this,
             "%s(%d): error %d: cannot '%s' %s with %s\n",
-            expr->location.file.c_str(), expr->location.line,
+            expr->location.file->c_str(), expr->location.line,
             C_CANNOT_OPER,
             ast_op_to_string(expr->op).c_str(),
             value_type_to_c_str(operand1_type),
@@ -749,7 +791,7 @@ ValueType Lang::derive_type_of_op(
     {
         this->syntax_errors(this,
             "%s(%d): error %d: cannot '%s' %s and %s, %s\n",
-            expr->location.file.c_str(), expr->location.line,
+            expr->location.file->c_str(), expr->location.line,
             C_CANNOT_OPER,
             ast_op_to_string(expr->op).c_str(),
             value_type_to_c_str(operand1_type),
@@ -777,7 +819,7 @@ bool Lang::check_lvalue(AstExpr* node)
             {
                 this->syntax_errors(this,
                     "%s(%d): error %d: you cannot assign to a variable that is const\n",
-                    node->location.file.c_str(), node->location.line,
+                    node->location.file->c_str(), node->location.line,
                     C_ASSIGN_TO_CONST);
                 return false;
             }
@@ -786,7 +828,7 @@ bool Lang::check_lvalue(AstExpr* node)
             {
                 this->syntax_errors(this,
                     "%s(%d): error %d: you cannot assign to a variable that is const\n",
-                    node->location.file.c_str(), node->location.line,
+                    node->location.file->c_str(), node->location.line,
                     C_ASSIGN_TO_CONST);
                 return false;
             }
@@ -795,7 +837,7 @@ bool Lang::check_lvalue(AstExpr* node)
             {
                 this->syntax_errors(this,
                     "%s(%d): error %d: you cannot modify char(s) in string\n",
-                    node->location.file.c_str(), node->location.line,
+                    node->location.file->c_str(), node->location.line,
                     C_ASSIGN_TO_CONST);
                 return false;
             }
@@ -809,7 +851,7 @@ bool Lang::check_lvalue(AstExpr* node)
 
     this->syntax_errors(this,
         "%s(%d): error %d: '=': left operand must be l-value\n",
-        node->location.file.c_str(), node->location.line,
+        node->location.file->c_str(), node->location.line,
         C_NOT_LVALUE);
     return false;
 }

@@ -34,31 +34,31 @@ void Lexer::shutdown_predefines()
 }
 
 // Register func by macro name
-void Lexer::add_predefine(String macro, ExpandFunc func)
+void Lexer::add_predefine(const simple::string& macro, ExpandFunc func)
 {
 
 }
 
 // Get file name
-String Lexer::expand_file_name(Lang* context)
+simple::string Lexer::expand_file_name(Lang* context)
 {
     return context->m_lexer.m_current_file_string;
 }
 
 // Get pure file name
-String Lexer::expand_pure_file_name(Lang* context)
+simple::string Lexer::expand_pure_file_name(Lang* context)
 {
     return context->m_lexer.m_current_pure_file_string;
 }
 
 // Get dir name
-String Lexer::expand_dir_name(Lang* context)
+simple::string Lexer::expand_dir_name(Lang* context)
 {
     return context->m_lexer.m_current_dir_string;
 }
 
 // Get current line number
-String Lexer::expand_line_no(Lang* context)
+simple::string Lexer::expand_line_no(Lang* context)
 {
     char temp[16];
     snprintf(temp, sizeof(temp), "%zu", (size_t)context->m_lexer.m_current_line);
@@ -66,7 +66,7 @@ String Lexer::expand_line_no(Lang* context)
 }
 
 // Get current function name
-String Lexer::expand_function_name(Lang* context)
+simple::string Lexer::expand_function_name(Lang* context)
 {
     const char* UNKNOWN_FUN_NAME = "\"Unknown Function\"";
     auto* function = context->m_in_function;
@@ -81,7 +81,7 @@ String Lexer::expand_function_name(Lang* context)
 }
 
 // Get global counter
-String Lexer::expand_counter(Lang* context)
+simple::string Lexer::expand_counter(Lang* context)
 {
     char temp[16];
     snprintf(temp, sizeof(temp), "%zu", (size_t)context->m_lexer.m_unique_counter++);

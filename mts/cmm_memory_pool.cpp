@@ -76,7 +76,7 @@ void MemoryPool::free(size_t begin)
 StaticMemoryPool::StaticMemoryPool(size_t max_reserve) :
     MemoryPool()
 {
-    m_head = (char*)std_mmap(0, max_reserve, STD_PAGE_RESERVE);
+    m_head = (char*)std_mem_reserve(0, max_reserve);
     if (!m_head)
         STD_FATAL("Failed to reserve memory for static memory pool.");
     m_max_reserve = max_reserve;
@@ -84,7 +84,7 @@ StaticMemoryPool::StaticMemoryPool(size_t max_reserve) :
 
 StaticMemoryPool::~StaticMemoryPool()
 {
-    shrink_pool(0);
+    std_mem_release(m_head, m_max_reserve);
     m_head = 0;
 }
 
@@ -104,7 +104,7 @@ bool StaticMemoryPool::extend_pool(size_t new_reserve)
 
     // Commit new memory
     size_t delta_size = new_reserve - m_reserve;
-    std_mmap(m_head + m_reserve, delta_size, STD_PAGE_COMMIT);
+    std_mem_commit(m_head + m_reserve, delta_size, STD_PAGE_READ | STD_PAGE_WRITE);
     m_reserve = new_reserve;
     return true;
 }
@@ -123,7 +123,7 @@ void StaticMemoryPool::shrink_pool(size_t new_reserve)
 
     // Reset committed memory
     size_t delta_size = m_reserve - new_reserve;
-    std_mmap(m_head + new_reserve, delta_size, STD_PAGE_RESET);
+    std_mem_decommit(m_head + new_reserve, delta_size);
     m_reserve = new_reserve;
 }
 

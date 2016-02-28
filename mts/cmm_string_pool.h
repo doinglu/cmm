@@ -16,9 +16,11 @@ public:
     ~StringPool();
 
 public:
-    StringImpl *find_or_insert(const String& string_ptr);
+    StringImpl *find_or_insert(const String& str);
+    StringImpl *find_or_insert(StringImpl* const str_impl);
     StringImpl *find_or_insert(const char* c_str, size_t len);
-    StringImpl *find(const String& string_ptr);
+    StringImpl *find(const String& str);
+    StringImpl *find(StringImpl* const str_impl);
     StringImpl *find(const char* c_str, size_t len);
 
 private:

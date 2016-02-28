@@ -155,6 +155,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\std\include\std_memmgr\std_bin_alloc.h" />
     <ClInclude Include="..\std\include\std_memmgr\std_memmgr.h" />
     <ClInclude Include="..\std\include\std_port\std_port.h" />
     <ClInclude Include="..\std\include\std_port\std_port_compiler.h" />
@@ -203,7 +204,6 @@
     <ClInclude Include="cmm_mmm_value.h" />
     <ClInclude Include="cmm_shell.h" />
     <ClInclude Include="cmm_vm.h" />
-    <ClInclude Include="std_os_socket.h" />
     <ClInclude Include="cmm_prototype_grammar.h" />
     <ClInclude Include="cmm_output.h" />
     <ClInclude Include="cmm_string_pool.h" />
@@ -227,6 +227,7 @@
     <ClInclude Include="cmm_lang.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\std\src\std_memmgr\std_bin_alloc.c" />
     <ClCompile Include="..\std\src\std_memmgr\std_memmgr.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -278,6 +279,7 @@
     <ClCompile Include="a_name_2.h" />
     <ClCompile Include="cmm_ast.cpp" />
     <ClCompile Include="cmm_basic_types.cpp" />
+    <ClCompile Include="cmm_call.cpp" />
     <ClCompile Include="cmm_common_util.cpp" />
     <ClCompile Include="cmm_domain.cpp" />
     <ClCompile Include="cmm_efun.cpp" />

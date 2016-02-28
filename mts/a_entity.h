@@ -27,7 +27,7 @@ public:
 
         auto *__this_object = _thread->get_this_object();
         call_far(_thread, 1, 0, simple::string().snprintf("Entity(%llx)", 256, __this_object->get_oid().i64));
-        return Value(UNDEFINED);
+        return NIL;
     }
 };
 

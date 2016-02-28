@@ -12,8 +12,7 @@ namespace cmm
 class MMMValue : public Value
 {
 public:
-    MMMValue() :
-        Value(UNDEFINED)
+    MMMValue()
     {
     }
 
@@ -47,8 +46,7 @@ public:
     }
 
     // Construct from StringImpl
-    MMMValue(StringImpl* const v) :
-        Value(UNDEFINED)
+    MMMValue(StringImpl* const v)
     {
         m_string = v;
         m_type = STRING;
@@ -108,20 +106,11 @@ public:
     }
 
 public:
-    MMMString operator +(const MMMString& other) const
-        { return impl().concat(&other.impl()); }
-
-    MMMString operator +=(const MMMString& other)
-        { return (*this = impl().concat(&other.impl())); }
-
     bool operator ==(const MMMString& other)
         { return this->impl() == other.impl(); }
 
     bool operator !=(const MMMString& other)
         { return !(this->impl() == other.impl()); }
-
-    int index_val(Integer index) const
-        { return impl().index_val(index); }
 
     const char *c_str() const
         { return impl().c_str(); }

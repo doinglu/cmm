@@ -60,15 +60,15 @@ public:
 
     // Ident symbols manager
 public:
-    bool        add_ident_info(String name, IdentInfo* info, AstNode* node);
-    IdentInfo*  get_ident_info(String name, Uint32 expect_types);
+    bool        add_ident_info(const simple::string& name, IdentInfo* info, AstNode* node);
+    IdentInfo*  get_ident_info(const simple::string& name, Uint32 expect_types);
     void        remove_ident_info_by_tag(int tag);
 
     // Utilities
 public:
 
 private:
-    typedef simple::hash_map<MMMString, IdentInfo*> IdentTable;
+    typedef simple::hash_map<simple::string, IdentInfo*> IdentTable;
     IdentTable m_ident_table;
 
     Lang* m_lang_context;

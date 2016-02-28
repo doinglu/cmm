@@ -1,17 +1,5 @@
-/******************************************************************
- *
- * @(#)std_memmgr.h: POWER* DB
- *
- * Purpose: 
- *  Memory manager.
- *
- * Functions:
- *
- * History:
- *  2002.2.24       Initial version
- *                  doing
- *
- ***** Copyright 2001, doing reserved *****************************/
+// std_memmgr.c:
+// Initial version 2002.2.24 by doing
 
 #ifndef _STD_MEM_MGR_H_
 #define _STD_MEM_MGR_H_
@@ -22,17 +10,27 @@ extern "C" {
 
 #include "std_port/std_port.h"
 
+// Error code
 #define STD_NOT_INITIALIZED             -10001
 #define STD_ALREADY_INITIALIZED         -10002
 #define STD_MEMORY_BLOCK_ACTIVE         -10003
 #define STD_BAD_MEMORY_GROUP            -10004
 #define STD_NO_SUCH_MEMORY_GROUP        -10005
 #define STD_MEMORY_NOT_ENOUGH           -10006
+#define STD_FAILED_INIT_BA_POOL         -10007
 
 #define STD_MEM_ALLOC(size)             std_allocate_memory(size, "STD", __FILE__, __LINE__)
 #define STD_MEM_ALLOCX(size, f, l)      std_allocate_memory(size, "STD", f, l)
 #define STD_MEM_REALLOC(p, size)        std_reallocate_memory(p, size, "STD", __FILE__, __LINE__)
 #define STD_MEM_FREE(ptr)               std_free_memory(ptr, "STD", __FILE__, __LINE__)
+
+// Options for this manager
+#define STD_USE_BA_ALLOC                0x0001
+typedef struct std_init_mgr_para
+{
+    int     options;
+    size_t  ba_reserve_size;        // Valid when STD_USE_BA_ALLOC only
+} std_init_mgr_para_t;
 
 #ifdef _DEBUG
 /* Do stat for debug mode with block detail mode */
@@ -46,9 +44,9 @@ extern "C" {
 
 /* Don't use tiny allocation */
 #ifdef WIN32
-#define STD_USE_tINY_ALLOC      1
+#define STD_USE_TINY_ALLOC      1
 #else
-#define STD_USE_tINY_ALLOC      0
+#define STD_USE_TINY_ALLOC      0
 #endif
 
 #if STD_STAT_ALLOC
@@ -77,7 +75,7 @@ typedef struct std_memory_config
 
 /* Special value in the head of memory header */
 #define STD_MEMORY_BLOCK_SIGN   0x99998086
-#define STD_MEMORY_BLOCK_tAIL   0xAF
+#define STD_MEMORY_BLOCK_TAIL   0xAF
 
 /* Flags of memory header */
 #define STD_MEMORY_GROUP_BLOCK  0x0001  /* Block is a allocated in group */
@@ -91,8 +89,16 @@ typedef struct std_memory_config
 #define STD_MEMORY_ALIGNMENT_SIZE           4
 #endif
 
+/* Reserved bytes for each block
+* Must be n * STD_MEMORY_ALIGNMENT_SIZE */
+#ifdef _DEBUG
+#define STD_BLOCK_RESERVED      16
+#else
+#define STD_BLOCK_RESERVED      0
+#endif
+
 /* For tiny block alignment */
-#define STD_tINY_ALIGNMENT_SIZE             sizeof(void *)
+#define STD_TINY_ALIGNMENT_SIZE             sizeof(void *)
 
 /* Page pool */
 /* The page pool is a memory pool to hold n same size pages */
@@ -122,10 +128,10 @@ typedef struct std_mem_page
 } std_mem_page_t;
 
 /* _size of values page (bytes) */
-#define STD_tINY_BLOCK_PAGE_SIZE            4096
+#define STD_TINY_BLOCK_PAGE_SIZE            4096
 
 /* Count of page list (all memory pools) */
-#define STD_tINY_BLOCK_PAGE_LIST_COUNT      256
+#define STD_TINY_BLOCK_PAGE_LIST_COUNT      256
 
 /* Tiny page */
 typedef struct std_tiny_page_header
@@ -165,7 +171,7 @@ typedef struct std_memory_header
     time_t      allocate_time;
     struct      std_memory_header *next_l2;
 #ifdef PLATFORM64
-    void       *unused1;    /* To alignment */
+    void       *unused;    /* To alignment 16 */
 #endif
 #endif /* End of detail information */
     Uint32      size;
@@ -177,9 +183,6 @@ typedef struct std_memory_header
         struct  std_memory_header *next;
         struct  std_lms *owner_lms;
     };
-#ifdef PLATFORM64
-    void       *unused2;    /* To alignment */
-#endif
 } std_memory_header_t;
 
 /* OS memory function */
@@ -226,7 +229,7 @@ typedef struct std_stable_heap_stat
 struct std_lms;
 
 /* Function provide to main module */
-int        std_init_mem_mgr();
+int        std_init_mem_mgr(std_init_mgr_para_t* paras);
 int        std_shutdown_mem_mgr();
 
 /* Allocate page */

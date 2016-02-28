@@ -56,23 +56,29 @@ public:
     // Bind a value to this domain
     void bind_value(ReferenceImpl *value, size_t count = 1)
     {
+#if USE_LIST_IN_VALUE_LIST
         STD_ASSERT(("Value is already binded to domain.", !value->next));
+#endif
         STD_ASSERT(("Value is already binded to domain.", !value->owner));
         m_value_list.append_value(value);
 
         // Should I need do a GC?
-        if (!--m_gc_counter)
+        --m_gc_counter;
+        check_gc();
+    }
+
+    // Do GC when necessary
+    void check_gc()
+    {
+        if (m_gc_counter <= 0)
             gc();
     }
 
     // Concat a value list
     void concat_value_list(ValueList *list)
     {
+        m_gc_counter -= (IntR)list->get_count();
         m_value_list.concat_list(list);
-        
-        // Should I need do a GC?
-        if (!--m_gc_counter)
-            gc();
     }
 
     // Is this value in my value list?
@@ -87,7 +93,7 @@ public:
 
 private:
     // Internal routine called by gc()
-    void gc_internal();
+    void gc_internal(Thread* thread);
 
 public:
     // Let object join in domain
@@ -138,7 +144,7 @@ private:
 
     // List of all reference value in this domain
     ValueList m_value_list;
-    size_t m_gc_counter;
+    IntR m_gc_counter;
 
     // List of all contexts in threads
     simple::manual_list<DomainContext> m_context_list;

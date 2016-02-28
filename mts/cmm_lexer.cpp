@@ -95,17 +95,11 @@ std_critical_section_t* Lexer::m_cs = 0;
 bool Lexer::init()
 {
     size_t i;
-    for (i = 0; m_define_keywords[i].c_str_word; i++)
-    {
-        // Put the keyword name into program string pool 
-        auto *str = Program::find_or_add_string(m_define_keywords[i].c_str_word);
-        m_define_keywords[i].word = str;
-    }
 
     // Create the keywords map
-    m_keywords = XNEW(KeywordMap, i);
+    m_keywords = XNEW(KeywordMap, STD_SIZE_N(m_define_keywords));
     for (i = 0; m_define_keywords[i].c_str_word; i++)
-        m_keywords->put(m_define_keywords[i].word, &m_define_keywords[i]);
+        m_keywords->put(m_define_keywords[i].c_str_word, &m_define_keywords[i]);
 
     // Create file name list
     m_file_name_list = XNEW(FileNameList);
@@ -125,17 +119,14 @@ void Lexer::shutdown()
     XDELETE(m_keywords);
 }
 
-Lexer::Lexer(Lang* context) :
-    m_current_file_name(EMPTY_STRING),
-    m_current_dir_string(EMPTY_STRING),
-    m_current_file_string(EMPTY_STRING),
-    m_current_pure_file_string(EMPTY_STRING)
+Lexer::Lexer(Lang* context)
 {
     m_lang_context = context;
     m_out = 0;
     m_last_new_line = 0;
     m_default_attrib = 0;
     m_if_top = 0;
+    m_current_file_name = 0;
     m_in_file_fd = 0;
     m_current_line = 0;
     m_total_lines = 0;
@@ -219,6 +210,16 @@ void Lexer::handle_endif()
     {
         lex_errorp("Unexpected %cendif.");
     }
+}
+
+// Copy a c str to mem list of lang context
+char* Lexer::copy_string(const char* c_str, size_t len)
+{
+    if (len == SIZE_MAX)
+        len = strlen(c_str);
+    char* to = LANG_NEWN(m_lang_context, char, len + 1);
+    memcpy(to, c_str, len + 1);
+    return to;
 }
 
 enum
@@ -493,7 +494,7 @@ void Lexer::handle_cond(IntR c)
 
     if (!c)
         skip_to("else", "endif");
-    p = (IfStatement *) BUFFER_NEW(IfStatement);
+    p = (IfStatement *) LANG_NEW(m_lang_context, IfStatement);
     p->next = this->m_if_top;
     this->m_if_top = p;
     p->state = c ? IfStatement::EXPECT_ENDIF : IfStatement::EXPECT_ELSE;
@@ -700,24 +701,24 @@ void Lexer::generate_file_dir_name()
     const char *tmp, *file;
     UintR len;
 
-    if (!m_current_file_name.length())
+    if (!m_current_file_name || !m_current_file_name->length())
     {
-        m_current_file_string = String("\"/Unknown File\"");
-        m_current_pure_file_string = String("\"Unknown File\"");
-        m_current_dir_string = String("\"/\"");
+        m_current_file_string = "\"/Unknown File\"";
+        m_current_pure_file_string = "\"Unknown File\"";
+        m_current_dir_string = "\"/\"";
         return;
     }
 
     // Copy current file name
-    len = m_current_file_name.length();
-    const char *file_c_str = m_current_file_name.c_str();
+    len = m_current_file_name->length();
+    const char *file_c_str = m_current_file_name->c_str();
     if (len > sizeof(buf) - 4)
         len = sizeof(buf) - 4;
     buf[0] = '"';
     memcpy(buf + 1, file_c_str, len);
     buf[len + 1] = '"';
     buf[len + 2] = 0;
-    m_current_file_string = String(buf);
+    m_current_file_string = buf;
 
     if ((tmp = strrchr(file_c_str, PATH_SEPARATOR)) == NULL &&
         (tmp = strrchr(file_c_str, '\\')) == NULL)
@@ -734,10 +735,10 @@ void Lexer::generate_file_dir_name()
     memcpy(buf + 1, file, len);
     buf[len + 1] = '"';
     buf[len + 2] = 0;
-    m_current_pure_file_string = String(buf);
+    m_current_pure_file_string = buf;
 
     // Fetch directory
-    if (tmp == m_current_file_name.c_str())
+    if (tmp == m_current_file_name->c_str())
     {
         // No path name, set as root
         snprintf(buf, sizeof(buf),
@@ -745,15 +746,15 @@ void Lexer::generate_file_dir_name()
         buf[sizeof(buf) - 1] = 0;
     } else
     {
-        len = tmp - m_current_file_name.c_str() + 1;
+        len = tmp - m_current_file_name->c_str() + 1;
         if (len > sizeof(buf) - 4)
             len = sizeof(buf) - 4;
         buf[0] = '"';
-        memcpy(buf + 1, m_current_file_name.c_str(), len);
+        memcpy(buf + 1, m_current_file_name->c_str(), len);
         buf[len + 1] = '"';
         buf[len + 2] = 0;
     }
-    m_current_dir_string = String(buf);
+    m_current_dir_string = buf;
 }
 
 void Lexer::del_trail(char *sp)
@@ -781,7 +782,7 @@ void Lexer::del_trail(char *sp)
     }
 
 // Return current file path
-String Lexer::get_current_file_name()
+StringImpl* Lexer::get_current_file_name()
 {
     return m_current_file_name;
 }
@@ -1296,7 +1297,7 @@ int Lexer::lex_in()
                     lex_error("Bad resource string, expected $$n, got $$ only.\n");
                 }
 
-                yylval.string = String(str).ptr();
+                yylval.string = copy_string(str);
                 return L_STRING;
             }
             this->m_out--;
@@ -1480,7 +1481,7 @@ int Lexer::lex_in()
                             }
                         }
 
-                        yylval.string = String(m_text, yyp - this->m_text).ptr();
+                        yylval.string = copy_string(m_text, yyp - this->m_text);
                         return L_STRING;
                     }
                         
@@ -1578,7 +1579,7 @@ int Lexer::lex_in()
             lex_errors("Size of long string > %d.\n", MAXLINE);
             lex_error("String too long.");
             *yyp++ = '\0';
-            yylval.string = String(m_text, yyp - this->m_text).ptr();
+            yylval.string = copy_string(m_text, yyp - this->m_text);
             return L_STRING;
         }
 
@@ -1728,7 +1729,7 @@ int Lexer::lex_in()
                 *yyp = 0;
 
                 // Got an identifier may contain '.', treat the whole string as identifier
-                auto* word = String(this->m_text).ptr();
+                auto* word = this->m_text;
 
                 // 1.lookup key word
                 {
@@ -1740,7 +1741,7 @@ int Lexer::lex_in()
                     }
                 }
 
-                yylval.string = word;
+                yylval.string = copy_string(word);
                 return L_IDENTIFIER;
             }
             goto badlex;
@@ -1757,7 +1758,7 @@ badlex:
  * by the return pointer won't be free during all VM running period. So user can
  * use the return pointer directly.
  */
-StringImpl* Lexer::add_file_name(const String& file_name)
+StringImpl* Lexer::add_file_name(const simple::string& file_name)
 {
     char regular_name[MAX_FILE_NAME_LEN];
     const char *c_str;
@@ -1791,7 +1792,7 @@ StringImpl* Lexer::add_file_name(const String& file_name)
 }
 
 // Lookup in added file name list, return the regular name
-StringImpl* Lexer::find_file_name(const String& file_name)
+StringImpl* Lexer::find_file_name(const simple::string& file_name)
 {
     char regular_name[MAX_FILE_NAME_LEN];
     const char *c_str;
@@ -1814,14 +1815,13 @@ StringImpl* Lexer::find_file_name(const String& file_name)
 #endif
     } while (0);
 
-    String name = STRING_ALLOC(regular_name);
-    return Program::find_string(name);
+    return Program::find_string(regular_name);
 }
 
 // Lookup all file name name list, try to find nearest file name
 // For file name a/b.c, can match x/a/b.c or y/x/a/b.c ...
 // If matched multi file name, return NULL
-StringImpl* Lexer::find_file_name_not_exact_match(const String& file_name)
+StringImpl* Lexer::find_file_name_not_exact_match(const simple::string& file_name)
 {
     // Find in shared string
     StringImpl *name;
@@ -1845,7 +1845,7 @@ StringImpl* Lexer::find_file_name_not_exact_match(const String& file_name)
 
         if (file_name[0] != PATH_SEPARATOR &&
             it->length() > file_name.length() &&
-            (*it).index_val(it->length() - file_name.length() - 1) != PATH_SEPARATOR)
+            (*it).get(it->length() - file_name.length() - 1) != PATH_SEPARATOR)
         {
             // The name is not match near separator
             /* For example:
@@ -1895,7 +1895,7 @@ bool Lexer::end_new_file(bool succ)
 
 // Open a new file to compile
 // pProgram: compile to which program... NULL means compile to global program.
-bool Lexer::start_new_file(Program *program, IntR fd, const String& file_name)
+bool Lexer::start_new_file(Program *program, IntR fd, const simple::string& file_name)
 {
     // Generate full file name
     generate_file_dir_name();
@@ -2073,7 +2073,7 @@ int Lexer::get_char_in_cond_exp()
 }
 
 // Get keyword token if input name is keyword, or return -1*/
-Keyword *Lexer::get_keyword(const String& name)
+Keyword *Lexer::get_keyword(const simple::string& name)
 {
     Keyword* keyword;
     if (m_keywords->try_get(name, &keyword))

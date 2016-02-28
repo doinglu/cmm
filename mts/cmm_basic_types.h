@@ -46,10 +46,11 @@ enum ValueType
     FUNCTION = 11,      // Function pointer
     ARRAY = 12,         // ArrayImpl
     MAPPING = 13,       // Mapping
-    TVOID = 98,         // Void
-    MIXED = 99,         // mixed type
-    ANY_TYPE = 254,     // Any type     - Not for value, for compile use only
-    BAD_TYPE = 255,     // Bad type     - Not for value
+    TVOID = 95,         // Void
+    MIXED = 96,         // Mixed
+    PRIMITIVE_TYPE = 97,// Primitive - Not for value, for compile use only
+    ANY_TYPE = 98,      // Any type  - Not for value, for compile use only
+    BAD_TYPE = 99,      // Bad type  - Not for value, for compile use only
 };
 
 enum

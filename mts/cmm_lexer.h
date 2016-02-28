@@ -54,11 +54,7 @@ enum RefStatus
 
 struct Keyword
 {
-    union
-    {
-        const char* c_str_word; // Use for define in source file
-        StringImpl* word;       // Use for runtime
-    };
+    const char* c_str_word; // Use for define in source file
     Uint32      token;          // flags here
     Uint32      sem_value;      // semantic value for predefined tokens
 };
@@ -120,15 +116,15 @@ public:
     ~Lexer();
 
 public:
-    StringImpl* add_file_name(const String& file_name);
-    StringImpl* find_file_name(const String& file_name);
-    StringImpl* find_file_name_not_exact_match(const String& file_name);
+    StringImpl* add_file_name(const simple::string& file_name);
+    StringImpl* find_file_name(const simple::string& file_name);
+    StringImpl* find_file_name_not_exact_match(const simple::string& file_name);
     void        destruct_file_names();
-    String      get_current_file_name();
+    StringImpl* get_current_file_name();
     LineNo      get_current_line();
     Uint32      get_default_attrib();
     bool        set_default_attrib(Uint32 attrib);
-    bool        start_new_file(Program *program, IntR fd, const String& file_name);
+    bool        start_new_file(Program *program, IntR fd, const simple::string& file_name);
     bool        end_new_file(bool succ);
     int         lex_in();
 
@@ -154,26 +150,27 @@ private:
     void        handle_elif(char* sp);
     void        handle_else();
     void        handle_endif();
+    char*       copy_string(const char* c_str, size_t len = SIZE_MAX);
 
 private:
-    static Keyword *get_keyword(const String& name);
+    static Keyword *get_keyword(const simple::string& name);
 
 private:
-    typedef String(*ExpandFunc)(Lang* context);
-    typedef simple::hash_map<MMMString, ExpandFunc> ExpandFuncMap;
+    typedef simple::string(*ExpandFunc)(Lang* context);
+    typedef simple::hash_map<simple::string, ExpandFunc> ExpandFuncMap;
     static ExpandFuncMap *expand_builtin_macro_funcs;
 
     static int    init_predefines();
     static void   shutdown_predefines();
-    static void   add_predefine(String macro, ExpandFunc func);
+    static void   add_predefine(const simple::string& macro, ExpandFunc func);
 
     // Predefine expansion functions
-    static String expand_file_name(Lang* context);
-    static String expand_pure_file_name(Lang* context);
-    static String expand_dir_name(Lang* context);
-    static String expand_line_no(Lang* context);
-    static String expand_function_name(Lang* context);
-    static String expand_counter(Lang* context);
+    static simple::string expand_file_name(Lang* context);
+    static simple::string expand_pure_file_name(Lang* context);
+    static simple::string expand_dir_name(Lang* context);
+    static simple::string expand_line_no(Lang* context);
+    static simple::string expand_function_name(Lang* context);
+    static simple::string expand_counter(Lang* context);
 
 private:
     // Language syntax context
@@ -195,7 +192,7 @@ private:
     IfStatement* m_if_top;
 
     // Current file path
-    String       m_current_file_name;
+    StringImpl*  m_current_file_name;
 
     // Current file handle
     IntR         m_in_file_fd;
@@ -208,9 +205,9 @@ private:
     LineNo       m_current_line_saved;////----
 
     // For __FILE__, __LINE__
-    String       m_current_dir_string;
-    String       m_current_file_string;
-    String       m_current_pure_file_string;
+    simple::string m_current_dir_string;
+    simple::string m_current_file_string;
+    simple::string m_current_pure_file_string;
 
     // main source buffer
     LinkedBuf    m_main_buf;
@@ -236,7 +233,7 @@ private:
     static Keyword m_define_keywords[];
 
     // Keyword mapping for runtime
-    typedef simple::hash_map<MMMString, Keyword*, String::hash_func> KeywordMap;
+    typedef simple::hash_map<simple::string, Keyword*> KeywordMap;
     static KeywordMap* m_keywords;
 
     // File name list

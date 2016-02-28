@@ -91,7 +91,7 @@ private:
     Function*   m_function; // Owner function
 	ValueType   m_type;     // Type of this argument
 	Attrib      m_attrib;   // Attrib of this parmeters
-    Value       m_default;  // Default value (valid only for has_default())
+    MMMValue    m_default;  // Default value (valid only for has_default()) ////----
 };
 
 class Variables : public simple::vector<SyntaxVariable*> { };
@@ -329,24 +329,24 @@ public:
 
 public:
     // Convert a normal StringImpl pointer to shared StringImpl pointer
-    // The string.m_string would be updated if found in pool
-    static bool convert_to_shared(const String* string);
-        
+    // The m_string would be updated if found in pool
+    static bool convert_to_shared(StringImpl** string);
+
     // Find or add a string into pool
-    static StringImpl* find_or_add_string(const String& string);
+    static StringImpl* find_or_add_string(StringImpl* const string);
 
     // Find or add a string into pool
     static StringImpl* find_or_add_string(const char* c_str);
 
     // Find string in pool (return 0 if not found)
-    static StringImpl* find_string(const String& string);
+    static StringImpl* find_string(StringImpl* const string);
 
     // Find string in pool (return 0 if not found)
     static StringImpl* find_string(const char* c_str);
 
     // Find a program by name (shared string)
     // The string.m_string would be updated if found in pool
-    static Program* find_program_by_name(const String& program_name);
+    static Program* find_program_by_name(StringImpl* const program_name);
 
     // Update callees of all programs
     static void update_all_programs();
@@ -481,7 +481,7 @@ public:
     // Update name to shared string if found
     bool get_public_callee_by_name(const String* name, CalleeInfo* ptr_info) const
     {
-        if (!Program::convert_to_shared(name))
+        if (!Program::convert_to_shared((StringImpl**)&name->m_string))
             // This string is not in pool, not such callee
             return false;
         return m_public_callees.try_get(name->ptr(), ptr_info);
@@ -491,12 +491,15 @@ public:
     // Update name to shared string if found
     bool get_self_callee_by_name(const String* name, CalleeInfo* ptr_info) const
     {
-        if (!Program::convert_to_shared(name))
+        if (!Program::convert_to_shared((StringImpl**)&name->m_string))
             // This string is not in pool, not such callee
             return false;
         return m_self_callees.try_get(name->ptr(), ptr_info);
     }
 
+    // Mark object's member variables
+    void mark_value(MarkValueState& state, Object* object);
+        
     // Create a new instance
     Object* new_instance(Domain* domain);
 
@@ -561,7 +564,7 @@ private:
     ComponentsNoMap m_components_no_map;
 
     // Rember all allocated constants
-    ValueList m_list;
+    ValueList m_value_list;
 
     // All constants
     simple::unsafe_vector<MMMValue> m_constants;

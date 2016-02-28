@@ -24,6 +24,7 @@ struct Instruction
     };
 
     typedef Uint16 ParaValue;
+    typedef Int16  SignedParaValue;
 
     enum Code
     {

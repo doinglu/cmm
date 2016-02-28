@@ -13,6 +13,7 @@
 #include "cmm_lang_symbols.h"
 #include "cmm_lex_util.h"
 #include "cmm_lexer.h"
+#include "cmm_mem_list.h"
 #include "cmm_value.h"
 
 namespace cmm
@@ -61,39 +62,41 @@ public:
     // Do parse
     ErrorCode parse();
 
-public:
     // Export to YACC
-    static void         syntax_error(Lang* context, const char* msg);
-    static void         syntax_errors(Lang* context, const char* format, ...);
-    static void         syntax_warn(Lang* context, const char* msg);
-    static void         syntax_warns(Lang* context, const char* format, ...);
-    static void         syntax_stop(Lang* context, ErrorCode ret);
-    static void         syntax_echo(Lang* context, const char* msg);
-    static void         print_ast(AstNode* node, int level);
-
 public:
+    static void     syntax_error(Lang* context, const char* msg);
+    static void     syntax_errors(Lang* context, const char* format, ...);
+    static void     syntax_warn(Lang* context, const char* msg);
+    static void     syntax_warns(Lang* context, const char* format, ...);
+    static void     syntax_stop(Lang* context, ErrorCode ret);
+    static void     syntax_echo(Lang* context, const char* msg);
+    static void     print_ast(AstNode* node, int level);
+
     // Parse utility functions
-    String              add_back_slash_for_quote(const String& str);
-    void                add_component(const String& component);
-    int                 get_frame_tag();
-    AstNode*            get_loop_switch(int level);
-    AstNode*            get_node_for_break();
-    AstNode*            get_node_for_continue();
-    bool                is_in_entry_function();
-    bool                is_in_top_frame();
-    void                pop_loop_switch(int level);
-    int                 push_loop_switch(AstNode* node);
-    void                set_current_attrib(Uint32 attrib);
+public:
+    simple::string  add_back_slash_for_quote(const simple::string& str);
+    void            add_component(const char* component);
+    int             get_frame_tag();
+    AstNode*        get_loop_switch(int level);
+    AstNode*        get_node_for_break();
+    AstNode*        get_node_for_continue();
+    bool            is_in_entry_function();
+    bool            is_in_top_frame();
+    void            pop_loop_switch(int level);
+    int             push_loop_switch(AstNode* node);
+    void            set_current_attrib(Uint32 attrib);
 
-private:
     // Pass1 - Collect object var & functions
-    bool pass1();
-    void init_symbol_table();
-    void lookup_and_map_identifiers(AstNode *node);
-    void lookup_expr_types(AstNode *node);
-
 private:
+    bool            pass1();
+    void            init_symbol_table();
+    void            lookup_and_map_identifiers(AstNode *node);
+    void            lookup_expr_types(AstNode *node);
+    LocalNo         alloc_anonymouse_local(ValueType type);
+    void            free_anonymouse_local(LocalNo no);
+
     // Pass2 - Create final result
+private:
     bool pass2();
 
 private:
@@ -112,6 +115,9 @@ private:
     static void collect_children(AstNode* node);
 
 public:
+    // Memory list
+    MemList mem_list;
+
     // Lexer
     Lexer m_lexer;
 
@@ -149,7 +155,16 @@ public:
     simple::vector<AstFunction*> m_functions;
 
     // All components
-    simple::vector<MMMString> m_components;
+    simple::vector<simple::string> m_components;
+
+    // All anonymouse local information
+    struct LocalInfo
+    {
+        ValueType type;
+        bool used;
+    };
+    typedef simple::vector<LocalInfo> LocalInfos;
+    LocalInfos m_anon_locals;
 
     // long jump buffer
     jmp_buf m_jmp_buf;
@@ -167,5 +182,10 @@ private:
 
 // Internal routines
 int cmm_lang_parse(Lang* context);
+
+#define LANG_NEW(context, T, ...)   context->mem_list.new1<T>(__FILE__, __LINE__, ##__VA_ARGS__)
+#define LANG_NEWN(context, T, n)    context->mem_list.newn<T>(__FILE__, __LINE__, n)
+#define LANG_DELETE(context, p)     context->mem_list.delete1(__FILE__, __LINE__, p)
+#define LANG_DELETEN(context, p)    context->mem_list.deleten(__FILE__, __LINE__, p)
 
 }

@@ -1,25 +1,14 @@
-/******************************************************************
- *
- * @(#)std_memmgr.c:
- *
- * Purpose:
- *  _memory manager.
- *
- * Functions:
- *
- * History:
- *  2002.2.24       Initial version
- *                  doing
- *
- ***** Copyright 2001, doing reserved *****************************/
+// std_memmgr.c:
+// Initial version 2002.2.24 by doing
 
- /* Module header files */
+ // Module header files
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "std_port/std_port.h"
 #include "std_memmgr/std_memmgr.h"
+#include "std_memmgr/std_bin_alloc.h"
 
 typedef enum std_block_size
 {
@@ -35,10 +24,10 @@ typedef enum std_block_size
     STD_BSIZE_9         = 16384,
 } std_block_size_t;
 
-/* Configuration of memory block serials */
+// Configuration of memory block serials
 std_memory_config_t mem_config[] =
 {
-    /* _block size       _block count */
+    // _block size       _block count
     { STD_BSIZE_0,      0,      },
     { STD_BSIZE_1,      0,      },
     { STD_BSIZE_2,      0,      },
@@ -51,30 +40,22 @@ std_memory_config_t mem_config[] =
     { STD_BSIZE_9,      0,      },
 };
 
-/* _memory to waste */
-/* Waste memory to shift the offset of flat memory */
+// _memory to waste
+// Waste memory to shift the offset of flat memory
 #define STD_WASTE_SIZE          0
 
-/* The minimum size of blocks-cluster when allocted blocks in _l2 */
+// The minimum size of blocks-cluster when allocted blocks in _l2
 #define STD_BLOCKS_CLUSTER_SIZE 65536
 
-/* _reserved bytes for each block
- * Must be n * STD_MEMORY_ALIGNMENT_SIZE */
-#ifdef _DEBUG
-#define STD_BLOCK_RESERVED      STD_MEMORY_ALIGNMENT_SIZE
-#else
-#define STD_BLOCK_RESERVED      0
-#endif
-
 #if STD_STAT_ALLOC
-/* Do stat for debug mode */
+// Do stat for debug mode
 static mem_code_node_stat_t *_alloc_nodes = NULL;
 static size_t _alloc_nodes_count = 0;
 static size_t _alloc_nodes_size = 0;
 static size_t _allocMin_size = 0, _alloc_max_size = (size_t) -1;
 #endif
 
-/* _memory group structure */
+// _memory group structure
 typedef struct std_memory_grp
 {
     Uint32    block_size;
@@ -88,18 +69,15 @@ typedef struct std_memory_grp
     std_memory_header_t *free_listByOtherThreads;
 } std_memory_grp_t;
 
-/* Extend block group structure */
+// Extend block group structure
 typedef struct std_Extend_grp
 {
     int block_size;
     int block_count;
     struct std_Extend_grp *next;
-#ifdef PLATFORM64
-    void *unused;     /* To alignment */
-#endif
 } std_Extend_grp_t;
 
-/* Local memory storage */
+// Local memory storage
 typedef struct std_lms
 {
     std_task_id_t     task_id;    
@@ -112,52 +90,57 @@ typedef struct std_lms
 static std_memory_header_t *_l2_mem_blocks = NULL;
 #endif
 
-/* Flags for initialization */
+// Flags for initialization
 #define MEMMGR_NOT_INIT      0
 #define MEMMGR_INIT_OK       1
 #define MEMMGR_SHUTDOWNING  -1
 
-/* Initialization flag */
+// Initialization flag
 static int    _init_mem_mgr_flag = MEMMGR_NOT_INIT;
+static int    _mem_mgr_options = 0;
 static Uint8 *_waste_memory = NULL;
 static size_t _block_groups = STD_SIZE_N(mem_config);
 static size_t _max_block_size = STD_BSIZE_9;
 
-/* Global information for memory manager */
+static std_bin_alloc_t _ba_pool;
+
+// Global information for memory manager
 static std_spin_lock_t _code_node_stat_spin_lock;
 static std_spin_lock_t _tiny_block_spin_lock;
 static std_spin_lock_t _l2_mem_block_list;
 static std_spin_lock_t _lms_list_spin_lock;
 
-/* _tls for lms */
+// _tls for lms
 static std_tls_t  _lms_tls_id;
 static std_lms_t *_lms_list = NULL;
 
-/* _statistic for tiny */
+// _statistic for tiny
 static std_mem_stat_t _tiny_mem_stat;
 
-/* _statistic for extend information */
+// _statistic for extend information
 static size_t _extend_times  = 0;
 static size_t _extend_size   = 0;
 
-/* Extend group list */
+// Extend group list
 static std_Extend_grp_t *_extend_grp_list = NULL;
 
-/* _tiny block page list */
-static std_tiny_page_header_t *_tiny_block_page_lists[STD_tINY_BLOCK_PAGE_LIST_COUNT / STD_tINY_ALIGNMENT_SIZE + 1];
+// _tiny block page list
+static std_tiny_page_header_t *_tiny_block_page_lists[STD_TINY_BLOCK_PAGE_LIST_COUNT / STD_TINY_ALIGNMENT_SIZE + 1];
 
-/* The heap to put stablize memory block */
-/* _allocation can't be free during whole process life cycle */
+// The heap to put stablize memory block
+// _allocation can't be free during whole process life cycle
 static Uint8 *_stable_heapStart = NULL;
 static size_t _stable_heap_size = 0;
 
-/* _statistics for stable heap */
+// _statistics for stable heap
 static size_t _stable_heap_allocated_size = 0;
 static size_t _stable_heap_free_list_times = 0;
 static size_t _stable_heap_allocate_times = 0;
 static size_t _stable_heap_allocateFailed = 0;
 
-/* Internal functions */
+// Internal functions
+static void* _std_internal_alloc(size_t size);
+static void  _std_internal_free(void* p, size_t size);
 static std_memory_header_t *_std_l2_allocate_memory(size_t size);
 static void  _std_l2_free_memory(std_memory_header_t *block);
 static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_grpNo);
@@ -169,40 +152,40 @@ static void  _std_show_mem_block(Uint8 *buf, size_t len);
 static void  _std_dump_mem_block(FILE *fp, Uint8 *buf, size_t len);
 static char *_std_ctime(time_t *pTime);
 
-/* _spin lock routines for memory group */
+// _spin lock routines for memory group
 static void _std_get_all_mem_spin_lock();
 static void _std_release_all_mem_spin_lock();
 
-/* To manager local memory storage */
+// To manager local memory storage
 static std_lms_t *_std_create_lms();
 static std_lms_t *_std_get_or_create_lms();
 static int        _std_destroy_lms(std_lms_t *lms);
 
-/* _tiny block routines */
+// _tiny block routines
 static std_tiny_page_header_t *std_create_tiny_block_page(size_t tiny_block_size);
 static void std_delete_tiny_block_page(std_tiny_page_header_t *page);
 
 #if STD_STAT_ALLOC
-/* Internal statistics routines */
+// Internal statistics routines
 static mem_code_node_stat_t *std_find_or_insert_code_node(const char *file, int line);
 static mem_code_node_stat_t *std_insert_code_node(mem_code_node_t *comp, size_t index);
 static void                  std_add_code_node_stat_counter(const char *file, int line, int delta, size_t size);
 
-/* Find the node, if not found, insert one, return NULL
- * if failed to allocate memory */
+// Find the node, if not found, insert one, return NULL
+// if failed to allocate memory
 static mem_code_node_stat_t *std_find_or_insert_code_node(const char *file, int line)
 {
     mem_code_node_t comp;
     int m;
     int ret;
 
-    /* Generate node to compare */
+    // Generate node to compare
     comp.file = file;
     comp.line = (Uint32) line;
 
     if (_alloc_nodes_count > 0)
     {
-        /* Search the node */
+        // Search the node
         int b, e;
         b = 0;
         e = (int)_alloc_nodes_count - 1;
@@ -210,42 +193,42 @@ static mem_code_node_stat_t *std_find_or_insert_code_node(const char *file, int 
         {
             m = (b + e) / 2;
 
-            /* Compare the code node */
+            // Compare the code node
             ret = memcmp(&comp, &_alloc_nodes[m].n, sizeof(comp));
             if (ret == 0)
             {
-                /* Found */
+                // Found
                 return &_alloc_nodes[m];
             } else
             if (ret < 0)
             {
-                /* Try more left */
+                // Try more left
                 e = m - 1;
                 if (b > e)
-                    /* Can't move left anymore, insert @ b */
+                    // Can't move left anymore, insert @ b
                     return std_insert_code_node(&comp, b);
 
                 continue;
             } else
             {
-                /* Try more right */
+                // Try more right
                 b = m + 1;
                 if (b > e)
-                    /* Can't move right anymore, insert @ >e */
+                    // Can't move right anymore, insert @ >e
                     return std_insert_code_node(&comp, e + 1);
 
                 continue;
             }
         }
-        /* Never be here */
+        // Never be here
     }
 
-    /* _list is empty */
+    // _list is empty
     return std_insert_code_node(&comp, 0);
 }
 
-/* _insert code node into _alloc_nodes */
-/* Index must in [0.._alloc_nodes_count] */
+// _insert code node into _alloc_nodes
+// Index must in [0.._alloc_nodes_count]
 static mem_code_node_stat_t *std_insert_code_node(mem_code_node_t *comp, size_t index)
 {
     mem_code_node_stat_t *pNew;
@@ -253,10 +236,10 @@ static mem_code_node_stat_t *std_insert_code_node(mem_code_node_t *comp, size_t 
     STD_ASSERT(index >= 0 && index <= _alloc_nodes_count);
     if (_alloc_nodes_count >= _alloc_nodes_size)
     {
-        /* Reallocate memory */
+        // Reallocate memory
         size_t new_size;
 
-        /* Get new size of the code node list */
+        // Get new size of the code node list
         if (_alloc_nodes_size == 0)
             new_size = 16;
         else
@@ -264,27 +247,27 @@ static mem_code_node_stat_t *std_insert_code_node(mem_code_node_t *comp, size_t 
 
         pNew = (mem_code_node_stat_t *) OS_REALLOC(_alloc_nodes, new_size * sizeof(mem_code_node_stat_t));
         if (pNew == NULL)
-            /* Failed to allocate */
+            // Failed to allocate
             return NULL;
 
-        /* _allocate is done */
+        // _allocate is done
         _alloc_nodes = pNew;
         _alloc_nodes_size = new_size;
     }
 
-    /* Move the memory */
+    // Move the memory
     memmove(&_alloc_nodes[index + 1],
             &_alloc_nodes[index],
             (_alloc_nodes_count - index) * sizeof(mem_code_node_stat_t));
     _alloc_nodes_count++;
 
-    /* _insert the node & return */
+    // _insert the node & return
     memset(&_alloc_nodes[index], 0, sizeof(mem_code_node_stat_t));
     memcpy(&_alloc_nodes[index].n, comp, sizeof(*comp));
     return &_alloc_nodes[index];
 }
 
-/* Update counter of allocation times at specified code node */
+// Update counter of allocation times at specified code node
 static void std_add_code_node_stat_counter(const char *file, int line, int delta, size_t size)
 {
     mem_code_node_stat_t *p_stat;
@@ -296,29 +279,29 @@ static void std_add_code_node_stat_counter(const char *file, int line, int delta
     do
     {
         if (size < _allocMin_size || size > _alloc_max_size)
-            /* Not in specified range, ignore */
+            // Not in specified range, ignore
             break;
 
-        /* Find the code node */
+        // Find the code node
         p_stat = std_find_or_insert_code_node(file, line);
         if (p_stat == NULL)
-            /* Failed to find the code node */
+            // Failed to find the code node
             break;
 
-        /* Update counter */
+        // Update counter
         if (delta > 0)
         {
-            /* _allocation */
+            // _allocation
             p_stat->counter++;
             p_stat->size += size;
         } else
         if (delta < 0)
         {
-            /* _free */
+            // _free
             p_stat->counter--;
             p_stat->size -= size;
         }
-        /* Done */
+        // Done
     } while (0);
 
     std_release_spin_lock(&_code_node_stat_spin_lock);
@@ -326,42 +309,34 @@ static void std_add_code_node_stat_counter(const char *file, int line, int delta
 
 #endif
 
-/*******************************************************************
- * @(#)std_init_mem_mgr
- *     std_shutdown_mem_mgr
- *
- * Description:
- *  Initialize memory manger or shutdown it.
- *
- * Input:
- *  None.
- *
- * Output:
- *  PDB initialized/Shutdown.
- *
- * Notice:
- *  When calling shutdown, it must be sure that no task occupied any
- *  table for operating.
- *
- * Return values:
- *  For init    : Always 0.
- *  For shutdown: 0
- *                STD_CAN_NOT_GET_MUTEX
- *
- * Conditions for use:
- *  System startup or shutdown.
- *
- *******************************************************************/
-int std_init_mem_mgr(void)
+// Initialize memory manger
+int std_init_mem_mgr(std_init_mgr_para_t* paras)
 {
     int i;
 
     if (_init_mem_mgr_flag != MEMMGR_NOT_INIT)
-        /* ALread initialized, return OK */
+        // ALread initialized, return OK
         return STD_ALREADY_INITIALIZED;
 
-    /* Assure the configuration is correct */
-    /* In debug mode, STD_BLOCK_RESERVED must > 0 & =x4 */
+    // Set the options
+    if (paras == NULL)
+    {
+        // Use default options
+        _mem_mgr_options = 0;
+    } else
+    {
+        // Use specified options
+        _mem_mgr_options = paras->options;
+        if (_mem_mgr_options & STD_USE_BA_ALLOC)
+        {
+            if (!std_ba_create(&_ba_pool, paras->ba_reserve_size))
+                STD_FATAL("Failed to create bin-alloc pool.\n");
+            printf("Create bin-alloc pool, size = 0x%zx.\n", paras->ba_reserve_size);
+        }
+    }
+
+    // Assure the configuration is correct
+    // In debug mode, STD_BLOCK_RESERVED must > 0 & =x4
     STD_ASSERT(STD_BLOCK_RESERVED % STD_MEMORY_ALIGNMENT_SIZE == 0);
 
     STD_ASSERT(sizeof(std_memory_header_t) % STD_MEMORY_ALIGNMENT_SIZE == 0);
@@ -369,7 +344,7 @@ int std_init_mem_mgr(void)
     if (! std_allocate_tls(&_lms_tls_id))
         STD_FATAL("Failed to allocate tls for lms.\n");
 
-    /* _allocate the FLAT memory */
+    // _allocate the FLAT memory
     _waste_memory = (Uint8 *) OS_MALLOC(STD_WASTE_SIZE);
 
     if (_waste_memory == NULL)
@@ -377,29 +352,30 @@ int std_init_mem_mgr(void)
 
     memset(&_tiny_mem_stat, 0, sizeof(std_mem_stat_t));
 
-    /* Initialize page list */
-    /* Only the valid page can be used (aligment by machine register length) such as
-     * page[0] page[4] page[9] for 32 bits machine */
+    // Initialize page list
+    // Only the valid page can be used (aligment by machine register length) such as
+    // page[0] page[4] page[9] for 32 bits machine
     for (i = 0; i < STD_SIZE_N(_tiny_block_page_lists); i++)
         _tiny_block_page_lists[i] = NULL;
 
 #if STD_BLOCK_DETAIL
-    /* Initialize l2 first block pointer */
+    // Initialize l2 first block pointer
     _l2_mem_blocks = NULL;
 #endif
 
-    /* Initialize the critical section */
+    // Initialize the critical section
     std_init_spin_lock(&_code_node_stat_spin_lock);
     std_init_spin_lock(&_tiny_block_spin_lock);
     std_init_spin_lock(&_l2_mem_block_list);
     std_init_spin_lock(&_lms_list_spin_lock);
 
-    /* Initialize ok */
+    // Initialize ok
     _init_mem_mgr_flag = MEMMGR_INIT_OK;
     return 0;
 }
 
-int std_shutdown_mem_mgr(void)
+// Shutdown the manager
+int std_shutdown_mem_mgr()
 {
     std_Extend_grp_t    *extend_grp;
     std_memory_header_t *header;
@@ -409,32 +385,32 @@ int std_shutdown_mem_mgr(void)
     int     ok;
 
     if (_init_mem_mgr_flag != MEMMGR_INIT_OK)
-        /* Not initialized now? return OK */
+        // Not initialized now? return OK
         return 0;
 
-    /* Enter protect */
+    // Enter protect
     _std_get_all_mem_spin_lock();
 
-    /* Set status to shutdowning */
+    // Set status to shutdowning
     _init_mem_mgr_flag = MEMMGR_SHUTDOWNING;
 
     ok = 1;
 
-    /* Check extend group */
+    // Check extend group
     n = 0;
     extend_grp = _extend_grp_list;
     while (extend_grp != NULL)
     {
-        /* Lookup all blocks in this group */
+        // Lookup all blocks in this group
         p = (Uint8 *) (extend_grp + 1);
         for (k = 0; k < extend_grp->block_count;
              k++, p += sizeof(*header) + extend_grp->block_size + STD_BLOCK_RESERVED)
         {
-            /* Acquire the address of block header */
+            // Acquire the address of block header
             header = (std_memory_header_t *) p;
 
             if (! (header->flags & STD_MEMORY_ALLOCATED))
-                /* _freed block, ignored */
+                // _freed block, ignored
                 continue;
 
             printf("%3d. 0x%p[%7d]  %3s/%s  %5d@%s [Extended]\n",
@@ -452,7 +428,7 @@ int std_shutdown_mem_mgr(void)
             _std_show_mem_block((Uint8 *) (header + 1),
                              header->size > 256 ? 256 : header->size);
 
-            /* The shutdown of PDB won't be OK */
+            // The shutdown of PDB won't be OK
             ok = 0;
         }
 
@@ -460,7 +436,7 @@ int std_shutdown_mem_mgr(void)
     }
 
 #if STD_BLOCK_DETAIL
-    /* Check _l2 memory */
+    // Check _l2 memory
     if (_l2_mem_blocks != NULL)
     {
         std_memory_header_t *header;
@@ -481,14 +457,14 @@ int std_shutdown_mem_mgr(void)
             header = header->next_l2;
         }        
 
-        /* The shutdown of PDB won't be OK */
+        // The shutdown of PDB won't be OK
         ok = 0;
     }
 #endif
 
     if (! ok)
     {
-        /* Can not shutdown PDB gracefully */
+        // Can not shutdown PDB gracefully
         std_mem_stat_t mem_stat;
 
 #if STD_STAT_ALLOC
@@ -504,7 +480,7 @@ int std_shutdown_mem_mgr(void)
             for (i = 0; i < counts; i++)
             {
                 if (p_code_nodes[i].size <= 0)
-                    /* Skip location without memory allocated */
+                    // Skip location without memory allocated
                     continue;
 
                 printf("%s:%d: size = %d, count = %d.\n",
@@ -515,7 +491,7 @@ int std_shutdown_mem_mgr(void)
         } while (0);
 #endif
 
-        /* std_memory_stat will lock, so we release lock now */
+        // std_memory_stat will lock, so we release lock now
         _std_release_all_mem_spin_lock();
         std_memory_stat(2, &mem_stat, NULL, 0);
         _std_get_all_mem_spin_lock();
@@ -531,44 +507,44 @@ int std_shutdown_mem_mgr(void)
         return STD_MEMORY_BLOCK_ACTIVE;
     }
 
-    /* _free extend groups */
+    // _free extend groups
     while (_extend_grp_list != NULL)
     {
         std_Extend_grp_t *extend_grp;
 
-        /* Take off 1 node */
+        // Take off 1 node
         extend_grp = _extend_grp_list;
         _extend_grp_list = _extend_grp_list->next;
 
-        /* _free it */
-        OS_FREE(extend_grp);
+        // _free it
+        _std_internal_free(extend_grp, STD_BLOCKS_CLUSTER_SIZE);
     }
 
-    /* Don't free l2-extend blocks for debug */
+    // Don't free l2-extend blocks for debug
 
-    /* Free lms */
+    // Free lms
     while ((lms = _lms_list) != NULL)
     {
-        /* Remove lms from list */
+        // Remove lms from list
         _lms_list = lms->next;
         lms->next = NULL;
 
-        /* Destroy the lms (also report memory leak) */
+        // Destroy the lms (also report memory leak)
         _std_destroy_lms(lms);
     }
 
-    /* _free waste memory */
+    // _free waste memory
     OS_FREE(_waste_memory);
     _waste_memory = NULL;
 
-    /* _free stable heap */
+    // _free stable heap
     if (_stable_heapStart != NULL)
     {
         OS_FREE(_stable_heapStart);
         _stable_heapStart = NULL;
     }
 
-    /* Delete the mutex */
+    // Delete the mutex
     std_destroy_spin_lock(&_lms_list_spin_lock);
     std_destroy_spin_lock(&_code_node_stat_spin_lock);
     std_destroy_spin_lock(&_tiny_block_spin_lock);
@@ -577,56 +553,63 @@ int std_shutdown_mem_mgr(void)
     std_free_tls(_lms_tls_id);
     _lms_tls_id = (std_tls_t) 0;
 
-    /* Shutdown Ok */
+    if (_mem_mgr_options & STD_USE_BA_ALLOC)
+    {
+        printf("Destruct bin-alloc pool, current_used = 0x%zx, current_reserved = 0x%zx.\n",
+               _ba_pool.current_used, _ba_pool.current_reserved);
+        std_ba_destruct(&_ba_pool);
+    }
+    
+    // Shutdown Ok
     _init_mem_mgr_flag = MEMMGR_NOT_INIT;
     return 0;
 }
 
-/* Is the memory manager installed? */
+// Is the memory manager installed?
 int std_is_mem_mgr_installed()
 {
     return _init_mem_mgr_flag == MEMMGR_INIT_OK;
 }
 
-/* Return the bytes reserved for each block */
+// Return the bytes reserved for each block
 int std_get_block_reserved(size_t *ptr_reserved_bytes)
 {
     *ptr_reserved_bytes = STD_BLOCK_RESERVED;
     return 0;
 }
 
-/* Return the count of tiny block page lists */
+// Return the count of tiny block page lists
 int std_get_tiny_block_page_lists_count(size_t *ptr_count)
 {
     STD_ASSERT(ptr_count != NULL);
 
     if (_init_mem_mgr_flag != MEMMGR_INIT_OK)
-        /* Not initialized yet */
+        // Not initialized yet
         return STD_NOT_INITIALIZED;
 
     *ptr_count = STD_SIZE_N(_tiny_block_page_lists);
     return 0;
 }
 
-/* Return tiny block page list information */
+// Return tiny block page list information
 int std_get_tiny_block_page_list(std_tiny_page_header_t **pp_lists, Uint index)
 {
     STD_ASSERT(pp_lists != NULL);
 
     if (_init_mem_mgr_flag != MEMMGR_INIT_OK)
-        /* Not initialized yet */
+        // Not initialized yet
         return STD_NOT_INITIALIZED;
 
     STD_ASSERT(index >= 0);
     if (index >= STD_SIZE_N(_tiny_block_page_lists))
-        /* Bad page list */
+        // Bad page list
         return STD_UNKNOWN_ERROR;
 
     *pp_lists = _tiny_block_page_lists[index];
     return 0;
 }
 
-/* How many groups are supported by me */
+// How many groups are supported by me
 int std_config_mem_block_groups(int new_group)
 {
     STD_ASSERT(new_group >= 0);
@@ -641,7 +624,7 @@ int std_config_mem_block_groups(int new_group)
     return 0;
 }
 
-/* Config memory block information */
+// Config memory block information
 int std_config_mem_block(size_t block_size, size_t block_count)
 {
     size_t i;
@@ -650,22 +633,22 @@ int std_config_mem_block(size_t block_size, size_t block_count)
     {
         if (mem_config[i].block_size == block_size)
         {
-            /* Found */
+            // Found
             mem_config[i].block_count = (Uint32) block_count;
             return 0;
         }
     }
 
-    /* Failed to config */
+    // Failed to config
     return STD_NO_SUCH_MEMORY_GROUP;
 }
 
-/* _allocate memory.
- * Return NULL when PDB memory manager not initialized */
+// _allocate memory.
+// Return NULL when PDB memory manager not initialized
 void *std_allocate_memory(size_t size, const char *module_name,
                           const char *file, int line)
 {
-    /* PDB memory manager */
+    // PDB memory manager
     std_lms_t           *lms;
     std_memory_grp_t    *grp;
     std_memory_header_t *block;
@@ -683,38 +666,38 @@ void *std_allocate_memory(size_t size, const char *module_name,
               _max_block_size == mem_config[_block_groups - 1].block_size);
     if (size > _max_block_size)
     {
-        /* Oh. The memory block size is too large to be allocated */
-        /* Use the _l2 os malloc */
+        // Oh. The memory block size is too large to be allocated
+        // Use the _l2 os malloc
         block = _std_l2_allocate_memory(size);
         if (block == NULL)
-            /* Failed to allocate */
+            // Failed to allocate
             return NULL;
     } else
     {
-        /* Find out the memory group */
+        // Find out the memory group
         if (size > STD_BSIZE_3)
         {
-            /* 4, 5, 6, 7, 8, 9 */
+            // 4, 5, 6, 7, 8, 9
             if (size > STD_BSIZE_7)
             {
-                /* 8, 9 */
+                // 8, 9
                 if (size > STD_BSIZE_8)
                     i = 9;
                 else
                     i = 8;
             } else
             {
-                /* 4, 5, 6, 7 */
+                // 4, 5, 6, 7
                 if (size > STD_BSIZE_5)
                 {
-                    /* 6, 7 */
+                    // 6, 7
                     if (size > STD_BSIZE_6)
                         i = 7;
                     else
                         i = 6;
                 } else
                 {
-                    /* 4, 5 */
+                    // 4, 5
                     if (size > STD_BSIZE_4)
                         i = 5;
                     else
@@ -723,17 +706,17 @@ void *std_allocate_memory(size_t size, const char *module_name,
             }
         } else
         {
-            /* 0, 1, 2, 3 */
+            // 0, 1, 2, 3
             if (size > STD_BSIZE_1)
             {
-                /* 2, 3 */
+                // 2, 3
                 if (size > STD_BSIZE_2)
                     i = 3;
                 else
                     i = 2;
             } else
             {
-                /* 0, 1 */
+                // 0, 1
                 if (size > STD_BSIZE_0)
                     i = 1;
                 else
@@ -744,26 +727,26 @@ void *std_allocate_memory(size_t size, const char *module_name,
         grp = &lms->mem_grp[i];
         STD_ASSERT(grp->block_size >= size);
 
-        /* Try to get free block from this group */
-        /* ATTENTION: We use spin-lock (not only CAS) here to prevent ABA problem */
+        // Try to get free block from this group
+        // ATTENTION: We use spin-lock (not only CAS) here to prevent ABA problem
         if ((block = grp->free_list) != NULL)
         {
-            /* Got a block, remove it from list */
+            // Got a block, remove it from list
             grp->free_list = block->next;
         } else
         if (grp->free_listByOtherThreads != NULL)
         {
-            /* Other threads free blocks, take back them */
+            // Other threads free blocks, take back them
             block = (std_memory_header_t *) std_cpu_lock_xchg(&grp->free_listByOtherThreads, NULL);
             grp->free_list = block->next;
             grp->freedByOther = 0;
         } else
         {
-            /* No free blocks? Extend them & get a free block */
+            // No free blocks? Extend them & get a free block
             block = _std_extend_blocks_of_group(lms, i);
             if (block == NULL)
             {
-                /* Failed to allocate */
+                // Failed to allocate
                 grp->dropped++;
                 return NULL;
             }
@@ -771,54 +754,54 @@ void *std_allocate_memory(size_t size, const char *module_name,
 
         STD_ASSERT(block != NULL);
 
-        /* Erase the next field, replace it with lms */
+        // Erase the next field, replace it with lms
         block->owner_lms = lms;
 
 #if STD_BLOCK_DETAIL
-        /* Init tag */
+        // Init tag
         block->tag = 0;
 #endif
 
-        /* _stat */
+        // _stat
         grp->used++;
         if (grp->used > grp->peak_used)
             grp->peak_used = grp->used;
     }
 
-    /* Set the flag of the header */
+    // Set the flag of the header
     STD_ASSERT(! (block->flags & STD_MEMORY_ALLOCATED));
 
-    /* Set the flags of the block to indicate the memory is allocated */
+    // Set the flags of the block to indicate the memory is allocated
     block->flags |= STD_MEMORY_ALLOCATED;
 
-    /* The data area is following the header immediatly */
+    // The data area is following the header immediatly
     block->size = (Uint32) size;
 #if STD_BLOCK_DETAIL
     block->file = file;
     block->line = (Uint32) line;
     block->module = module_name;
-    /* Record the time when allocating */
+    // Record the time when allocating
     time(&block->allocate_time);
 #endif
 #if (STD_BLOCK_RESERVED > 0)
-    *((Uint8 *) block + sizeof(*block) + size) = STD_MEMORY_BLOCK_tAIL;
+    *((Uint8 *) block + sizeof(*block) + size) = STD_MEMORY_BLOCK_TAIL;
 #endif
 
 #ifdef _DEBUG
-    /* To set break pointer here */
+    // To set break pointer here
     // if (block + 1 == (void *) 0x0)
     //     printf("!!!(1)\n");
 
-    /* Clear allocated memory block */
+    // Clear allocated memory block
     memset(block + 1, 0x55, block->size);
 #endif
 
 #if STD_STAT_ALLOC
-    /* Update counter */
+    // Update counter
     std_add_code_node_stat_counter(file, line, 1, size);
 #endif
 
-    /* Record the successful allocation times & count used size */
+    // Record the successful allocation times & count used size
     lms->stat.alloc_times++;
     lms->stat.alloc_size += size;
     lms->stat.total_used_size += size;
@@ -826,7 +809,7 @@ void *std_allocate_memory(size_t size, const char *module_name,
     return block + 1;
 }
 
-/* Realloc memory. */
+// Realloc memory.
 void *std_reallocate_memory(void *ptr, size_t size, const char *module_name,
                             const char *file, int line)
 {
@@ -838,11 +821,11 @@ void *std_reallocate_memory(void *ptr, size_t size, const char *module_name,
     if (new_ptr == NULL)
         return NULL;
 
-    /* Get the header of the memory block */
+    // Get the header of the memory block
     block = ((std_memory_header_t *) ptr) - 1;
     prev_size = block->size;
 
-    /* Move data to new block */
+    // Move data to new block
     memcpy(new_ptr, ptr, prev_size < size ? prev_size : size);
     std_free_memory(ptr
 #if STD_BLOCK_DETAIL
@@ -856,11 +839,11 @@ void *std_reallocate_memory(void *ptr, size_t size, const char *module_name,
 }
 
 
-/* _free memory. */
+// _free memory.
 void std_free_memory(void *ptr, const char *module_name,
                      const char *file, int line)
 {
-    /* PDB memory manager */
+    // PDB memory manager
     std_lms_t           *lms;
     std_memory_grp_t    *grp;
     std_memory_header_t *block;
@@ -874,12 +857,12 @@ void std_free_memory(void *ptr, const char *module_name,
         return;
     }
 
-    /* Get lms */
+    // Get lms
     lms = _std_get_or_create_lms();
 
     STD_ASSERT(ptr != NULL);
 
-    /* Get the header of the memory block */
+    // Get the header of the memory block
     block = ((std_memory_header_t *) ptr) - 1;
 
 #if STD_BLOCK_DETAIL
@@ -887,7 +870,7 @@ void std_free_memory(void *ptr, const char *module_name,
 #endif
 
 #if (STD_BLOCK_RESERVED > 0)
-    if (*((Uint8 *) block + sizeof(*block) + block->size) != STD_MEMORY_BLOCK_tAIL)
+    if (*((Uint8 *) block + sizeof(*block) + block->size) != STD_MEMORY_BLOCK_TAIL)
     {
         STD_FATAL("Bad block (Tail flag is error 2).\n");
         return;
@@ -897,41 +880,41 @@ void std_free_memory(void *ptr, const char *module_name,
     block->flags &= ~STD_MEMORY_ALLOCATED;
 
 #if STD_STAT_ALLOC
-    /* Update counter */
+    // Update counter
     std_add_code_node_stat_counter(block->file, block->line, -1, block->size);
 #endif
 
-    /* Attention: Do THREAD-UNSAFE stat for reallocate */
-    /* Clear the freed block & Update used size */
+    // Attention: Do THREAD-UNSAFE stat for reallocate
+    // Clear the freed block & Update used size
     lms->stat.free_times++;
     lms->stat.free_size += block->size;
     lms->stat.total_used_size -= block->size;
 
 #ifdef _DEBUG
-    /* Set breakpoints here */
+    // Set breakpoints here
     if (ptr == (void *) 0)
         printf("!!!(2)\n");
 #endif
 
-    /* Clear freed memory block */
+    // Clear freed memory block
     memset(ptr, 0xAA, block->size);
 
-    /* Is this block pre-allocated */
+    // Is this block pre-allocated
     if (block->flags & STD_MEMORY_GROUP_BLOCK)
     {
-        /* The memory is a pre-allocated block, return to the list */
+        // The memory is a pre-allocated block, return to the list
         STD_ASSERT(block->owner_lms != NULL);
         STD_ASSERT(block->serial < _block_groups);
         
         grp = &block->owner_lms->mem_grp[block->serial];
         if (block->owner_lms == lms)
         {
-            /* The block belong to current thread, return to list */
+            // The block belong to current thread, return to list
             block->next = grp->free_list;
             grp->free_list = block;
         } else
         {
-            /* The block belong to other thread, return safety */
+            // The block belong to other thread, return safety
             for (;;)
             {
                 block->next = grp->free_listByOtherThreads;
@@ -939,17 +922,17 @@ void std_free_memory(void *ptr, const char *module_name,
                     break;
             }
 
-            /* ATTENTION: Thread unsafe stat */
+            // ATTENTION: Thread unsafe stat
             grp->freedByOther++;
             if (grp->freedByOther > grp->peak_freedByOther)
                 grp->peak_freedByOther = grp->freedByOther;
         }
 
-        /* ATTENTION: Do THREAD-UNSAFE stat */
+        // ATTENTION: Do THREAD-UNSAFE stat
         grp->used--;
     } else
     {
-        /* Use _l2 free */
+        // Use _l2 free
         _std_l2_free_memory(block);
     }
 
@@ -958,10 +941,10 @@ void std_free_memory(void *ptr, const char *module_name,
     STD_REFER(line);
 }
 
-/* Lookup lms list */
+// Lookup lms list
 int std_lms_and_tiny_stat(char *msg, size_t size)
 {
-    /* PDB memory manager */
+    // PDB memory manager
     std_lms_t           *lms;
     std_memory_grp_t    *grp;
     char   temp[2048], *p;
@@ -972,7 +955,7 @@ int std_lms_and_tiny_stat(char *msg, size_t size)
 
     if (! std_is_mem_mgr_installed())
     {
-        /* Not installed */
+        // Not installed
         strncpy(msg, "Pdb memmgr is not installed.\n", size);
         msg[size - 1] = 0;
         return 0;
@@ -987,7 +970,7 @@ int std_lms_and_tiny_stat(char *msg, size_t size)
 
         p = temp;
 
-        /* Show runtime memory block allocated */
+        // Show runtime memory block allocated
         std_get_task_name(lms->task_id, task_name, sizeof(task_name));
         sprintf(p, "Thread name: %s\n", task_name);
         p += strlen(p);
@@ -1019,7 +1002,7 @@ int std_lms_and_tiny_stat(char *msg, size_t size)
         sprintf(p, "------------------------------------------------------------------------------\n");
         p += strlen(p);
 
-        /* Copy to result */
+        // Copy to result
         strncpy(msg, temp, (size_t) size - 1);
         msg[size - 1] = 0;
         size -= strlen(msg);
@@ -1028,7 +1011,7 @@ int std_lms_and_tiny_stat(char *msg, size_t size)
         lms = lms->next;
     }
 
-    /* _tiny stat */
+    // _tiny stat
     p = temp;
     sprintf(p,
             "Tiny stat:\n"
@@ -1040,7 +1023,7 @@ int std_lms_and_tiny_stat(char *msg, size_t size)
             (Uint) _tiny_mem_stat.free_size,
             (Uint) _tiny_mem_stat.total_reserved_size,
             (Uint) _tiny_mem_stat.peak_reserved_size);
-    /* Copy to result */
+    // Copy to result
     strncpy(msg, temp, (size_t) size - 1);
     msg[size - 1] = 0;
 
@@ -1048,12 +1031,12 @@ int std_lms_and_tiny_stat(char *msg, size_t size)
     return 0;
 }
 
-/* Return the statistics information */
-/* Be sure msg must have size at least 512 bytes */
+// Return the statistics information
+// Be sure msg must have size at least 512 bytes
 int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
                     char *msg, size_t size)
 {
-    /* PDB memory manager */
+    // PDB memory manager
     std_memory_grp_t *grp;
     std_mem_stat_t    mem_stat;
     char   temp[2048], *p;
@@ -1061,7 +1044,7 @@ int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
 
     if (_init_mem_mgr_flag == MEMMGR_NOT_INIT)
     {
-        /* Not installed */
+        // Not installed
         if (msg != NULL)
         {
             strncpy(msg, "Pdb memmgr is not installed.\n", size);
@@ -1073,10 +1056,10 @@ int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
         return 0;
     }
 
-    /* Get memory stat from lms */
+    // Get memory stat from lms
     _std_get_mem_stat(&mem_stat);
 
-    /* _lock to generate stat information */
+    // _lock to generate stat information
     _std_get_all_mem_spin_lock();
 
     if (msg != NULL)
@@ -1089,7 +1072,7 @@ int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
 
     if (flag > 0)
     {
-        /* Show runtime memory block allocated */
+        // Show runtime memory block allocated
         sprintf(p, "\nGroup Size  Reserved Used     PeakUsed Dropped FreedByOther PeakFreedByOther\n");
         p += strlen(p);
         sprintf(p, "------------------------------------------------------------------------------\n");
@@ -1100,7 +1083,7 @@ int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
             UintR dropped = 0, freedByOther = 0, peak_freedByOther = 0;
             std_lms_t *lms;
 
-            /* _count of all lms */
+            // _count of all lms
             lms = _lms_list;
             while (lms != NULL)
             {
@@ -1132,7 +1115,7 @@ int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
         std_memory_header_t *header;
         sprintf(p, "L2 memory block information:\n");
         p += strlen(p);
-        /* Show runtime _l2 memory allocated */
+        // Show runtime _l2 memory allocated
         for (i = 1, header = _l2_mem_blocks;
             header != NULL && (p - temp) < sizeof(temp) - 256;
             i++, header = header->next)
@@ -1155,7 +1138,7 @@ int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
 
     if (flag > 0)
     {
-        /* Show runtime debug information */
+        // Show runtime debug information
         sprintf(p,
                 "Allocated times = %u\nFree times = %u\nPeak memory reserved = %uK\n",
                 (int) mem_stat.alloc_times, (int) mem_stat.free_times,
@@ -1163,29 +1146,29 @@ int std_memory_stat(int flag, std_mem_stat_t *ptr_mem_stat,
         p += strlen(p);
     }
 
-    /* Copy to result */
+    // Copy to result
     if (msg != NULL)
     {
         strncpy(msg, temp, (size_t) size - 1);
         msg[size - 1] = 0;
     } else
-        /* Print out statistics */
+        // Print out statistics
         printf("%s", temp);
 
-    /* Return statistics information */
+    // Return statistics information
     if (ptr_mem_stat != NULL)
         memcpy(ptr_mem_stat, &mem_stat, sizeof(std_mem_stat_t));
 
     return 0;
 }
 
-/* Lookup used memory */
-/* The input parameters is used as a filter. Only the
- * memory match the parameters would be show.
- * module_name == NULL means don't care.
- * file_name   == NULL means don't care (line# is also don't care).
- * line       == 0    means don't care.
- * max means how many blocks would be show. */
+// Lookup used memory
+// The input parameters is used as a filter. Only the
+// memory match the parameters would be show.
+// module_name == NULL means don't care.
+// file_name   == NULL means don't care (line# is also don't care).
+// line       == 0    means don't care.
+// max means how many blocks would be show.
 int std_memory_list(int max,
                    size_t *pTotal_block_size,
                    size_t *pTotal_l2_size,
@@ -1195,9 +1178,9 @@ int std_memory_list(int max,
                    const char *file_name, int line)
 {
 #if STD_BLOCK_DETAIL1
-    /* PDB memory manager */
+    // PDB memory manager
 
-    /* Lookup pre-allocated blocks */
+    // Lookup pre-allocated blocks
     std_memory_grp_t    *grp;
     std_memory_header_t *block;
     size_t total_block_size, total_l2_size;
@@ -1207,14 +1190,14 @@ int std_memory_list(int max,
 
     if (std_is_mem_mgr_installed())
     {
-        /* I MUST STOP THE MEM MGR RUNNING FIRST */
-        /* TODO: .... */
+        // I MUST STOP THE MEM MGR RUNNING FIRST
+        // TODO: ....
 
-        /* Just compare the last name, don't include the path information */
+        // Just compare the last name, don't include the path information
         if (file_name != NULL)
             file_name = _std_last_name(file_name);
 
-        /* Initialize the counter */
+        // Initialize the counter
         total_block_size  = 0;
         total_l2_size     = 0;
         total_block_count = 0;
@@ -1223,27 +1206,27 @@ int std_memory_list(int max,
 
         _std_get_all_mem_spin_lock();
 
-        /* Lookup pre-allocated memory block groups */
+        // Lookup pre-allocated memory block groups
         for (i = 0; i < _block_groups; i++)
         {
-            /* Lookup in this group */
+            // Lookup in this group
             grp = &_memory_ptr_grp[i];
             k = grp->block_count;
             block = grp->blockAt;
             while (k--)
             {
-                /* Check block k in serial i */
+                // Check block k in serial i
                 if ((block->flags & STD_MEMORY_ALLOCATED) &&
                     _std_is_blockIn_list(block,
                     module_name, file_name, line))
                 {
-                    /* OK! Show the eligble memory block */
+                    // OK! Show the eligble memory block
                     STD_ASSERT(block->flags & STD_MEMORY_GROUP_BLOCK);
                     total_block_size += block->size;
                     total_block_count++;
                     if (max > 0)
                     {
-                        /* Show the information */
+                        // Show the information
                         max--;
                         printf("%5d. 0x%p(%7d)  BLK  %3s/%s  %5d@%s\n",
                             (int) (no++),
@@ -1254,16 +1237,16 @@ int std_memory_list(int max,
                     }
                 }
 
-                /* Lookup next block */
+                // Lookup next block
                 block = (std_memory_header_t *)
                     (((Uint8 *) block) + sizeof(*block) +
                     grp->block_size + STD_BLOCK_RESERVED);
             }
 
-            /* Lookup next group */
+            // Lookup next group
         }
 
-        /* Lookup l2 memory block */
+        // Lookup l2 memory block
         block = _l2_mem_blocks;
         while (block != NULL)
         {
@@ -1271,13 +1254,13 @@ int std_memory_list(int max,
             if (_std_is_blockIn_list(block,
                 module_name, file_name, line))
             {
-                /* OK! Show the eligble memory block */
+                // OK! Show the eligble memory block
                 STD_ASSERT(! (block->flags & STD_MEMORY_GROUP_BLOCK));
                 total_l2_size += block->size;
                 total_l2_count++;
                 if (max > 0)
                 {
-                    /* Show the information */
+                    // Show the information
                     max--;
                     printf("%5d. 0x%p(%7d)  _l2   %3s/%s  %5d@%s\n",
                         (int) (no++),
@@ -1288,13 +1271,13 @@ int std_memory_list(int max,
                 }
             }
 
-            /* Check next block */
+            // Check next block
             block = block->next;
         }
 
         _std_release_all_mem_spin_lock();
 
-        /* Return result */
+        // Return result
         if (pTotal_block_size != NULL)
             *pTotal_block_size = total_block_size;
 
@@ -1310,7 +1293,7 @@ int std_memory_list(int max,
         return 0;
     } else
     {
-        /* OS memory manager */
+        // OS memory manager
         if (pTotal_block_size != NULL)
             *pTotal_block_size = 0;
 
@@ -1326,18 +1309,18 @@ int std_memory_list(int max,
         return 0;
     }
 #else
-    /* No MEM stat */
+    // No MEM stat
     return 0;
-#endif /* End of STD_BLOCK_DETAIL */
+#endif // End of STD_BLOCK_DETAIL
 }
 
-/* Mark unmarked memory block to new tag */
-/* Tag must be in [1..255]
- * block_size indicate the block group, if 0, means all groups */
+// Mark unmarked memory block to new tag
+// Tag must be in [1..255]
+// block_size indicate the block group, if 0, means all groups
 int std_memoryMark(Uint8 tag, size_t block_size, size_t *pMatched)
 {
 #if STD_BLOCK_DETAIL1
-    /* PDB memory manager */
+    // PDB memory manager
 
     std_memory_grp_t    *grp;
     std_memory_header_t *block;
@@ -1349,7 +1332,7 @@ int std_memoryMark(Uint8 tag, size_t block_size, size_t *pMatched)
         if (tag < 1)
             return STD_UNKNOWN_ERROR;
 
-        /* I MUST STOP THE MEM MGR RUNNING FIRST */
+        // I MUST STOP THE MEM MGR RUNNING FIRST
         _std_get_all_mem_spin_lock();
 
         n = 0;
@@ -1358,22 +1341,22 @@ int std_memoryMark(Uint8 tag, size_t block_size, size_t *pMatched)
             grp = &_memory_ptr_grp[i];
             if (grp->block_size == block_size || ! block_size)
             {
-                /* Ok! Lookup blocks in this group */
+                // Ok! Lookup blocks in this group
                 block = grp->blockAt;
                 for (k = 0; k < grp->block_count; k++)
                 {
                     if (block->flags & STD_MEMORY_ALLOCATED)
                     {
-                        /* _allocated block */
+                        // _allocated block
                         if (! block->tag)
                         {
-                            /* No tag, assign new tag to it */
+                            // No tag, assign new tag to it
                             block->tag = tag;
                             n++;
                         }
                     }
 
-                    /* Lookup next block */
+                    // Lookup next block
                     block = (std_memory_header_t *)
                         (((Uint8 *) block) + sizeof(*block) +
                         grp->block_size + STD_BLOCK_RESERVED);
@@ -1389,25 +1372,25 @@ int std_memoryMark(Uint8 tag, size_t block_size, size_t *pMatched)
         return 0;
     } else
     {
-        /* OS memory manager */
+        // OS memory manager
         if (pMatched != NULL)
             *pMatched = 0;
 
         return 0;
     }
 #else
-    /* No MEM stat */
+    // No MEM stat
     return 0;
-#endif /* End of STD_BLOCK_DETAIL */
+#endif // End of STD_BLOCK_DETAIL
 }
 
-/* Unmark marked memory block */
-/* tag == 0, means unmark all
- * block_size indicate the block group, if 0, means all groups */
+// Unmark marked memory block
+// tag == 0, means unmark all
+// block_size indicate the block group, if 0, means all groups
 int std_memoryUnmark(Uint8 tag, size_t block_size, size_t *pMatched)
 {
 #if STD_BLOCK_DETAIL1
-    /* PDB memory manager */
+    // PDB memory manager
 
     std_memory_grp_t    *grp;
     std_memory_header_t *block;
@@ -1416,7 +1399,7 @@ int std_memoryUnmark(Uint8 tag, size_t block_size, size_t *pMatched)
 
     if (std_is_mem_mgr_installed())
     {
-        /* I MUST STOP THE MEM MGR RUNNING FIRST */
+        // I MUST STOP THE MEM MGR RUNNING FIRST
         _std_get_all_mem_spin_lock();
 
         n = 0;
@@ -1425,22 +1408,22 @@ int std_memoryUnmark(Uint8 tag, size_t block_size, size_t *pMatched)
             grp = &_memory_ptr_grp[i];
             if (grp->block_size == block_size || ! block_size)
             {
-                /* Ok! Lookup blocks in this group */
+                // Ok! Lookup blocks in this group
                 block = grp->blockAt;
                 for (k = 0; k < grp->block_count; k++)
                 {
                     if (block->flags & STD_MEMORY_ALLOCATED)
                     {
-                        /* _allocated block */
+                        // _allocated block
                         if (block->tag == tag || ! tag)
                         {
-                            /* Remove tag from this block */
+                            // Remove tag from this block
                             block->tag = 0;
                             n++;
                         }
                     }
 
-                    /* Lookup next block */
+                    // Lookup next block
                     block = (std_memory_header_t *)
                         (((Uint8 *) block) + sizeof(*block) +
                         grp->block_size + STD_BLOCK_RESERVED);
@@ -1456,28 +1439,28 @@ int std_memoryUnmark(Uint8 tag, size_t block_size, size_t *pMatched)
         return 0;
     } else
     {
-        /* OS memory manager */
+        // OS memory manager
         if (pMatched != NULL)
             *pMatched = 0;
 
         return 0;
     }
 #else
-    /* No MEM stat */
+    // No MEM stat
     return 0;
-#endif /* End of STD_BLOCK_DETAIL */
+#endif // End of STD_BLOCK_DETAIL
 }
 
-/* Lookup for marked blocks */
-/* Tag must be in [1..255]
- * block_size indicate the block group, if 0, means all groups
- * show_flag == 1 means show detail information of block
- * show_flag == 2 means show detail information of block include data */
+// Lookup for marked blocks
+// Tag must be in [1..255]
+// block_size indicate the block group, if 0, means all groups
+// show_flag == 1 means show detail information of block
+// show_flag == 2 means show detail information of block include data
 int std_memoryShowMarked(Uint8 tag, size_t block_size,
                          int   show_flag, size_t *pMatched)
 {
 #if STD_BLOCK_DETAIL1
-    /* PDB memory manager */
+    // PDB memory manager
     std_memory_grp_t    *grp;
     std_memory_header_t *block;
     int    i, k;
@@ -1488,7 +1471,7 @@ int std_memoryShowMarked(Uint8 tag, size_t block_size,
         if (tag < 1)
             return STD_UNKNOWN_ERROR;
 
-        /* I MUST STOP THE MEM MGR RUNNING FIRST */
+        // I MUST STOP THE MEM MGR RUNNING FIRST
         _std_get_all_mem_spin_lock();
 
         n = 0;
@@ -1497,16 +1480,16 @@ int std_memoryShowMarked(Uint8 tag, size_t block_size,
             grp = &_memory_ptr_grp[i];
             if (grp->block_size == block_size || ! block_size)
             {
-                /* Ok! Lookup blocks in this group */
+                // Ok! Lookup blocks in this group
                 block = grp->blockAt;
                 for (k = 0; k < grp->block_count; k++)
                 {
                     if (block->flags & STD_MEMORY_ALLOCATED)
                     {
-                        /* _allocated block */
+                        // _allocated block
                         if (block->tag == tag)
                         {
-                            /* Show information of this block */
+                            // Show information of this block
                             if (show_flag)
                                 printf("%3d. 0x%p[%7d]  %3s/%s  %5d@%s\n",
                                 (int) (++n),
@@ -1521,7 +1504,7 @@ int std_memoryShowMarked(Uint8 tag, size_t block_size,
                         }
                     }
 
-                    /* Lookup next block */
+                    // Lookup next block
                     block = (std_memory_header_t *)
                         (((Uint8 *) block) + sizeof(*block) +
                         grp->block_size + STD_BLOCK_RESERVED);
@@ -1543,16 +1526,16 @@ int std_memoryShowMarked(Uint8 tag, size_t block_size,
         return 0;
     }
 #else
-    /* No MEM stat */
+    // No MEM stat
     return 0;
-#endif /* End of STD_BLOCK_DETAIL */
+#endif // End of STD_BLOCK_DETAIL
 }
 
-/* Dump memory block information to a file */
+// Dump memory block information to a file
 int std_dummemory_ptr(char *file_name)
 {
 #if STD_BLOCK_DETAIL1
-    /* PDB memory manager */
+    // PDB memory manager
     std_memory_grp_t    *grp;
     std_memory_header_t *block;
     FILE   *fp;
@@ -1562,7 +1545,7 @@ int std_dummemory_ptr(char *file_name)
 
     if (std_is_mem_mgr_installed())
     {
-        /* I MUST STOP THE MEM MGR RUNNING FIRST */
+        // I MUST STOP THE MEM MGR RUNNING FIRST
         _std_get_all_mem_spin_lock();
 
         fp = fopen(file_name, "w");
@@ -1572,7 +1555,7 @@ int std_dummemory_ptr(char *file_name)
         time(&ti);
         fprintf(fp, "Memory dump on %s\n", _std_ctime(&ti));
 
-        /* Show runtime memory block allocated */
+        // Show runtime memory block allocated
         fprintf(fp, "Group   Size   Reserved  Used      PeakUsed    Dropped\n");
         fprintf(fp, "----------------------------------------------------\n");
         for (i = 0; i < _block_groups; i++)
@@ -1598,15 +1581,15 @@ int std_dummemory_ptr(char *file_name)
                 (int) grp->block_count, (int) grp->used,
                 (int) grp->peak_used, (int) grp->dropped);
 
-            /* Ok! Lookup blocks in this group */
+            // Ok! Lookup blocks in this group
             block = grp->blockAt;
             for (k = 0; k < grp->block_count; k++)
             {
                 if (block->flags & STD_MEMORY_ALLOCATED)
                 {
-                    /* _allocated block */
+                    // _allocated block
 
-                    /* Show information of this block */
+                    // Show information of this block
                     fprintf(fp,
                         "%3d. 0x%p[%7d]  %3s/%s  %5d@%s\n",
                         (int) ++n,
@@ -1615,12 +1598,12 @@ int std_dummemory_ptr(char *file_name)
                         _std_ctime(&block->allocate_time),
                         (int) block->line, _std_last_name(block->file));
 
-                    /* Dump block */
+                    // Dump block
                     _std_dump_mem_block(fp, (Uint8 *) (block + 1),
                         block->size > 256 ? 256 : block->size);
                 }
 
-                /* Lookup next block */
+                // Lookup next block
                 block = (std_memory_header_t *)
                     (((Uint8 *) block) + sizeof(*block) +
                     grp->block_size + STD_BLOCK_RESERVED);
@@ -1628,7 +1611,7 @@ int std_dummemory_ptr(char *file_name)
         }
 
         fprintf(fp, "L2 memory block information:\n");
-        /* Show runtime _l2 memory allocated */
+        // Show runtime _l2 memory allocated
         for (i = 1, block = _l2_mem_blocks;
             i < 128 && block != NULL;
             i++, block = block->next)
@@ -1641,7 +1624,7 @@ int std_dummemory_ptr(char *file_name)
                 _std_ctime(&block->allocate_time),
                 (int) block->line, _std_last_name(block->file));
 
-            /* Dump block */
+            // Dump block
             _std_dump_mem_block(fp, (Uint8 *) (block + 1),
                 block->size > 256 ? 256 : block->size);
         }
@@ -1653,13 +1636,13 @@ int std_dummemory_ptr(char *file_name)
         return 0;
     } else
     {
-        /* OS memory manager */
+        // OS memory manager
         return 0;
     }
 #else
-    /* No MEM stat */
+    // No MEM stat
     return 0;
-#endif /* End of STD_BLOCK_DETAIL */
+#endif // End of STD_BLOCK_DETAIL
 }
 
 #if STD_BLOCK_DETAIL
@@ -1670,14 +1653,14 @@ std_memory_header_t *std_get_l2mem_blocks_list()
 #endif
 
 #if STD_STAT_ALLOC
-/* Get code node stat list */
+// Get code node stat list
 int std_get_code_node_stat(mem_code_node_stat_t **pp_code_nodes, size_t *ptr_code_nodes_count)
 {
     STD_ASSERT(pp_code_nodes != NULL);
     STD_ASSERT(ptr_code_nodes_count != NULL);
 
     if (_alloc_nodes == NULL || _alloc_nodes_count < 1)
-        /* Not code node stat */
+        // Not code node stat
         return STD_UNKNOWN_ERROR;
 
     std_get_spin_lock(&_code_node_stat_spin_lock);
@@ -1687,13 +1670,13 @@ int std_get_code_node_stat(mem_code_node_stat_t **pp_code_nodes, size_t *ptr_cod
     return 0;
 }
 
-/* Reset stat of alloc */
-/* After reset, only allocation in [min_size..max_size] should be recorded */
+// Reset stat of alloc
+// After reset, only allocation in [min_size..max_size] should be recorded
 int std_reset_code_node_stat(size_t min_size, size_t max_size)
 {
     std_get_spin_lock(&_code_node_stat_spin_lock);
 
-    /* Clear stat information */
+    // Clear stat information
     if (_alloc_nodes != NULL)
     {
         OS_FREE(_alloc_nodes);
@@ -1702,7 +1685,7 @@ int std_reset_code_node_stat(size_t min_size, size_t max_size)
     _alloc_nodes_count = 0;
     _alloc_nodes_size = 0;
 
-    /* Reset range */
+    // Reset range
     _allocMin_size = min_size;
     _alloc_max_size = max_size;
 
@@ -1712,129 +1695,129 @@ int std_reset_code_node_stat(size_t min_size, size_t max_size)
 }
 #endif
 
-/* _allocate a tiny block from a page */
+// _allocate a tiny block from a page
 void *std_allocate_tiny_block(size_t size)
 {
-#if STD_USE_tINY_ALLOC
+#if STD_USE_TINY_ALLOC
     int index;
     std_tiny_page_header_t   *page;
     std_tiny_memory_header_t *tiny_block;
 
-    STD_ASSERT(size >= 0 && size <= (STD_SIZE_N(_tiny_block_page_lists) - 1) * STD_tINY_ALIGNMENT_SIZE);
+    STD_ASSERT(size >= 0 && size <= (STD_SIZE_N(_tiny_block_page_lists) - 1) * STD_TINY_ALIGNMENT_SIZE);
 
-    /* Get the entry index of tiny block (make assure the entry is aligmented) */
-    index = (size + STD_tINY_ALIGNMENT_SIZE - 1) / STD_tINY_ALIGNMENT_SIZE;
-    size = index * STD_tINY_ALIGNMENT_SIZE;
-    STD_ASSERT(size >= 0 && size <= (STD_SIZE_N(_tiny_block_page_lists) - 1) * STD_tINY_ALIGNMENT_SIZE);
+    // Get the entry index of tiny block (make assure the entry is aligmented)
+    index = (size + STD_TINY_ALIGNMENT_SIZE - 1) / STD_TINY_ALIGNMENT_SIZE;
+    size = index * STD_TINY_ALIGNMENT_SIZE;
+    STD_ASSERT(size >= 0 && size <= (STD_SIZE_N(_tiny_block_page_lists) - 1) * STD_TINY_ALIGNMENT_SIZE);
     STD_ASSERT(index >= 0 && index < STD_SIZE_N(_tiny_block_page_lists));
 
-    /* Enter protect */
+    // Enter protect
     std_get_spin_lock(&_tiny_block_spin_lock);
 
-    /* Get the page */
+    // Get the page
     page = _tiny_block_page_lists[index];
     if (page == NULL)
     {
-        /* Leave protect when create new tiny_block_page */
+        // Leave protect when create new tiny_block_page
         std_release_spin_lock(&_tiny_block_spin_lock);
 
-        /* _create a new page & add the page into list */
+        // _create a new page & add the page into list
         page = std_create_tiny_block_page(size);
         if (page == NULL)
         {
-            /* Failed to allocate page */
+            // Failed to allocate page
 
-            /* _free the mutex, ready for return */
+            // _free the mutex, ready for return
             return NULL;
         }
 
-        /* Re-enter protect */
+        // Re-enter protect
         std_get_spin_lock(&_tiny_block_spin_lock);
         page->next_page = _tiny_block_page_lists[index];
         _tiny_block_page_lists[index] = page;
     }
 
-    /* Get block from the page */
+    // Get block from the page
     STD_ASSERT(page->free_list != NULL);
     STD_ASSERT(page->count > page->used);
 
-    /* Take off block from the list */
+    // Take off block from the list
     tiny_block = page->free_list;
     page->free_list = tiny_block->p.next;
 
-    /* Updated used field of page */
+    // Updated used field of page
     page->used++;
 
     if (page->used >= page->count)
     {
-        /* _all blocks are used out, remove the page from the list */
+        // _all blocks are used out, remove the page from the list
         _tiny_block_page_lists[index] = page->next_page;
     }
 
-    /* Erase the field p in tiny block & replaced with page pointer */
+    // Erase the field p in tiny block & replaced with page pointer
     tiny_block->p.page = page;
 
     _tiny_mem_stat.alloc_times++;
     _tiny_mem_stat.alloc_size += size;
     _tiny_mem_stat.total_used_size += size;
 
-    /* _free the mutex, ready for return */
+    // _free the mutex, ready for return
     std_release_spin_lock(&_tiny_block_spin_lock);
 
-    /* Return the memory pointer */
+    // Return the memory pointer
     return tiny_block + 1;
 #else
     return std_allocate_memory(size, "tiny", __FILE__, __LINE__);
 #endif
 }
 
-/* _free a tiny block from a page */
+// _free a tiny block from a page
 void std_free_tiny_block(void *p)
 {
-#if STD_USE_tINY_ALLOC
+#if STD_USE_TINY_ALLOC
     std_tiny_page_header_t   *page;
     std_tiny_memory_header_t *tiny_block;
     size_t                    size;
 
     tiny_block = ((std_tiny_memory_header_t *) p) - 1;
 
-    /* Enter protect */
+    // Enter protect
     std_get_spin_lock(&_tiny_block_spin_lock);
 
     page = tiny_block->p.page;
     STD_ASSERT(page->used > 0 && page->used <= page->count);
-    STD_ASSERT(page->block_size % STD_tINY_ALIGNMENT_SIZE == 0);
-    STD_ASSERT(page->block_size <= (STD_SIZE_N(_tiny_block_page_lists) - 1) * STD_tINY_ALIGNMENT_SIZE);
+    STD_ASSERT(page->block_size % STD_TINY_ALIGNMENT_SIZE == 0);
+    STD_ASSERT(page->block_size <= (STD_SIZE_N(_tiny_block_page_lists) - 1) * STD_TINY_ALIGNMENT_SIZE);
     size = page->block_size;
 
-    /* Return the tiny block */
+    // Return the tiny block
     tiny_block->p.next = page->free_list;
     page->free_list = tiny_block;
 
     if (page->used >= page->count)
     {
-        /* The page has free space, move the page back to the list */
-        page->next_page = _tiny_block_page_lists[page->block_size / STD_tINY_ALIGNMENT_SIZE];
-        _tiny_block_page_lists[page->block_size / STD_tINY_ALIGNMENT_SIZE] = page;
+        // The page has free space, move the page back to the list
+        page->next_page = _tiny_block_page_lists[page->block_size / STD_TINY_ALIGNMENT_SIZE];
+        _tiny_block_page_lists[page->block_size / STD_TINY_ALIGNMENT_SIZE] = page;
     }
 
-    /* Updated used field of page */
+    // Updated used field of page
     if (--page->used <= 0)
     {
         std_tiny_page_header_t **ppage;
 
-        /* Remove the page from list */
-        ppage = &_tiny_block_page_lists[page->block_size / STD_tINY_ALIGNMENT_SIZE];
+        // Remove the page from list
+        ppage = &_tiny_block_page_lists[page->block_size / STD_TINY_ALIGNMENT_SIZE];
         while (*ppage != page)
             ppage = &(*ppage)->next_page;
 
         STD_ASSERT(*ppage == page);
         *ppage = page->next_page;
 
-        /* Leave protect when free page */
+        // Leave protect when free page
         std_release_spin_lock(&_tiny_block_spin_lock);
 
-        /* _free the page */
+        // _free the page
         std_delete_tiny_block_page(page);
         return;
     }
@@ -1843,7 +1826,7 @@ void std_free_tiny_block(void *p)
     _tiny_mem_stat.free_size += size;
     _tiny_mem_stat.total_used_size -= size;
 
-    /* _free the mutex, ready for return */
+    // _free the mutex, ready for return
     std_release_spin_lock(&_tiny_block_spin_lock);
 
 #else
@@ -1851,19 +1834,19 @@ void std_free_tiny_block(void *p)
 #endif
 }
 
-#if 1 /* Disable this function temporary */
-/* Stable heap memory allocation */
+#if 1 // Disable this function temporary
+// Stable heap memory allocation
 void *std_allocateFromStableHeap(size_t size)
 {
-    /* _statistics */
+    // _statistics
     _stable_heap_allocate_times++;
 
-    /* Make alignment */
+    // Make alignment
     size = (size + STD_MEMORY_ALIGNMENT_SIZE - 1) & ~(STD_MEMORY_ALIGNMENT_SIZE - 1);
 
     if (_stable_heapStart == NULL)
     {
-        /* No stable heap yet */
+        // No stable heap yet
         _stable_heap_allocateFailed++;
         return NULL;
     }
@@ -1872,21 +1855,21 @@ void *std_allocateFromStableHeap(size_t size)
     {
         Uint8 *p;
 
-        /* _memory is enough */
+        // _memory is enough
         p = _stable_heapStart + _stable_heap_allocated_size;
         _stable_heap_allocated_size += size;
         return p;
     }
 
-    /* Run out of memory of stable heap */
+    // Run out of memory of stable heap
     _stable_heap_allocateFailed++;
     return NULL;
 }
 
-/* Get stat */
+// Get stat
 int std_getStableHeap_stat(std_stable_heap_stat_t *mem_stat)
 {
-    /* Return the statistics information */
+    // Return the statistics information
     mem_stat->stable_heap_allocated_size  = _stable_heap_allocated_size;
     mem_stat->stable_heap_size           = _stable_heap_size;
     mem_stat->stable_heap_free_list_times      = _stable_heap_free_list_times;
@@ -1895,33 +1878,33 @@ int std_getStableHeap_stat(std_stable_heap_stat_t *mem_stat)
     return 0;
 }
 
-/* Return 1 if the p is in stable heap */
+// Return 1 if the p is in stable heap
 int std_isComeFromStableHeap(const void *p)
 {
     if (_stable_heapStart == NULL)
-        /* No stable heap yet */
+        // No stable heap yet
         return 0;
 
     if ((Uint8 *) p <= (_stable_heapStart + _stable_heap_allocated_size) &&
         (Uint8 *) p >= _stable_heapStart)
-        /* The memory block is in stable heap */
+        // The memory block is in stable heap
         return 1;
 
-    /* Not in stable heap */
+    // Not in stable heap
     return 0;
 }
 
-/* _free? Do nothing but stat the operation */
+// _free? Do nothing but stat the operation
 void std_returnToStableHeap(void *p)
 {
     STD_ASSERT(std_isComeFromStableHeap(p));
 
-    /* _statistics */
+    // _statistics
     _stable_heap_free_list_times++;
 }
 
-/* Initialize, to create a stable heap */
-/* This routine can be called only once during who process live cycle */
+// Initialize, to create a stable heap
+// This routine can be called only once during who process live cycle
 int std_setupStableHeap(size_t max_size)
 {
     if (_init_mem_mgr_flag != MEMMGR_INIT_OK)
@@ -1933,31 +1916,50 @@ int std_setupStableHeap(size_t max_size)
     if (_stable_heapStart != NULL)
         STD_FATAL("The stable heap is already created.\n");
 
-    /* WARNING: Don't remove the reserved bytes. If someone try to allocate 0 bytes
-     * @ tail of stable heap, the pointer may be (char *) (start + max_size), it may be
-     * ambigous to next block of memory. (Actually, it impossible to happen since every
-     * memory block has a header, but, I don't like this assumption.)
-     * _allocate memory with n bytes reserved */
-    _stable_heapStart = (Uint8 *) OS_MALLOC(max_size + STD_MEMORY_ALIGNMENT_SIZE /* Reserve bytes */);
+    // WARNING: Don't remove the reserved bytes. If someone try to allocate 0 bytes
+    // @ tail of stable heap, the pointer may be (char *) (start + max_size), it may be
+    // ambigous to next block of memory. (Actually, it's impossible to happen since every
+    // memory block has a header, but I don't like this assumption.)
+    // _allocate memory with n bytes reserved
+    _stable_heapStart = (Uint8 *) OS_MALLOC(max_size + STD_MEMORY_ALIGNMENT_SIZE); // Reserve bytes
     if (_stable_heapStart != NULL)
     {
-        /* Ok */
+        // Ok
         _stable_heap_size = max_size;
         return 0;
     }
 
-    /* Failed to allocate */
+    // Failed to allocate
     printf("Failed to allocate stable heap with size = %d.\n",
            (int) max_size);
     return STD_MEMORY_NOT_ENOUGH;
 }
 #endif
 
-/******************************************************************
- * Internal functions                                             *
- ******************************************************************/
-/* _l2 memory allocation. Base on OS malloc
- * Return NULL when PDB memory manager not initialized */
+// Internal functions                                             *
+
+// Base allocation
+static void* _std_internal_alloc(size_t size)
+{
+    if (_mem_mgr_options & STD_USE_BA_ALLOC)
+    {
+        void* p = std_ba_alloc(&_ba_pool, size);
+        return p;
+    } else
+        return OS_MALLOC(size);
+}
+
+// Base free
+static void _std_internal_free(void* p, size_t size)
+{
+    if (_mem_mgr_options & STD_USE_BA_ALLOC)
+        std_ba_free(&_ba_pool, p, size);
+    else
+        OS_FREE(p);
+}
+
+// _l2 memory allocation. Base on OS malloc
+// Return NULL when PDB memory manager not initialized
 static std_memory_header_t *_std_l2_allocate_memory(size_t size)
 {
     std_memory_header_t *block;
@@ -1969,38 +1971,36 @@ static std_memory_header_t *_std_l2_allocate_memory(size_t size)
 
     lms = _std_get_or_create_lms();
 
-    /* Calculate the real size I should allocate */
-    real_size = size + sizeof(std_memory_header_t);
+    // Calculate the real size I should allocate
+    real_size = sizeof(std_memory_header_t) + STD_BLOCK_RESERVED + size;
 
-    real_size += STD_BLOCK_RESERVED;  /* _reserved bytes */
-
-    /* _allocate it from OS */
-    block = (std_memory_header_t *) OS_MALLOC(real_size);
+    // _allocate it from base allocator
+    block = (std_memory_header_t *)_std_internal_alloc(real_size);
 
     if (block == NULL)
         return NULL;
 
-    /* Init the flag */
+    // Init the flag
     memset(block, 0, sizeof(std_memory_header_t));
     block->flags = STD_MEMORY_L2;
 #if STD_BLOCK_DETAIL
     block->sign = STD_MEMORY_BLOCK_SIGN;
 #endif
 
-    /* Set to _l2 group (not belong to [0.._block_groups - 1] */
+    // Set to _l2 group (not belong to [0.._block_groups - 1]
     block->serial = (Uint8) _block_groups;
 
-    /* ATTENTION: Do THREAD-UNSAFE stat */
-    /* Record the peak used of the memory */
+    // ATTENTION: Do THREAD-UNSAFE stat
+    // Record the peak used of the memory
     lms->stat.total_l2_size += size;
 
-    /* For _l2-memory allocateion stat */
+    // For _l2-memory allocateion stat
     lms->stat.total_reserved_size += real_size;
     if (lms->stat.total_reserved_size > lms->stat.peak_reserved_size)
         lms->stat.peak_reserved_size = lms->stat.total_reserved_size;
 
 #if STD_BLOCK_DETAIL
-    /* Add into list */
+    // Add into list
     std_get_spin_lock(&_l2_mem_block_list);
     block->next_l2 = _l2_mem_blocks;
     _l2_mem_blocks = block;
@@ -2010,7 +2010,7 @@ static std_memory_header_t *_std_l2_allocate_memory(size_t size)
     return block;
 }
 
-/* _l2 memory free */
+// _l2 memory free
 static void _std_l2_free_memory(std_memory_header_t *block)
 {
     std_lms_t *lms;
@@ -2029,7 +2029,7 @@ static void _std_l2_free_memory(std_memory_header_t *block)
     std_get_spin_lock(&_l2_mem_block_list);
     do
     {
-        /* Remove from list */
+        // Remove from list
         std_memory_header_t **pp;
         pp = &_l2_mem_blocks;
         while (*pp != NULL && *pp != block)
@@ -2040,18 +2040,19 @@ static void _std_l2_free_memory(std_memory_header_t *block)
     std_release_spin_lock(&_l2_mem_block_list);
 #endif
 
-    /* ATTENTION: Do THREAD-UNSAFE stat */
+    // ATTENTION: Do THREAD-UNSAFE stat
     lms->stat.total_l2_size -= block->size + sizeof(block);
     lms->stat.total_reserved_size -= block->size + sizeof(block);
 
-    /* _free memory */
-    OS_FREE(block);
+    // _free memory
+    _std_internal_free(block, sizeof(std_memory_header_t) + STD_BLOCK_RESERVED + block->size);
     return;
 }
 
-/* _allocate n new blocks (size) of specified serial.
- * Initialize them and put them into free list of the group
- * _reserved 1 block & return it */
+// _allocate n new blocks (size) of specified serial.
+// Initialize them and put them into free list of the group
+// Reserve 1 block & return it
+// Make sure the allocation size being aligned to STD_BLOCKS_CLUSTER_SIZE
 static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_grpNo)
 {
     std_memory_grp_t    *grp;
@@ -2065,25 +2066,25 @@ static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_g
     STD_ASSERT(n_grpNo < _block_groups);
     grp = &lms->mem_grp[n_grpNo];
 
-    /* At least allocate memory size: STD_BLOCKS_CLUSTER_SIZE */
-    /* Calculate the blocks count in cluster */
-    block_count = STD_BLOCKS_CLUSTER_SIZE / grp->block_size;
+    // At least allocate memory size: STD_BLOCKS_CLUSTER_SIZE
+    // Calculate the blocks count in cluster
+    single_block_mem_size = sizeof(std_memory_header_t) + STD_BLOCK_RESERVED + grp->block_size;
+    block_count = (int) ((STD_BLOCKS_CLUSTER_SIZE - sizeof(std_Extend_grp_t)) / single_block_mem_size);
     if (block_count < 1)
-        block_count = 1;
+        STD_FATAL("STD_BLOCKS_CLUSTER_SIZE is too small to carry group blocks.\n");
 
-    /* Get the single block memory size & allocate cluster */
-    single_block_mem_size = sizeof(std_memory_header_t) + grp->block_size + STD_BLOCK_RESERVED;
-    extend_grp = (std_Extend_grp_t *) OS_MALLOC(sizeof(std_Extend_grp_t) + single_block_mem_size * block_count);
+    // Get the single block memory size & allocate cluster
+    extend_grp = (std_Extend_grp_t *)_std_internal_alloc(STD_BLOCKS_CLUSTER_SIZE);
     if (extend_grp == NULL)
-        /* Failed to allocate memory, can't extend */
+        // Failed to allocate memory, can't extend
         return NULL;
     memory_ptr = (Uint8 *) (extend_grp + 1);
 
-    /* Init structure */
+    // Init structure
     extend_grp->block_count = block_count;
     extend_grp->block_size = grp->block_size;
 
-    /* _create a free block list */
+    // _create a free block list
     block_list = NULL;
     pLast_blockIn_list = (std_memory_header_t *) memory_ptr;
     for (i = 0; i < block_count; i++)
@@ -2091,7 +2092,7 @@ static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_g
         block = (std_memory_header_t *) memory_ptr;
         memory_ptr += single_block_mem_size;
 
-        /* Initialize this block */
+        // Initialize this block
 #if STD_BLOCK_DETAIL
         block->file   = NULL;
         block->module = NULL;
@@ -2102,16 +2103,16 @@ static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_g
         block->serial = (Uint8) n_grpNo;
         block->tag    = 0;
 
-        /* Add into list */
+        // Add into list
         block->next = block_list;
         block_list = block;
     }
 
-    /* _reserved one from the list (return it) */
+    // Reserve one from the list (return it)
     block = block_list;
     block_list = block_list->next;
 
-    /* Link the list into free list of this group */
+    // Link the list into free list of this group
     if (block_list != NULL)
     {
         STD_ASSERT(grp->free_list == NULL);
@@ -2119,7 +2120,7 @@ static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_g
         grp->free_list = block_list;
     }
 
-    /* Link to head of extend group list safety */
+    // Link to head of extend group list safety
     for (;;)
     {
         extend_grp->next = _extend_grp_list;
@@ -2127,14 +2128,14 @@ static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_g
             break;
     }
 
-    /* _stat reserved block count */
+    // _stat reserved block count
     grp->block_count += block_count;
 
-    /* ATTENTION: Do THREAD-UNSAFE stat */
+    // ATTENTION: Do THREAD-UNSAFE stat
     _extend_times++;
     _extend_size += sizeof(std_Extend_grp_t) + single_block_mem_size * block_count;
 
-    /* Record the peak used of the memory */
+    // Record the peak used of the memory
     lms->stat.total_reserved_size += single_block_mem_size * block_count;
     if (lms->stat.total_reserved_size > lms->stat.peak_reserved_size)
         lms->stat.peak_reserved_size = lms->stat.total_reserved_size;
@@ -2142,7 +2143,7 @@ static std_memory_header_t *_std_extend_blocks_of_group(std_lms_t *lms, Uint n_g
     return block;
 }
 
-/* _count all mem stat for lms & tiny */
+// _count all mem stat for lms & tiny
 static void _std_get_mem_stat(std_mem_stat_t *mem_stat)
 {
     std_lms_t *lms;
@@ -2151,11 +2152,11 @@ static void _std_get_mem_stat(std_mem_stat_t *mem_stat)
 
     memset(mem_stat, 0, sizeof(std_mem_stat_t));
 
-    /* _count waste size */
+    // _count waste size
     mem_stat->total_reserved_size = STD_WASTE_SIZE;
     mem_stat->peak_reserved_size = STD_WASTE_SIZE;
 
-    /* _count lms */
+    // _count lms
     lms = _lms_list;
     while (lms != NULL)
     {
@@ -2174,15 +2175,15 @@ static void _std_get_mem_stat(std_mem_stat_t *mem_stat)
     mem_stat->alloc_size  += _tiny_mem_stat.alloc_size;
     mem_stat->free_times  += _tiny_mem_stat.free_times;
     mem_stat->free_size   += _tiny_mem_stat.free_size;
-    /* Don't count reserved/peak size from tiny_mem_stat. It's already counted
-     * in lms */
+    // Don't count reserved/peak size from tiny_mem_stat. It's already counted
+    // in lms
 
     _std_release_all_mem_spin_lock();
 }
 
-/* Is the block in list? */
-/* First I will check whether it should be filter out
- * by module_name/file_name/line# */
+// Is the block in list?
+// First I will check whether it should be filter out
+// by module_name/file_name/line#
 static int _std_is_blockIn_list(std_memory_header_t *block,
                                 const char *module_name,
                                 const char *file_name,
@@ -2193,19 +2194,19 @@ static int _std_is_blockIn_list(std_memory_header_t *block,
 
     if (module_name != NULL &&
         _std_stricmp(block->module, module_name))
-        /* Module name is wrong */
+        // Module name is wrong
         return 0;
 
-    /* Get the last name of the file name of the memory block */
+    // Get the last name of the file name of the memory block
     if (file_name != NULL)
     {
         if (_std_stricmp(file_name, _std_last_name(block->file)))
-            /* File name is wrong */
+            // File name is wrong
             return 0;
 
-        /* When file name is valid, try to compare the line# */
+        // When file name is valid, try to compare the line#
         if (line > 0 && line != block->line)
-            /* Not in the same line */
+            // Not in the same line
             return 0;
     }
 #endif
@@ -2213,7 +2214,7 @@ static int _std_is_blockIn_list(std_memory_header_t *block,
     return 1;
 }
 
-/* Return the pure file name */
+// Return the pure file name
 static char *_std_last_name(const char *file)
 {
     register const char *p;
@@ -2223,7 +2224,7 @@ static char *_std_last_name(const char *file)
     return (char *) (p + 1);
 }
 
-/* STRICMP */
+// STRICMP
 static int _std_stricmp(const char *s1, const char *s2)
 {
     Uint8 ch1, ch2;
@@ -2244,7 +2245,7 @@ static int _std_stricmp(const char *s1, const char *s2)
     }
 }
 
-/* Show data */
+// Show data
 static void _std_show_mem_block(Uint8 *buf, size_t len)
 {
     size_t i;
@@ -2273,7 +2274,7 @@ static void _std_show_mem_block(Uint8 *buf, size_t len)
 
     if (x < 15)
     {
-        /* Line not finished, append space */
+        // Line not finished, append space
         while (x < 15)
         {
             printf("   ");
@@ -2285,7 +2286,7 @@ static void _std_show_mem_block(Uint8 *buf, size_t len)
 }
 
 
-/* Show data */
+// Show data
 static void _std_dump_mem_block(FILE *fp, Uint8 *buf, size_t len)
 {
     size_t i;
@@ -2314,7 +2315,7 @@ static void _std_dump_mem_block(FILE *fp, Uint8 *buf, size_t len)
 
     if (x < 15)
     {
-        /* Line not finished, append space */
+        // Line not finished, append space
         while (x < 15)
         {
             fprintf(fp, "   ");
@@ -2325,7 +2326,7 @@ static void _std_dump_mem_block(FILE *fp, Uint8 *buf, size_t len)
     fprintf(fp, "--------------------------------------------------->>>\n");
 }
 
-/* Convert time to string */
+// Convert time to string
 static char *_std_ctime(time_t *pTime)
 {
     static char temp[16];
@@ -2337,7 +2338,7 @@ static char *_std_ctime(time_t *pTime)
     return temp;
 }
 
-/* _lock all group */
+// _lock all group
 static void _std_get_all_mem_spin_lock()
 {
     std_get_spin_lock(&_code_node_stat_spin_lock);
@@ -2346,7 +2347,7 @@ static void _std_get_all_mem_spin_lock()
     std_get_spin_lock(&_lms_list_spin_lock);
 }
 
-/* Release all group */
+// Release all group
 static void _std_release_all_mem_spin_lock()
 {
     std_release_spin_lock(&_l2_mem_block_list);
@@ -2355,7 +2356,7 @@ static void _std_release_all_mem_spin_lock()
     std_release_spin_lock(&_lms_list_spin_lock);
 }
 
-/* _create lms for current thread */
+// _create lms for current thread
 static std_lms_t *_std_create_lms()
 {
     std_lms_t *lms;
@@ -2366,7 +2367,7 @@ static std_lms_t *_std_create_lms()
         STD_FATAL("Failed to create LMS for current thread.\n");
     memset(lms, 0, sizeof(std_lms_t));
 
-    /* Get task name */
+    // Get task name
     lms->task_id = std_get_current_task_id();
 
     for (i = 0; i < STD_SIZE_N(mem_config); i++)
@@ -2374,7 +2375,7 @@ static std_lms_t *_std_create_lms()
 
     std_set_tls_data(_lms_tls_id, lms);
 
-    /* Put me into list */
+    // Put me into list
     std_get_spin_lock(&_lms_list_spin_lock);
     lms->next = _lms_list;
     _lms_list = lms;
@@ -2383,7 +2384,7 @@ static std_lms_t *_std_create_lms()
     return lms;
 }
 
-/* Get lms of current thread, create new if not found */
+// Get lms of current thread, create new if not found
 static std_lms_t *_std_get_or_create_lms()
 {
     std_lms_t *lms;
@@ -2395,17 +2396,17 @@ static std_lms_t *_std_get_or_create_lms()
     return lms;
 }
 
-/* Destory lms (only for shutdown or thread end) */
-/* Caller must assure lms is removed from list */
+// Destory lms (only for shutdown or thread end)
+// Caller must assure lms is removed from list
 static int _std_destroy_lms(std_lms_t *lms)
 {
     STD_ASSERT(lms->next == NULL);
 
-    /* TODO: _free resource */
+    // TODO: _free resource
     return 1;
 }
 
-/* _allocate a tiny block page */
+// _allocate a tiny block page
 static std_tiny_page_header_t *std_create_tiny_block_page(size_t tiny_block_size)
 {
     Uint   count;
@@ -2415,20 +2416,20 @@ static std_tiny_page_header_t *std_create_tiny_block_page(size_t tiny_block_size
     std_tiny_page_header_t   *page;
     Uint8                    *tiny_block_ptr;
 
-    STD_ASSERT(tiny_block_size % STD_tINY_ALIGNMENT_SIZE == 0);
-    STD_ASSERT(tiny_block_size >= 0 && tiny_block_size <= (STD_SIZE_N(_tiny_block_page_lists) - 1) * STD_tINY_ALIGNMENT_SIZE);
+    STD_ASSERT(tiny_block_size % STD_TINY_ALIGNMENT_SIZE == 0);
+    STD_ASSERT(tiny_block_size >= 0 && tiny_block_size <= (STD_SIZE_N(_tiny_block_page_lists) - 1) * STD_TINY_ALIGNMENT_SIZE);
 
-    /* _allocate a memory size <= STD_tINY_BLOCK_PAGE_SIZE & fill with blocks */
+    // _allocate a memory size <= STD_TINY_BLOCK_PAGE_SIZE & fill with blocks
     block_and_header_size = sizeof(std_tiny_memory_header_t) + tiny_block_size;
-    STD_ASSERT(STD_tINY_BLOCK_PAGE_SIZE >= sizeof(std_tiny_page_header_t) + block_and_header_size);
-    count = (Uint) ((STD_tINY_BLOCK_PAGE_SIZE - sizeof(std_tiny_page_header_t)) / block_and_header_size);
+    STD_ASSERT(STD_TINY_BLOCK_PAGE_SIZE >= sizeof(std_tiny_page_header_t) + block_and_header_size);
+    count = (Uint) ((STD_TINY_BLOCK_PAGE_SIZE - sizeof(std_tiny_page_header_t)) / block_and_header_size);
     STD_ASSERT(count <= 0xFFFF);
     page_size = sizeof(std_tiny_page_header_t) + count * block_and_header_size;
-    page = (std_tiny_page_header_t *) std_allocate_memory(page_size, "PDB", __FILE__, __LINE__);
+    page = (std_tiny_page_header_t *) std_allocate_memory(page_size, "TINY", __FILE__, __LINE__);
     if (page == NULL)
         return NULL;
 
-    /* Init page, build free list */
+    // Init page, build free list
     memset(page, 0, sizeof(std_tiny_page_header_t));
     page->count     = (Uint16) count;
     page->used      = 0;
@@ -2439,7 +2440,7 @@ static std_tiny_page_header_t *std_create_tiny_block_page(size_t tiny_block_size
          i < count;
          i++, tiny_block_ptr += block_and_header_size)
     {
-        /* Add this block into free list */
+        // Add this block into free list
         ((std_tiny_memory_header_t *) tiny_block_ptr)->p.next = page->free_list;
         page->free_list = (std_tiny_memory_header_t *) tiny_block_ptr;
     }
@@ -2448,11 +2449,11 @@ static std_tiny_page_header_t *std_create_tiny_block_page(size_t tiny_block_size
     if (_tiny_mem_stat.peak_reserved_size < _tiny_mem_stat.total_reserved_size)
         _tiny_mem_stat.peak_reserved_size = _tiny_mem_stat.total_reserved_size;
 
-    /* Return the page */
+    // Return the page
     return page;
 }
 
-/* _free a tiny block page */
+// _free a tiny block page
 static void std_delete_tiny_block_page(std_tiny_page_header_t *page)
 {
     size_t page_size;
@@ -2464,22 +2465,22 @@ static void std_delete_tiny_block_page(std_tiny_page_header_t *page)
     page_size = sizeof(std_tiny_page_header_t) + page->count * block_and_header_size;
     _tiny_mem_stat.total_reserved_size -= page_size;
 
-    /* _free the page memory */
-    std_free_memory(page, "PDB", __FILE__, __LINE__);
+    // _free the page memory
+    std_free_memory(page, "TINY", __FILE__, __LINE__);
 }
 
-/* Os memory allocation routines */
+// Os memory allocation routines
 #define STD_OS_RESERVE_SIZE     32
 #define STD_OS_SIZE_SIZE        sizeof(size_t)
 #define STD_OS_PAD_DATA         0xF4
 
-/* Internal routines of warp routines */
+// Internal routines of warp routines
 static void std_os_mark_valid(void *pb, size_t size);
 static void std_os_check_valid(void *pb);
 
 size_t os_alloc_size = 0;
 
-/* Warp of malloc */
+// Warp of malloc
 void *std_os_malloc(size_t size)
 {
     void *pb;
@@ -2488,14 +2489,14 @@ void *std_os_malloc(size_t size)
     if (pb == NULL)
         return NULL;
 
-    /* Do stat */
+    // Do stat
     os_alloc_size += size;
 
     std_os_mark_valid(pb, size);
     return ((char *) pb) + STD_OS_RESERVE_SIZE + STD_OS_SIZE_SIZE;
 }
 
-/* Warp of realloc */
+// Warp of realloc
 void *std_os_realloc(void *p, size_t size)
 {
     void  *pb;
@@ -2514,10 +2515,10 @@ void *std_os_realloc(void *p, size_t size)
 
     pb = realloc(pb, size + STD_OS_RESERVE_SIZE * 2 + STD_OS_SIZE_SIZE);
     if (pb == NULL)
-        /* Failed to reallocate */
+        // Failed to reallocate
         return NULL;
 
-    /* Do stat */
+    // Do stat
     os_alloc_size -= old_size;
     os_alloc_size += size;
 
@@ -2525,7 +2526,7 @@ void *std_os_realloc(void *p, size_t size)
     return ((char *) pb) + STD_OS_RESERVE_SIZE + STD_OS_SIZE_SIZE;
 }
 
-/* Warp of free */
+// Warp of free
 void std_os_free(void *p)
 {
     void *pb;
@@ -2536,39 +2537,39 @@ void std_os_free(void *p)
     pb = ((char *) p) - STD_OS_RESERVE_SIZE - STD_OS_SIZE_SIZE;
     std_os_check_valid(pb);
 
-    /* Do stat */
+    // Do stat
     os_alloc_size -= *(size_t *) (((char *) p) - STD_OS_SIZE_SIZE);
 
     free(pb);
 }
 
-/* Mark a memory block (pad head & tail) */
+// Mark a memory block (pad head & tail)
 static void std_os_mark_valid(void *pb, size_t size)
 {
     void *p, *pe;
 
-    /* ++++++++_size-------------++++++++
-     * pb          p            pe  */
+    // ++++++++_size-------------++++++++
+    // pb          p            pe 
     p = ((char *) pb) + STD_OS_RESERVE_SIZE + STD_OS_SIZE_SIZE;
     pe = ((char *) p) + size;
     memset(pb, STD_OS_PAD_DATA, STD_OS_RESERVE_SIZE);
     memset(pe, STD_OS_PAD_DATA, STD_OS_RESERVE_SIZE);
 
-    /* Record size */
+    // Record size
     *(size_t *) (((char *) pb) + STD_OS_RESERVE_SIZE) = size;
 }
 
-/* Check valid of a memory block */
+// Check valid of a memory block
 static void std_os_check_valid(void *pb)
 {
     size_t old_size;
     void  *pe;
     int    i;
 
-    /* ++++++++_size-------------++++++++
-     * pb          p            pe  */
+    // ++++++++_size-------------++++++++
+    // pb          p            pe 
 
-    /* Get size, pb, pe */
+    // Get size, pb, pe
     old_size = *(size_t *) (((char *) pb) + STD_OS_RESERVE_SIZE);
     pe = ((char *) pb) + STD_OS_RESERVE_SIZE + STD_OS_SIZE_SIZE + old_size;
 

@@ -39,8 +39,8 @@ Lang::Lang() :
     m_in_function = 0;
 
     // Create the entry function @ no:0
-    m_entry_function = BUFFER_NEW(AstFunction, this);
-    m_entry_function->prototype = BUFFER_NEW(AstPrototype, this);
+    m_entry_function = LANG_NEW(this, AstFunction, this);
+    m_entry_function->prototype = LANG_NEW(this, AstPrototype, this);
     m_entry_function->no = 0;
     m_functions.push_back(m_entry_function);
 
@@ -88,7 +88,7 @@ void Lang::syntax_error(Lang* context, const char *msg)
     context->m_num_errors++;
 
     cmm_errprintf("%s(%d): error %d: %s\n",
-                  context->m_lexer.m_current_file_name.c_str(),
+                  context->m_lexer.m_current_file_name->c_str(),
                   (int)context->m_lexer.m_current_line,
                   C_PARSER, msg);
 
@@ -129,7 +129,7 @@ void Lang::syntax_warn(Lang* context, const char *msg)
         context->m_num_errors++;
 
     cmm_printf("%s(%d): warning %d: %s\n",
-                context->m_lexer.m_current_file_name.c_str(),
+                context->m_lexer.m_current_file_name->c_str(),
                 (int)context->m_lexer.m_current_line,
                 C_PARSER, msg);
 #endif        
@@ -184,7 +184,7 @@ void Lang::print_ast(AstNode* node, int level)
 }
 
 // Convert string 
-String Lang::add_back_slash_for_quote(const String& str)
+simple::string Lang::add_back_slash_for_quote(const simple::string& str)
 {
     // " ->\"
     // \ -> \\
@@ -196,8 +196,8 @@ String Lang::add_back_slash_for_quote(const String& str)
             counter++;
 
     // Create new string
-    StringImpl* new_string = STRING_ALLOC((str.length() + counter) * sizeof(char_t));
-    char_t *buf = new_string->ptr();
+    simple::string new_string(simple::reserve_space::EMPTY, (str.length() + counter));
+    char_t *buf = (char_t*)new_string.c_str();
     size_t k = 0;
     for (size_t i = 0; i < str.length(); i++)
     {
@@ -211,7 +211,7 @@ String Lang::add_back_slash_for_quote(const String& str)
 }
 
 // Add a component
-void Lang::add_component(const String& component)
+void Lang::add_component(const char* component)
 {
     m_components.push_back(component);
 }

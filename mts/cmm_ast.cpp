@@ -26,7 +26,7 @@ AstNode *append_sibling_node(AstNode *node, AstNode *next)
 }
 
 // AstFunctionAttrib to string
-String ast_function_attrib_to_string(AstFunctionAttrib attrib)
+simple::string ast_function_attrib_to_string(AstFunctionAttrib attrib)
 {
     char buf[256];
     char* p = buf;
@@ -119,7 +119,7 @@ const char* ast_node_type_to_c_str(AstNodeType nodeType)
 }
 
 // Operator to string
-String ast_op_to_string(Op op)
+simple::string ast_op_to_string(Op op)
 {
     char str[sizeof(Op) + 1];
     for (auto i = 0; i < sizeof(Op); i++)
@@ -129,7 +129,7 @@ String ast_op_to_string(Op op)
 }
 
 // VarType to string
-String ast_var_type_to_string(AstVarType var_type)
+simple::string ast_var_type_to_string(AstVarType var_type)
 {
     char buf[256];
     char* p = buf;
@@ -188,16 +188,16 @@ const char* value_type_to_c_str(ValueType value_type)
 }
 
 // eg. default
-String AstCase::to_string()
+simple::string AstCase::to_string()
 {
     if (is_default)
         return "Default";
 
-    return EMPTY_STRING;
+    return "";
 }
 
 // eg. int x
-String AstDeclaration::to_string()
+simple::string AstDeclaration::to_string()
 {
     char buf[16];
     snprintf(buf, sizeof(buf), " %s@%d",
@@ -206,58 +206,58 @@ String AstDeclaration::to_string()
     return ast_var_type_to_string(var_type) + " " + name + buf;
 }
 
-String AstExpr::to_string()
+simple::string AstExpr::to_string()
 {
-    String str = ast_var_type_to_string(var_type);
+    simple::string str = ast_var_type_to_string(var_type);
     if (is_constant)
         str += " (constant)";
     return str;
 }
 
 // eg. *=
-String AstExprAssign::to_string()
+simple::string AstExprAssign::to_string()
 {
     return AstExpr::to_string() + " " + ast_op_to_string(op);
 }
 
 // eg. +
-String AstExprBinary::to_string()
+simple::string AstExprBinary::to_string()
 {
     return AstExpr::to_string() + " " + ast_op_to_string(op);
 }
 
 // eg. (int)
-String AstExprCast::to_string()
+simple::string AstExprCast::to_string()
 {
-    return String("(") + ast_var_type_to_string(var_type) + ")";
+    return simple::string("(") + ast_var_type_to_string(var_type) + ")";
 }
 
 // eg. ?
-String AstExprTernary::to_string()
+simple::string AstExprTernary::to_string()
 {
     return AstExpr::to_string() + " " + ast_op_to_string(op);
 }
 
 // eg. --
-String AstExprUnary::to_string()
+simple::string AstExprUnary::to_string()
 {
     return AstExpr::to_string() + " " + ast_op_to_string(op);
 }
 
 // eg. i
-String AstExprVariable::to_string()
+simple::string AstExprVariable::to_string()
 {
     return AstExpr::to_string() + " " + name;
 }
 
 // eg. write
-String AstExprFunctionCall::to_string()
+simple::string AstExprFunctionCall::to_string()
 {
     return callee_name;
 }
 
 // eg. [..<]
-String AstExprIndex::to_string()
+simple::string AstExprIndex::to_string()
 {
     char buf[16];
     if (op == OP_IDX)
@@ -276,7 +276,7 @@ String AstExprIndex::to_string()
 }
 
 // eg. mixed func() @1
-String AstFunction::to_string()
+simple::string AstFunction::to_string()
 {
     char buf[16];
     snprintf(buf, sizeof(buf), "() @%d", (int)no);
@@ -285,13 +285,13 @@ String AstFunction::to_string()
 }
 
 // eg. int x
-String AstFunctionArg::to_string()
+simple::string AstFunctionArg::to_string()
 {
     return ast_var_type_to_string(var_type) + " " + name;
 }
 
 // eg. target
-String AstGoto::to_string()
+simple::string AstGoto::to_string()
 {
     switch ((AstGotoType)goto_type)
     {
@@ -308,13 +308,13 @@ String AstGoto::to_string()
 }
 
 // eg. label1:
-String AstLabel::to_string()
+simple::string AstLabel::to_string()
 {
     return name;
 }
 
 // eg. step -1
-String AstLoopRange::to_string()
+simple::string AstLoopRange::to_string()
 {
     char str[16];
     snprintf(str, sizeof(str), "Step %d", direction);
@@ -322,9 +322,9 @@ String AstLoopRange::to_string()
 }
 
 // eg. private void write
-String AstPrototype::to_string()
+simple::string AstPrototype::to_string()
 {
-    String ret = ast_function_attrib_to_string((AstFunctionAttrib)attrib);
+    simple::string ret = ast_function_attrib_to_string((AstFunctionAttrib)attrib);
     if (ret.length() > 0)
         ret += " ";
     ret += ast_var_type_to_string(ret_var_type);

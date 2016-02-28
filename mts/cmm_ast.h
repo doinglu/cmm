@@ -5,6 +5,7 @@
 #include "cmm.h"
 #include "cmm_output.h"
 #include "cmm_value.h"
+#include "cmm_mmm_value.h"
 
 namespace cmm
 {
@@ -225,7 +226,7 @@ T* tf_get(T* list, size_t index)
 // Source location
 struct SourceLocation
 {
-    String file;
+    StringImpl* file;
     int line;
     int column;
 
@@ -264,16 +265,16 @@ struct AstRegister;
 AstNode *append_sibling_node(AstNode *node, AstNode *next);
 
 // Function attrib to string
-String ast_function_attrib_to_string(AstFunctionAttrib attrib);
+simple::string ast_function_attrib_to_string(AstFunctionAttrib attrib);
 
 // Enum to string
 const char* ast_node_type_to_c_str(AstNodeType nodeType);
 
 // Operator to string
-String ast_op_to_string(Op op);
+simple::string ast_op_to_string(Op op);
 
 // VarType to string
-String ast_var_type_to_string(AstVarType var_type);
+simple::string ast_var_type_to_string(AstVarType var_type);
 
 // basic value to string
 const char* value_type_to_c_str(ValueType value_type);
@@ -354,9 +355,9 @@ struct AstNode
     }
 
     // Output for thie AstNode
-    virtual String to_string()
+    virtual simple::string to_string()
     {
-        return EMPTY_STRING;
+        return "";
     }
 };
 
@@ -384,7 +385,7 @@ struct AstCase : AstNode
         collect_children_of(case_value, block);
     }
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstCase(Lang* context) :
         AstNode(context),
@@ -399,9 +400,9 @@ struct AstCase : AstNode
 struct AstDeclaration : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_DECLARATION; }
-    AstVarType  var_type;   // variable type
-    String      name;       // variable name
-    Uint32      ident_type; // IdentType: identifier type, local or object
+    AstVarType     var_type;   // variable type
+    simple::string name;       // variable name
+    Uint32         ident_type; // IdentType: identifier type, local or object
     union
     {
         LocalNo     local_var_no;   // Number of var as local
@@ -415,11 +416,11 @@ struct AstDeclaration : AstNode
         collect_children_of(expr);
     }
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstDeclaration(Lang* context) :
         AstNode(context),
-        name(EMPTY_STRING),
+        name(""),
         no(0),
         expr(0)
     {
@@ -484,7 +485,7 @@ struct AstExpr : AstNode
     bool   is_constant;     // if this is a constant expression
     Int32  reg_index;       // expression output register index
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstExpr(Lang* context) :
         AstNode(context),
@@ -521,7 +522,7 @@ struct AstExprAssign : AstExprOp
     }
 
     // eg. *=
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstExprAssign(Lang* context) :
         AstExprOp(context),
@@ -544,7 +545,7 @@ struct AstExprBinary : AstExprOp
     }
 
     // eg. +
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstExprBinary(Lang* context) :
         AstExprOp(context),
@@ -566,7 +567,7 @@ struct AstExprCast : AstExprOp
         collect_children_of(expr1);
     }
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstExprCast(Lang* context) :
         AstExprOp(context),
@@ -597,17 +598,17 @@ struct AstExprClosure : AstExpr
 struct AstExprConstant : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CONSTANT; }
-    Value   value;          // Value
+    MMMValue value;          // Value
 
-    virtual String to_string()
+    virtual simple::string to_string()
     {
         Output output;
-        return output.type_value(&value);
+        return output.type_value(&value).c_str();
     }
 
     AstExprConstant(Lang* context) :
         AstExpr(context),
-        value(UNDEFINED)
+        value(NIL)
     {
         is_constant = true;
     }
@@ -634,8 +635,8 @@ struct AstExprCreateArray : AstExpr
 struct AstExprCreateFunction : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CREATE_FUNCTION; }
-    String   name;
-    AstExpr* expr_list;
+    simple::string  name;
+    AstExpr*        expr_list;
 
     virtual void collect_children()
     {
@@ -644,7 +645,7 @@ struct AstExprCreateFunction : AstExpr
 
     AstExprCreateFunction(Lang* context) :
         AstExpr(context),
-        name(EMPTY_STRING)
+        name("")
     {
     }
 };
@@ -670,9 +671,9 @@ struct AstExprCreateMapping : AstExpr
 struct AstExprFunctionCall : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_FUNCTION_CALL; }
-    AstExpr*   target;            // target object or array
-    String     callee_name;       // call function name
-    AstExpr*   arguments;         // arguments
+    AstExpr*        target;            // target object or array
+    simple::string  callee_name;       // call function name
+    AstExpr*        arguments;         // arguments
 
     virtual void collect_children()
     {
@@ -680,11 +681,11 @@ struct AstExprFunctionCall : AstExpr
         children = append_sibling_node(target, arguments);
     }
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstExprFunctionCall(Lang* context) :
         AstExpr(context),
-        callee_name(EMPTY_STRING),
+        callee_name(""),
         arguments(0)
     {
     }
@@ -725,7 +726,7 @@ struct AstExprIndex : AstExprOp
         collect_children_of(container, index_from, index_to);
     }
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstExprIndex(Lang* context) :
         AstExprOp(context),
@@ -743,11 +744,11 @@ struct AstExprIndex : AstExprOp
 struct AstExprIsRef : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_IS_REF; }
-    String name;
+    simple::string name;
 
     AstExprIsRef(Lang* context) :
         AstExpr(context),
-        name(EMPTY_STRING)
+        name("")
     {
 
     }
@@ -771,8 +772,8 @@ struct AstExprRuntimeValue : AstExpr
 struct AstExprSegment : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_SEGMENT; }
-    AstExpr*   expr;          // primary
-    String     name;          // segement part
+    AstExpr*        expr; // primary
+    simple::string  name; // segement part
 
     virtual void collect_children()
     {
@@ -782,7 +783,7 @@ struct AstExprSegment : AstExpr
 
     AstExprSegment(Lang* context) :
         AstExpr(context),
-        name(EMPTY_STRING),
+        name(""),
         expr(0)
     {
     }
@@ -820,7 +821,7 @@ struct AstExprTernary : AstExprOp
     }
 
     // eg. ?
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstExprTernary(Lang* context) :
         AstExprOp(context),
@@ -843,7 +844,7 @@ struct AstExprUnary : AstExprOp
     }
 
     // eg. --
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstExprUnary(Lang* context) :
         AstExprOp(context),
@@ -856,13 +857,13 @@ struct AstExprUnary : AstExprOp
 struct AstExprVariable : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_VARIABLE; }
-    String name;   // Variable name
+    simple::string name;   // Variable name
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstExprVariable(Lang* context) :
         AstExpr(context),
-        name(EMPTY_STRING)
+        name("")
     {
     }
 };
@@ -926,7 +927,7 @@ struct AstFunction : AstNode
         return true;
     }
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstFunction(Lang* context) :
         AstNode(context),
@@ -948,20 +949,20 @@ struct AstFunctionArgsEx
 struct AstFunctionArg : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_FUNCTION_ARG; }
-    String     name;            // function argument name
-    AstVarType var_type;        // argument variable type
-    AstExpr*   default_value;   // default argument value
+    simple::string  name;            // function argument name
+    AstVarType      var_type;        // argument variable type
+    AstExpr*        default_value;   // default argument value
 
     virtual void collect_children()
     {
         collect_children_of(default_value);
     }
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstFunctionArg(Lang* context) :
         AstNode(context),
-        name(EMPTY_STRING),
+        name(""),
         default_value(0)
     {
     }
@@ -972,15 +973,15 @@ struct AstFunctionArg : AstNode
 struct AstGoto : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_GOTO; }
-    AstGotoType goto_type;
-    AstNode*    loop_switch;
-    String      target_label;     // Label to jmp
+    AstGotoType     goto_type;
+    AstNode*        loop_switch;
+    simple::string  target_label;     // Label to jmp
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstGoto(Lang* context) :
         AstNode(context),
-        target_label(EMPTY_STRING)
+        target_label("")
     {
     }
 };
@@ -1012,13 +1013,13 @@ struct AstIfElse : AstNode
 struct AstLabel : AstNode
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_LABEL; }
-    String name;
+    simple::string name;
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstLabel(Lang* context) :
         AstNode(context),
-        name(EMPTY_STRING)
+        name("")
     {
     }
 };
@@ -1067,7 +1068,7 @@ struct AstLoopRange : AstNode
         return true;
     }
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstLoopRange(Lang* context) :
         AstNode(context),
@@ -1085,7 +1086,7 @@ struct AstPrototype : AstNode
     virtual AstNodeType get_node_type() { return AstNodeType::AST_PROTOTYPE; }
 
     // Function name
-    String name;
+    simple::string name;
 
     // Function attrib
     Uint16 attrib;
@@ -1104,11 +1105,11 @@ struct AstPrototype : AstNode
         children = arg_list;
     }
 
-    virtual String to_string();
+    virtual simple::string to_string();
 
     AstPrototype(Lang* context) :
         AstNode(context),
-        name(EMPTY_STRING),
+        name(""),
         arg_list(0),
         has_ret(false)
     {

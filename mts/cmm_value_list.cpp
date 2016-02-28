@@ -12,7 +12,9 @@ void ValueList::append_value(ReferenceImpl* value)
     STD_ASSERT(("The value was already owned by a list.", !value->owner));
     value->owner = this;
 
-#if USE_VECTOR_IN_VALUE_LIST
+#if USE_LIST_IN_VALUE_LIST
+    m_container.append_node(value);
+#elif USE_VECTOR_IN_VALUE_LIST
     value->offset = get_count();
     m_container.push_back(value);
 #else
@@ -34,13 +36,35 @@ void ValueList::concat_list(ValueList* list)
         return;
 
     // Concat to my list
-#if USE_VECTOR_IN_VALUE_LIST
+#if USE_LIST_IN_VALUE_LIST
+    while (list->m_container.size() > 0)
+    {
+        auto* node = list->m_container.begin().get_node();
+        STD_ASSERT(("The value was not owned by the list.", node->owner == list));
+
+        // Take off
+        list->m_container.remove_node(node);
+
+        // Join me
+        node->owner = this;
+        if (m_low > node)
+            m_low = node;
+        if (m_high < node)
+            m_high = node;
+        m_container.append_node(node);
+    }
+#elif USE_VECTOR_IN_VALUE_LIST
     auto* head_address = list->get_head_address();
     size_t offset = this->get_count();
     for (size_t i = 0; i < list_count; i++)
     {
         STD_ASSERT(("Bad owner of value in list when concating.", (head_address[i])->owner == list));
-        head_address[i]->offset = offset++;
+        auto* p = head_address[i];
+        p->offset = offset++;
+        if (m_low > p)
+            m_low = p;
+        if (m_high < p)
+            m_high = p;
     }
     m_container.push_back_array(head_address, list_count);
 
@@ -49,6 +73,10 @@ void ValueList::concat_list(ValueList* list)
     {
         STD_ASSERT(("Bad owner of value in list when concating.", it->owner == list));
         it->owner = this;
+        if (m_low > it)
+            m_low = it;
+        if (m_high < it)
+            m_high = it;
         m_container.put(it);
     }
 #endif
@@ -62,7 +90,9 @@ void ValueList::remove(ReferenceImpl* value)
 {
     STD_ASSERT(("Value is not in this list.", value->owner == this));
 
-#if USE_VECTOR_IN_VALUE_LIST
+#if USE_LIST_IN_VALUE_LIST
+    m_container.remove_node(value);
+#elif USE_VECTOR_IN_VALUE_LIST
     STD_ASSERT(("Value offset is invalid.", value->offset < get_count()));
     STD_ASSERT(("Value is not in the specified offset.", m_container[value->offset] == value));
 
@@ -85,7 +115,14 @@ void ValueList::remove(ReferenceImpl* value)
 // Free all linked values in list
 void ValueList::free()
 {
-#if USE_VECTOR_IN_VALUE_LIST
+#if USE_LIST_IN_VALUE_LIST
+    while (m_container.size() > 0)
+    {
+        auto* node = m_container.begin().get_node();
+        node->unbind();
+        XDELETE(node);
+    }
+#elif USE_VECTOR_IN_VALUE_LIST
     auto* p = get_head_address();
     auto list_count = get_count();
     for (size_t i = 0; i < list_count; i++)
@@ -112,18 +149,23 @@ MarkValueState::MarkValueState(ValueList* _value_list) :
     value_list(_value_list),
     container(&_value_list->get_container())
 {
-#if USE_VECTOR_IN_VALUE_LIST
+#if USE_LIST_IN_VALUE_LIST
+    // Do nothing
+#elif USE_VECTOR_IN_VALUE_LIST
     impl_ptrs_address = value_list->get_head_address();
 #endif
     low = (void*)value_list->m_low;
     high = (void*)((char*)value_list->m_high + sizeof(BufferImpl) + BufferImpl::RESERVE_FOR_CLASS_ARR);
 }
 
+#if 0
 // Mark value
 void MarkValueState::mark_value(ReferenceImpl* ptr_value)
 {
     // Try remove from set
-#if USE_VECTOR_IN_VALUE_LIST
+#if USE_LIST_IN_VALUE_LIST
+    if (true)
+#elif USE_VECTOR_IN_VALUE_LIST
     size_t offset = ptr_value->offset;
     if (offset < container->size() && impl_ptrs_address[offset] == ptr_value)
 #else
@@ -143,7 +185,10 @@ void MarkValueState::mark_value(ReferenceImpl* ptr_value)
 
     // Not valid pointer, is this a class pointer?
     auto* buffer_impl = (BufferImpl *)(((char*)ptr_value) - BufferImpl::RESERVE_FOR_CLASS_ARR - sizeof(BufferImpl));
-#if USE_VECTOR_IN_VALUE_LIST
+#if USE_LIST_IN_VALUE_LIST
+    // Shouldn't be here
+    STD_FATAL("No here.\n");
+#elif USE_VECTOR_IN_VALUE_LIST
     offset = buffer_impl->offset;
     if (offset < container->size() && impl_ptrs_address[offset] == buffer_impl)
 #else
@@ -160,5 +205,6 @@ void MarkValueState::mark_value(ReferenceImpl* ptr_value)
         buffer_impl->mark(*this);
     }
 }
+#endif
 
 } // End of namespace: cmm

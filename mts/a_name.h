@@ -35,7 +35,7 @@ public:
         Value& m_name = this->m_object_vars[0];
 
         m_name = name;
-        return Value(UNDEFINED);
+        return m_name;
     }
 
     // Function 1
@@ -57,7 +57,7 @@ public:
         ObjectId other_oid;
         other_oid.i64 = __args[0].m_int;
 
-#if 0
+#if false
         call_far(_thread, 0, 5, other_oid, "---Inject error---");
 #endif
 
@@ -66,6 +66,9 @@ public:
         std_freq_t b, e;
         Integer i;
         double t;
+        Value fun_name = NIL;
+        Value set_to = NIL;
+#if 1
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
             call_near(_thread, this, &__feature_name_impl::get_name);
@@ -73,7 +76,19 @@ public:
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
-        printf("Per near call is %.3gns.\nAppromix %.3fM cps.\n", t, (1000. / t));
+        printf("Per %-12s is %5.3gns/%.3fM cps.\n", "near-call", t, (1000. / t));
+#endif
+
+#if 0
+        set_to = "Name was set.1";
+        b = std_get_current_us_counter();
+        for (i = 0; i < 100000; i++)
+            call_near(_thread, this, &__feature_name_impl::set_name, set_to, set_to, set_to, set_to, set_to, set_to);
+        e = std_get_current_us_counter();
+        t = (double)(e - b);
+        t = t / (double)i;
+        t *= 1000;
+        printf("Per %-12s is %5.3gns/%.3fM cps.\n", "near-calls", t, (1000. / t));
 
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
@@ -82,9 +97,19 @@ public:
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
-        printf("Per far call is %.3gns.\nAppromix %.3fM cps.\n", t, (1000. / t));
+        printf("Per %-12s is %5.3gns/%.3fM cps.\n", "far-call", t, (1000. / t));
 
-        Value fun_name = "get_name";
+        set_to = "Name was set.2";
+        b = std_get_current_us_counter();
+        for (i = 0; i < 100000; i++)
+            call_far(_thread, 0, 0, set_to, set_to, set_to, set_to, set_to, set_to);
+        e = std_get_current_us_counter();
+        t = (double)(e - b);
+        t = t / (double)i;
+        t *= 1000;
+        printf("Per %-12s is %5.3gns/%.3fM cps.\n", "far-calls", t, (1000. / t));
+
+        fun_name = "get_name";
         b = std_get_current_us_counter();
         for (i = 0; i < 100000; i++)
             call_other(_thread, __this_object->get_oid(), fun_name);
@@ -92,7 +117,17 @@ public:
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
-        printf("Per other call is %.3gns.\nAppromix %.3fM cps.\n", t, (1000. / t));
+        printf("Per %-12s is %5.3gns/%.3fM cps.\n", "other-call", t, (1000. / t));
+
+        fun_name = "set_name";
+        b = std_get_current_us_counter();
+        for (i = 0; i < 100000; i++)
+            call_other(_thread, __this_object->get_oid(), fun_name, set_to, set_to, set_to, set_to, set_to, set_to);
+        e = std_get_current_us_counter();
+        t = (double)(e - b);
+        t = t / (double)i;
+        t *= 1000;
+        printf("Per %-12s is %5.3gns/%.3fM cps.\n", "other-calls", t, (1000. / t));
 
         fun_name = "do_nothing";
         b = std_get_current_us_counter();
@@ -102,44 +137,44 @@ public:
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
-        printf("Per domain call is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
+        printf("Per %-12s is %5.3gns/%.4fM cps.\n", "domain-call", t, (1000. / t));
 
         fun_name = "set_name";
-        Value set_to = "Name was set";
+        set_to = "Name was set";
         b = std_get_current_us_counter();
-        for (i = 0; i < 10000; i++)
+        for (i = 0; i < 1000; i++)
             call_other(_thread, other_oid, fun_name, set_to, set_to, set_to, set_to, set_to, set_to);////---
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
-        printf("Per domain call with parameter is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
+        printf("Per %-12s is %5.3gns/%.4fM cps.\n", "domain-calls", t, (1000. / t));
 
         Value str_a = "a", str_b = "b";
         Value m = Map(8);
-        m[str_a] = 1;
-        m[str_b] = 2;
+        m.set(str_a, 1);
+        m.set(str_b, 2);
         b = std_get_current_us_counter();
-        for (i = 0; i < 1000; i++)
-            m[str_a];
+        for (i = 0; i < 100000; i++)
+            m.get(str_a);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
-        printf("Per mapping read is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
+        printf("Per %-12s is %5.3gns/%.4fM cps.\n", "mapping-rd", t, (1000. / t));
 
         m = Map(8);
-        m[str_a] = 1;
-        m[str_b] = 2;
+        m.set(str_a, 1);
+        m.set(str_b, 2);
         b = std_get_current_us_counter();
-        for (i = 0; i < 1000; i++)
-            m[str_b] = 5;
+        for (i = 0; i < 100000; i++)
+            m.set(str_b, 5);
         e = std_get_current_us_counter();
         t = (double)(e - b);
         t = t / (double)i;
         t *= 1000;
-        printf("Per mapping write is %.4gns.\nAppromix %.4fM cps.\n", t, (1000. / t));
-
+        printf("Per %-12s is %5.3gns/%.4fM cps.\n", "mapping-wr", t, (1000. / t));
+#endif
         Value ret = call_other(_thread, other_oid, String("print"));
         ret = Value(5);
         return ret;
@@ -165,7 +200,7 @@ public:
     {
         if (__n != 0)
             throw_error("Bad parameters, expected %lld, got %lld.", (Integer)0, (Integer)__n);
-        return Value(UNDEFINED);
+        return NIL;
     }
 
     // Function 5
@@ -191,7 +226,7 @@ public:
         {
             _thread->restore_call_stack_for_error(this_call_context);
         }
-        return Value(UNDEFINED);
+        return NIL;
     }
 };
 

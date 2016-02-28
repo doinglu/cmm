@@ -119,11 +119,11 @@ typedef union YYSTYPE
 {
 
 /* Line 1676 of yacc.c  */
-#line 113 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
+#line 113 "Z:\\doing\\Project\\mts\\mts\\cmm_grammar.yyy"
 
     Integer             number;
     Real                real;
-    StringImpl*         string;
+    const char*         string;
 
     AstNode*            node;
     AstCase*            cases;
@@ -145,7 +145,7 @@ typedef union YYSTYPE
 
 
 /* Line 1676 of yacc.c  */
-#line 149 "z:\\doing\\Project\\mts\\mts\\cmm_grammar.hpp"
+#line 149 "Z:\\doing\\Project\\mts\\mts\\cmm_grammar.hpp"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

@@ -417,12 +417,10 @@ struct hash_func
 };
 
 // Hash routines for int
-template<> struct hash_func<int>    { size_t operator()(int x)    const { return (size_t)x; } }; 
 template<> struct hash_func<Int8>   { size_t operator()(Int8 x)   const { return (size_t)x; } }; 
 template<> struct hash_func<Int16>  { size_t operator()(Int16 x)  const { return (size_t)x; } }; 
 template<> struct hash_func<Int32>  { size_t operator()(Int32 x)  const { return (size_t)x; } }; 
 template<> struct hash_func<Int64>  { size_t operator()(Int64 x)  const { return (size_t)x; } };
-template<> struct hash_func<Uint>   { size_t operator()(Uint x)   const { return (size_t)x; } }; 
 template<> struct hash_func<Uint8>  { size_t operator()(Uint8 x)  const { return (size_t)x; } }; 
 template<> struct hash_func<Uint16> { size_t operator()(Uint16 x) const { return (size_t)x; } }; 
 template<> struct hash_func<Uint32> { size_t operator()(Uint32 x) const { return (size_t)x; } }; 

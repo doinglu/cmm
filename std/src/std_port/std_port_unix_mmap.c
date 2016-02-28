@@ -10,7 +10,31 @@
 #include "std_port/std_port_mmap.h"
 #include <sys/mman.h>
 
-extern void* std_mmap(void* address, size_t size, int flags)
+// Reserve memory, can not be allocated by others
+// Argument address can be 0 or specified address
+extern void* std_mem_reserve(void* address, size_t size)
+{
+    void *p = mmap(address, size, PROT_NONE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (p == NULL)
+        STD_TRACE("std_port_mem_reserve(mmap).Error = %d.\n", errno);
+    return p;
+}
+
+// Free previously reserved memory
+// Return 1 means OK
+extern int std_mem_release(void* address, size_t size)
+{
+    if (munmap(address, size) == 0)
+        return 1;
+
+    STD_TRACE("std_port_mem_release(munmap).Error = %d.\n", errno);
+    return 0;
+}
+
+// Commit memory to access
+// The address can not be NULL
+// Return 1 means OK
+extern int std_mem_commit(void* address, size_t size, int flags)
 {
     int protect = 0;
 
@@ -21,7 +45,7 @@ extern void* std_mmap(void* address, size_t size, int flags)
         break;
 
     case STD_PAGE_EXECUTE:
-        protect= PROT_EXEC;
+        protect = PROT_EXEC;
         break;
 
     case STD_PAGE_EXECUTE | STD_PAGE_READ:
@@ -41,11 +65,23 @@ extern void* std_mmap(void* address, size_t size, int flags)
         STD_FATAL("Bad flags of access.");
     }
 
-    void *ret_address = mmap(address, size, PROT_NONE, MAP_PRIVATE|MAP_ANON, -1, 0);
-    if (ret_address && (flags & STD_PAGE_COMMIT))
-        mprotect(ret_address, size, protect);
+    if (mprotect(address, size, protect) == 0)
+        return 1;
 
-    return ret_address;
+    STD_TRACE("std_port_mem_commit(mprotect).Error = %d.\n", errno);
+    return 0;
+}
+
+// Decommit memory, stop acessing
+// The address can not be NULL
+// Return 1 means OK
+extern int std_mem_decommit(void* address, size_t size)
+{
+    if (mprotect(address, size, PROT_NONE) == 0)
+        return 1;
+
+    STD_TRACE("std_port_mem_decommit(mprotect).Error = %d.\n", errno);
+    return 0;
 }
 
 #endif  /* End of _WINDOWS */

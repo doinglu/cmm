@@ -19,6 +19,7 @@ typedef Int64   Integer;
 typedef Int64   IntPtr;
 typedef double  Real;
 
+class AbstractComponent;
 class Domain;
 class Object;
 class Thread;
@@ -29,7 +30,12 @@ class Buffer;
 class Array;
 class Map;
 
+class PushValue;
 class ValueList;
+class ValueStack;
+
+class MMMValue;////----
+class ValueInContainer;
 
 struct ArrayImpl;
 struct BufferImpl;
@@ -48,23 +54,29 @@ public:
     {
         CONSTANT = 0x01,    // Unchanged/freed Referenced value
         SHARED = 0x80,      // Shared in a values pool
+        MARKABLE = 0x40,    // Is this referring to other values?
     } Attrib;
 
 public:
-	ReferenceImpl() :
+	ReferenceImpl(ValueType _type) :
         attrib(0),
+        type(_type),
         hash_cache(0),
         owner(0),
 #if USE_VECTOR_IN_VALUE_LIST
-        offset(0),
-#endif
+        offset(0)
+#else
+        prev(0),
         next(0)
-	{
+#endif
+    {
+        if (type != STRING)
+            attrib |= MARKABLE;
 	}
 
     virtual ~ReferenceImpl()
     {
-        unbind();
+        STD_ASSERT(("Reference value is still binded.", owner == 0));
     }
 
 public:
@@ -84,6 +96,12 @@ public:
     // Bind the reference value to a domain
     void bind_to_current_domain();
 
+    // Return type of this referneced value
+    ValueType get_type()
+    {
+        return (ValueType)type;
+    }
+
     // Return hash value of me
     size_t hash_value() const
     {
@@ -93,15 +111,19 @@ public:
         return hash_cache;
     }
 
+    // Should this value do mark?
+    bool need_mark_for_domain_gc()
+    {
+        // Markable & not shared, constant value?
+        return (attrib & MARKABLE) && !(attrib & (SHARED | CONSTANT));
+    }
+
     // This value will be freed manually, unbind it if necessary
     void unbind();
 
 public:
     // Copy to local value list
     virtual ReferenceImpl *copy_to_local(Thread *thread) = 0;
-
-    // Return type of this referneced value
-    virtual ValueType get_type() const = 0;
 
     // Hash this value (hash this pointer)
     virtual size_t hash_this() const { return ((size_t)this) / sizeof(void *); }
@@ -110,24 +132,27 @@ public:
     virtual void mark(MarkValueState& value_map) { }
 
 public:
-    Uint attrib;             // 32bits only (Don't use enum)
+#if USE_LIST_IN_VALUE_LIST
+    // These node should be better to be defined @ head of struct for manual_list
+    struct ReferenceImpl *next;
+    struct ReferenceImpl *prev;
+#endif
+
+public:
+    Uint16 attrib;           // 16bits only (Don't use enum)
+    Uint16 type;             // Type of me
     mutable Uint hash_cache; // Cache of hash value
     ValueList *owner;        // Owned by domain or thread
 #if USE_VECTOR_IN_VALUE_LIST
     size_t offset;           // Offset of value in value list
 #endif
-    ReferenceImpl *next;     // Next value in list
-};
-
-// Enum to values
-enum ConstantValue
-{
-    UNDEFINED = 0,
 };
 
 // Constant value
 extern StringImpl* EMPTY_STRING;
 extern BufferImpl* EMPTY_BUFFER;
+
+struct AstExprConstant;////---- To be removed
 
 // VM value
 // ATTENTION:
@@ -136,12 +161,26 @@ extern BufferImpl* EMPTY_BUFFER;
 // correctly manually)
 class Value
 {
-friend Object;
-friend String;
+friend AstExprConstant;////---- To be removed
 friend Array;
 friend Map;
+friend MMMValue;////----
+friend Object;
+friend PushValue;
+friend String;
+friend Thread;
+friend ValueStack;
+friend ValueInContainer;
 template <typename T>
 friend class TypedValue;
+template<class... Types>
+friend Value& call_efun(Thread *thread, const Value& function_name, Value* ret, Types&&... args);
+template<class... Types>
+friend Value call_far(Thread *thread, ComponentNo component_no, FunctionNo function_no, Value* ret, Types&&... args);
+template<typename F, class... Types>
+friend Value& call_near(Thread *thread, AbstractComponent *component, F fptr, Value* ret, Types&&... args);
+template<class... Types>
+friend Value& call_other(Thread *thread, ObjectId oid, const Value& function_name, Value* ret, Types&&... args);
 
 public:
     // Instantiated hash routine for simple::string
@@ -159,43 +198,31 @@ public:
 
 private:
     // ATTENTION:
-    // WHY Value() is private
-    // This is to prevent declare this value as member in other container such
-    // as vector<>, map<> etc...
-    Value()
-    {
-        m_type = NIL;
-#ifdef _DEBUG
-        m_intptr = 0;
-#endif
-    }
-
-public:
-    // ATTENTION:
     // Don't add destructor, or it may cause the poor performance.
     // We will use this class in function freqencily and the destructor
     // will generated many Exception Handling relative code.
 
+    // ATTENTION:
+    // WHY Value() is private
+    // This is to prevent declare this value as member in other container such
+    // as vector<>, map<> OR in stack, structure...
+    Value()
+    {
+        m_type = NIL;
+        m_intptr = 0;
+    }
+
     // Raw constructor (Do nothing, just copy)
+    // ATTENTION: When use this interface?
+    // eg. copy_to_local() will copy the reference value to thread local
+    // value list & don't want the Value to be binded to domain.
     Value(IntPtr intptr, ValueType type)
     {
         m_type = type;
         m_intptr = intptr;
     }
 
-    // Create value from constant
-    Value(ConstantValue value)
-    {
-        // UNDEFINED only now
-        m_type = NIL;
-        m_intptr = 0;
-    }
-
-    Value(const Value& value)
-    {
-        *this = value;
-    }
-
+public:
     // Construct for integer 
     Value(int v)
     {
@@ -233,34 +260,168 @@ public:
 
     // Contruct from reference values
     // The ReferenceImpl should be allocated without been binded
-    Value(ReferenceImpl* v, ValueType type = NIL)
+    Value(ReferenceImpl* v)
     {
-        if (type == NIL)
-            type = v->get_type();
+        assign(v, v->get_type());
+    }
+
+    Value(StringImpl* const v)
+    {
+        assign((ReferenceImpl*)v, STRING);
+    }
+
+    Value(BufferImpl* v)
+    {
+        assign((ReferenceImpl*)v, BUFFER);
+    }
+
+    Value(FunctionPtrImpl* v)
+    {
+        assign((ReferenceImpl*)v, FUNCTION);
+    }
+
+    Value(ArrayImpl* v)
+    {
+        assign((ReferenceImpl*)v, ARRAY);
+    }
+
+    Value(MapImpl* v)
+    {
+        assign((ReferenceImpl*)v, MAPPING);
+    }
+
+    Value(const char *c_str);
+    Value(const simple::string& str);
+
+    void assign(ReferenceImpl* const v, ValueType type)
+    {
         m_type = type;
         m_reference = v;
         // Bind if the reference value has not owner yet
         m_reference->bind_to_current_domain();
     }
 
-    Value(StringImpl* const v) :
-        Value((ReferenceImpl*)v, STRING) {}
+public:
+    // For copy
+    Value(const Value& value)
+    {
+        *this = value;
+    }
 
-    Value(BufferImpl* v) :
-        Value((ReferenceImpl*)v, BUFFER) {}
+    // Initialize to NIL
+    // ValueType unused should be NIL only
+    Value(ValueType type)
+    {
+        *this = type;
+    }
 
-    Value(FunctionPtrImpl* v) :
-        Value((ReferenceImpl*)v, FUNCTION) {}
+public:
+    // Copy
+    Value& operator =(const Value& value)
+    {
+        m_part1 = value.m_part1;
+        m_part2 = value.m_part2;
+        return *this;
+    }
 
-    Value(ArrayImpl* v) :
-        Value((ReferenceImpl*)v, ARRAY) {}
+    // Create default value from type
+    Value& operator =(ValueType value)
+    {
+        if (value == TVOID)
+        {
+            // TVOID is for compiling stage only
+            m_type = NIL;
+            m_intptr = 0;
+            return *this;
+        }
 
-    Value(MapImpl* v) :
-        Value((ReferenceImpl*)v, MAPPING) {}
+        // Default is NIL
+        m_type = NIL;
+        m_intptr = 0;
+        return *this;
+    }
+
+    // Construct for integer 
+    Value& operator =(int v)
+    {
+        m_type = INTEGER;
+        m_int = (Integer)v;
+        return *this;
+    }
+
+    Value& operator =(Int64 v)
+    {
+        m_type = INTEGER;
+        m_int = (Integer)v;
+        return *this;
+    }
+
+    Value& operator =(size_t v)
+    {
+        m_type = INTEGER;
+        m_int = (Integer)v;
+        return *this;
+    }
+
+    // Construct from real
+    Value& operator =(Real v)
+    {
+        m_type = REAL;
+        m_real = v;
+        return *this;
+    }
+
+    // Construct from object
+    Value& operator =(ObjectId oid)
+    {
+        m_type = OBJECT;
+        m_oid = oid;
+        return *this;
+    }
+
+    Value& operator =(Object* ob);
+
+    // Contruct from reference values
+    // The ReferenceImpl should be allocated without been binded
+    Value& operator =(ReferenceImpl* v)
+    {
+        assign(v, v->get_type());
+        return *this;
+    }
+
+    Value& operator =(StringImpl* const v)
+    {
+        assign((ReferenceImpl*)v, STRING);
+        return *this;
+    }
+
+    Value& operator =(BufferImpl* v)
+    {
+        assign((ReferenceImpl*)v, BUFFER);
+        return *this;
+    }
+
+    Value& operator =(FunctionPtrImpl* v)
+    {
+        assign((ReferenceImpl*)v, FUNCTION);
+        return *this;
+    }
+
+    Value& operator =(ArrayImpl* v)
+    {
+        assign((ReferenceImpl*)v, ARRAY);
+        return *this;
+    }
+
+    Value& operator =(MapImpl* v)
+    {
+        assign((ReferenceImpl*)v, MAPPING);
+        return *this;
+    }
 
     // Construct for string
-    Value(const char *c_str, size_t len = SIZE_MAX);
-	Value(const simple::string& str);
+    Value& operator =(const char *c_str);
+    Value& operator =(const simple::string& str);
 
     // Safe get values (check type)
 public:
@@ -399,33 +560,33 @@ public:
     }
 
 public:
-    Value& operator =(const Value& value)
-    {
-        m_type = value.m_type;
-        m_intptr = value.m_intptr;
-        return *this;
-    }
-
     // Put value to container
-    Value& operator [](const Value& value);
+    Value& set(const Value& key, const Value& value);
 
     // Get index from container
-    const Value operator [](const Value& value) const;
+    Value get(const Value& key) const;
+
+#define VVVV
 
 public:
-    ValueType m_type;
+    union
+    {
+        ValueType m_type;
+        UintR     m_part1;
+    };
     union
     {
         Integer          m_int;
         Real             m_real;
         IntPtr           m_intptr;
         ObjectId         m_oid;
-        ReferenceImpl*   volatile m_reference;
-        StringImpl*      volatile m_string;
-        BufferImpl*      volatile m_buffer;
-        FunctionPtrImpl* volatile m_function;
-        ArrayImpl*       volatile m_array;
-        MapImpl*         volatile m_map;
+        ReferenceImpl*   VVVV m_reference;
+        StringImpl*      VVVV m_string;
+        BufferImpl*      VVVV m_buffer;
+        FunctionPtrImpl* VVVV m_function;
+        ArrayImpl*       VVVV m_array;
+        MapImpl*         VVVV m_map;
+        UintR            m_part2;
     };
 };
 
@@ -455,14 +616,14 @@ public:////----private:
     // since the string data should be allocated at same time. That
     // means the operation: new StringImpl(), StringImpl xxx is invalid. We
     // must use StringImpl * to access it.
-    StringImpl(size_t size)
+    StringImpl(size_t size) :
+        ReferenceImpl(this_type)
     {
         len = (string_size_t)size;
     }
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() const { return this_type; }
     virtual size_t hash_this() const { return simple::string::hash_string(buf); }
 
 public:
@@ -490,6 +651,7 @@ public:
 public:
     // Concat with other
     StringImpl *concat(const StringImpl *other) const;
+    StringImpl *concat(const char *c_str) const;
 
     // Get sub of me
     StringImpl *sub_of(size_t offset, size_t len = SIZE_MAX) const;
@@ -498,16 +660,16 @@ public:
     static StringImpl *snprintf(const char *fmt, size_t n, ...);
 
 public:
-    inline int index_val(Integer index) const
+    inline int get(Integer index) const
     {
         if ((size_t)index > length())
             throw_error("Index of string is out of range.\n");
         return (int)(uchar_t)buf[index];
     }
 
-    inline int index_val(const Value& index) const
+    inline int get(const Value& index) const
     {
-        return index_val(index.get_int());
+        return get(index.get_int());
     }
 
     inline bool operator <(const StringImpl& b) const
@@ -577,7 +739,8 @@ public:
     typedef void (*DestructFunc)(void *ptr_class);
 
 public:////----private:
-    BufferImpl(size_t _len)
+    BufferImpl(size_t _len) :
+        ReferenceImpl(this_type)
     {
         buffer_attrib = (Attrib)0;
         constructor = 0;
@@ -589,7 +752,6 @@ public:////----private:
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() const { return this_type; }
     virtual size_t hash_this() const;
     virtual void mark(MarkValueState& value_map);
 
@@ -598,7 +760,7 @@ public:
     size_t length() const { return len; }
 
     // Get raw data pointer
-    Uint8 *data() const { return (Uint8 *) (this + 1); }
+    Uint8 *data() const { return (Uint8*)(this + 1); }
 
     // Get single or class array pointer
     void *class_ptr(size_t index = 0) const
@@ -607,7 +769,6 @@ public:
         auto info = (ArrInfo *)(this + 1);
         STD_ASSERT(("Index out of range of class_ptr.", index < info->n));
         return data() + RESERVE_FOR_CLASS_ARR + index * info->size;
-        throw_error("This buffer doesn't not contain any class.\n");
     }
 
 public:
@@ -618,16 +779,16 @@ public:
     BufferImpl *sub_of(size_t offset, size_t len = SIZE_MAX) const;
 
 public:
-    inline int index_val(Integer index) const
+    inline int get(Integer index) const
     {
         if ((size_t)index > length())
             throw_error("Index of string is out of range.\n");
         return (int)data()[index];
     }
 
-    inline int index_val(const Value& index) const
+    inline int get(const Value& index) const
     {
-        return index_val(index.get_int());
+        return get(index.get_int());
     }
 
 public:
@@ -660,13 +821,13 @@ public:
     static const ValueType this_type = ValueType::FUNCTION;
 
 public:
-    FunctionPtrImpl()
+    FunctionPtrImpl() :
+        ReferenceImpl(this_type)
     {
     }
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() const { return this_type; }
     virtual void mark(MarkValueState& value_map);
 };
 
@@ -675,7 +836,7 @@ class ValueInContainer : public Value
 {
 public:
     ValueInContainer() :
-        Value(UNDEFINED)
+        Value()
     {
     }
 };
@@ -689,23 +850,25 @@ public:
 
 public:
     ArrayImpl(size_t size_hint = 8) :
+        ReferenceImpl(this_type),
         a(size_hint)
     {
     }
 
-    ArrayImpl(const DataType& data)
+    ArrayImpl(const DataType& data) :
+        ReferenceImpl(this_type)
     {
         a = data;
     }
 
-    ArrayImpl(DataType&& data)
+    ArrayImpl(DataType&& data) :
+        ReferenceImpl(this_type)
     {
         a = data;
     }
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() const { return this_type; }
     virtual void mark(MarkValueState& value_map);
 
 public:
@@ -716,7 +879,27 @@ public:
     ArrayImpl *sub_of(size_t offset, size_t len = SIZE_MAX) const;
 
 public:
-    Value& index_ptr(Integer index) const
+    Value& set(Integer index, const Value& val) const
+    {
+        if (index < 0 || index >= (Integer)a.size())
+            throw_error("Index out of range to array, got %lld.\n", (Int64)index);
+
+        if (sizeof(index) > sizeof(size_t))
+        {
+            // m_int is longer than size_t
+            if (index > SIZE_MAX)
+                throw_error("Index out of range to array, got %lld.", (Int64)index);
+        }
+
+        return a[index] = (const ValueInContainer&)val;
+    }
+
+    Value& set(const Value& index, const Value& val) const
+    {
+        return set(index.get_int(), val);
+    }
+
+    Value get(Integer index) const
     {
         if (index < 0 || index >= (Integer)a.size())
             throw_error("Index out of range to array, got %lld.\n", (Int64)index);
@@ -731,19 +914,9 @@ public:
         return a[index];
     }
 
-    Value& index_ptr(const Value& index) const
+    Value get(const Value& index) const
     {
-        return index_ptr(index.get_int());
-    }
-
-    const Value index_val(Integer index) const
-    {
-        return index_ptr(index);
-    }
-
-    const Value index_val(const Value& index) const
-    {
-        return index_ptr(index.get_int());
+        return get(index.get_int());
     }
 
     // Append an element
@@ -776,23 +949,25 @@ public:
 
 public:
     MapImpl(size_t size_hint = 4) :
+        ReferenceImpl(this_type),
         m(size_hint)
     {
     }
 
-    MapImpl(const DataType& data)
+    MapImpl(const DataType& data) :
+        ReferenceImpl(this_type)
     {
         m = data;
     }
 
-    MapImpl(DataType&& data)
+    MapImpl(DataType&& data) :
+        ReferenceImpl(this_type)
     {
         m = data;
     }
 
 public:
     virtual ReferenceImpl *copy_to_local(Thread *thread);
-    virtual ValueType get_type() const { return this_type; }
     virtual void mark(MarkValueState& value_map);
 
 public:
@@ -800,21 +975,16 @@ public:
     MapImpl *concat(const MapImpl *other) const;
 
 public:
-    Value& index_ptr(const Value& index)
+    Value& set(const Value& index, const Value& value)
     {
-        return m[(const ValueInContainer&)index];
+        return m[(const ValueInContainer&)index] = (const ValueInContainer&)value;
     }
 
-    const Value index_val(const Value& index) const
+    Value get(const Value& index) const
     {
-        ValueInContainer value;
-        m.try_get((const ValueInContainer&)index, &value);
-        return value;
-    }
-
-    void put(const Value& key, const Value& value)
-    {
-        index_ptr(key) = value;
+        Value ret = NIL;
+        m.try_get((const ValueInContainer&)index, (ValueInContainer*)&ret);
+        return ret;
     }
 
     // Contains key?
@@ -824,20 +994,22 @@ public:
     }
 
     // Get keys
-    Value keys() const
+    Value& keys(Value* ptr) const
     {
         auto vec = m.keys();
-        return XNEW(ArrayImpl, (ArrayImpl::DataType&&)simple::move(vec));
+        *ptr = XNEW(ArrayImpl, (ArrayImpl::DataType&&)simple::move(vec));
+        return *ptr;
     }
 
     // Get size
     size_t size() const { return m.size(); }
 
     // Get values
-    Value values() const
+    Value& values(Value* ptr) const
     {
         auto vec = m.values();
-        return XNEW(ArrayImpl, (ArrayImpl::DataType&&)simple::move(vec));
+        *ptr = XNEW(ArrayImpl, (ArrayImpl::DataType&&)simple::move(vec));
+        return *ptr;
     }
 
 public:
@@ -848,19 +1020,22 @@ template <typename T>
 class TypedValue : public Value
 {
 public:
-    // Other constructor
-    template <typename... Types>
-    TypedValue(Types&&... args) :
-        Value(UNDEFINED)
+    TypedValue()
     {
-        Value value(simple::forward<Types>(args)...);
-        m_type = T::this_type;
-        *this = value;
     }
 
+    // Other constructor
+    template <typename V>
+    TypedValue(V arg)
+    {
+        *(Value*)this = arg;
+        STD_ASSERT(("Bad type of Value when construct.", m_type == T::this_type || m_type == NIL));
+    }
+
+public:
     TypedValue& operator =(const Value& other)
     {
-        if (other.m_type != T::this_type)
+        if (other.m_type != T::this_type && other.m_type != NIL)
             // Bad type
             throw_error("Expect %s for value type, got %s.\n",
                           Value::type_to_name(T::this_type),
@@ -872,12 +1047,14 @@ public:
     TypedValue& operator =(const TypedValue& other)
     {
         m_reference = other.m_reference;
+        m_type = other.m_type;
         return *this;
     }
 
     TypedValue& operator =(const T *other_impl)
     {
         m_reference = (T *)other_impl;
+        m_type = T::this_type;
         return *this;
     }
 
@@ -938,8 +1115,31 @@ class String : public TypedValue<StringImpl>
 {
 private:
     // WHY PRIVATE? See comment of Value()
-    String() :
-        TypedValue(EMPTY_STRING)
+    String()
+    {
+    }
+
+#if false
+    String(StringImpl *const impl) :
+        TypedValue(impl)
+    {
+    }
+#endif
+
+public:
+    // Init to NIL only
+    String(ValueType value_type) :
+        TypedValue(value_type)
+    {
+    }
+
+    String(const char *c_str, size_t len = SIZE_MAX) :
+        TypedValue(STRING_ALLOC(c_str, len))
+    {
+    }
+
+    String(const simple::string& str) :
+        TypedValue(str)
     {
     }
 
@@ -951,19 +1151,44 @@ public:
     {
     }
 
-    String(StringImpl *const impl) :
-        TypedValue(impl)
+public:
+    String& operator =(StringImpl* const v)
     {
+        assign((ReferenceImpl*)v, STRING);
+        return *this;
     }
 
-    String(const char *c_str, size_t len = SIZE_MAX) :
-        TypedValue(c_str, len)
+    String& operator =(const char *c_str)
     {
+        assign((ReferenceImpl*)STRING_ALLOC(c_str), STRING);
+        return *this;
     }
 
-    String(const simple::string& str) :
-        TypedValue(str)
+    String& operator =(const simple::string& str)
     {
+        assign((ReferenceImpl*)STRING_ALLOC(str), STRING);
+        return *this;
+    }
+
+    String& concat(const String& str)
+    {
+        m_string = m_string->concat(str.m_string);
+        m_string->bind_to_current_domain();
+        return *this;
+    }
+
+    String& concat(StringImpl* const v)
+    {
+        m_string = m_string->concat(v);
+        m_string->bind_to_current_domain();
+        return *this;
+    }
+
+    String& concat(const char *c_str)
+    {
+        m_string = m_string->concat(c_str);
+        m_string->bind_to_current_domain();
+        return *this;
     }
 
     // Redirect function to impl()
@@ -972,20 +1197,14 @@ public:
     // Because the override may cause confusing, I would rather to write
     // more codes to make them easy to understand.
 public:
-    String operator +(const String& other) const
-        { return impl().concat(&other.impl()); }
-
-    String operator +=(const String& other)
-        { return (*this = impl().concat(&other.impl())); }
-
     bool operator ==(const String& other)
         { return this->impl() == other.impl(); }
 
     bool operator !=(const String& other)
         { return !(this->impl() == other.impl()); }
 
-    int index_val(Integer index) const
-        { return impl().index_val(index); }
+    int get(Integer index) const
+        { return impl().get(index); }
 
     const char *c_str() const
         { return impl().c_str(); }
@@ -995,21 +1214,28 @@ public:
 
     // Generate string by snprintf
     template <typename... Types>
-    static String snprintf(const char *fmt, size_t n, Types&&... args)
-        { return StringImpl::snprintf(fmt, n, simple::forward<Types>(args)...); }
+    static String& snprintf(String* ptr, const char *fmt, size_t n, Types&&... args)
+        { return *ptr = StringImpl::snprintf(fmt, n, simple::forward<Types>(args)...); }
 
-    String sub_string(size_t offset, size_t len = SIZE_MAX) const
-        { return impl().sub_of(offset, len); }
+    String& sub_string(String* ptr, size_t offset, size_t len = SIZE_MAX) const
+        { return *ptr = impl().sub_of(offset, len); }
 };
 
 class Buffer : public TypedValue<BufferImpl>
 {
-public:////----private:
+private:
     // WHY PRIVATE? See comment of Value()
     Buffer() :
         TypedValue(EMPTY_BUFFER)
     {
     }
+
+#if false
+    Buffer(BufferImpl *impl) :
+        TypedValue(impl)
+    {
+    }
+#endif
 
 public:
     Buffer(const Value& value) :
@@ -1017,8 +1243,9 @@ public:
     {
     }
 
-    Buffer(BufferImpl *impl) :
-        TypedValue(impl)
+    // Init to NIL only
+    Buffer(ValueType value_type) :
+        TypedValue(value_type)
     {
     }
 
@@ -1028,28 +1255,17 @@ public:
     // Because the override may cause confusing, I would rather to write
     // more codes to make them easy to understand.
 public:
-    Buffer operator +(const Buffer& other) const
-    {
-        return impl().concat(&other.impl());
-    }
-
-    Buffer operator +=(const Buffer& other)
-    {
-        return (*this = impl().concat(&other.impl()));
-    }
-
     int operator[](Integer index) const
     {
-        return impl().index_val(index);
+        return impl().get(index);
     }
 };
 
 class Array : public TypedValue<ArrayImpl>
 {
-public:////----private:
+private:
     // WHY PRIVATE? See comment of Value()
-    Array() :
-        Array(8)
+    Array()
     {
     };
 
@@ -1059,29 +1275,32 @@ public:
     {
     }
 
+    // Init to NIL only
+    Array(ValueType value_type) :
+        TypedValue(value_type)
+    {
+    }
+
+    // Init with impl
     Array(ArrayImpl *impl) :
-          TypedValue(impl)
+        TypedValue(impl)
     {
     }
 
     Array(size_t size_hint);
 
 public:
-    Value& index_ptr(const Value& index) const
-        { return impl().index_ptr(index); }
+    Value& set(const Value& index, const Value& value) const
+        { return impl().set(index, value); }
 
-    Value& index_ptr(Integer index) const
-        { return impl().index_ptr(index); }
+    Value& set(Integer index, const Value& value) const
+        { return impl().set(index, value); }
 
-    const Value index_val(const Value& index) const
-    {
-        return impl().index_ptr(index);
-    }
+    Value get(const Value& index) const
+        { return impl().get(index); }
 
-    const Value index_val(Integer index) const
-    {
-        return impl().index_ptr(index);
-    }
+    Value get(Integer index) const
+        { return impl().get(index); }
 
     void push_back(const Value& value)
         { impl().push_back(value); }
@@ -1100,10 +1319,9 @@ public:
 
 class Map : public TypedValue<MapImpl>
 {
-public:////----private:
+private:
     // WHY PRIVATE? See comment of Value()
-    Map() :
-        Map(8)
+    Map()
     {
     }
 
@@ -1113,6 +1331,13 @@ public:
     {
     }
 
+    // Init to NIL only
+    Map(ValueType value_type) :
+        TypedValue(value_type)
+    {
+    }
+
+    // Init with impl
     Map(MapImpl *impl) :
         TypedValue(impl)
     {
@@ -1121,23 +1346,20 @@ public:
     Map(size_t size_hint);
 
 public:
-    Value& index_ptr(const Value& index)
-        { return impl().index_ptr(index); }
+    Value& set(const Value& index, const Value& value)
+        { return impl().set(index, value); }
 
-    const Value index_val(const Value& index) const
-        { return impl().index_val(index); }
+    Value get(const Value& index) const
+        { return impl().get(index); }
 
-    void put(const Value& key, const Value& value)
-        { impl().put(key, value); }
-
-    Value keys() const
-        { return impl().keys(); }
+    Value& keys(Value* ptr) const
+        { return impl().keys(ptr); }
 
     size_t size() const
         { return impl().size(); }
 
-    Value values() const
-        { return impl().values(); }
+    Value& values(Value* ptr) const
+        { return impl().values(ptr); }
 
     auto begin() -> decltype(impl().m.begin())
         { return impl().m.begin(); }

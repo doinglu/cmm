@@ -85,6 +85,7 @@ friend DomainContext;
 
 public:
     typedef Uint32  Id;
+    typedef void *(*GetStackPointerFunc)();
 
 public:
     // Initialize/shutdown this module
@@ -102,6 +103,12 @@ public:
     static Domain *get_current_thread_domain()
     {
         return get_current_thread()->get_current_domain();
+    }
+
+    // Return stack pointer of
+    static GetStackPointerFunc get_stack_pointer_func()
+    {
+        return m_get_stack_pointer_func;
     }
 
 public:
@@ -234,7 +241,7 @@ public:
     void switch_domain(Domain *to_domain);
 
     // Try to switch execution ownership to a new domain by oid
-    bool try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *args, ArgNo n);
+    bool try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *args, ArgNo n, void* end_sp);
 
 public:
     // Bind value to local memory list
@@ -305,7 +312,6 @@ private:
     static std_tls_t m_thread_tls_id;
 
     // Function routine to get current stack pointer
-    typedef void *(*GetStackPointerFunc)();
     static GetStackPointerFunc m_get_stack_pointer_func;
 
 private:

@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include "cmm_prototype_grammar.h"
+#include "cmm_thread.h"
 
 namespace cmm
 {
@@ -19,7 +20,7 @@ bool match_prototype(TokenState& state, Prototype *ptr_prototype)
         return false;
     }
 
-    String fun_name(EMPTY_STRING);
+    simple::string fun_name;
     if (!match_ident_name(state, &fun_name))
     {
         state.error_msg += "Expected function name.\n";
@@ -37,14 +38,14 @@ bool match_prototype(TokenState& state, Prototype *ptr_prototype)
         return false;
 
     // Skip ;
-    String token(EMPTY_STRING);
+    simple::string token;
     if (state.peek_token(&token) && token == ";")
         state.skip();
 
     if (state.peek_token(&token))
     {
-        state.error_msg += String::snprintf("There are some words(\"%s\") following prototype.", 256,
-                                            token.c_str());
+        state.error_msg.snprintf("There are some words(\"%s\") following prototype.", 256,
+                                 token.c_str());
         return false;
     }
 
@@ -57,7 +58,7 @@ bool match_prototype(TokenState& state, Prototype *ptr_prototype)
 // Grammar match: type = int | real | .... | mixed [?]
 bool match_type(TokenState& state, Type *ptr_type)
 {
-    String token(EMPTY_STRING);
+    simple::string token;
     if (!state.get_token(&token))
     {
         state.error_msg += "End of line, missed type.\n";
@@ -90,18 +91,18 @@ bool match_type(TokenState& state, Type *ptr_type)
 }
 
 // Grammar match: [_,a-z,A-Z][_,a-z,A-Z,1-9]*
-bool match_ident_name(TokenState& state, String *ident_name)
+bool match_ident_name(TokenState& state, simple::string* ident_name)
 {
-    String word(EMPTY_STRING);
+    simple::string word;
     if (!state.get_token(&word))
     {
         state.error_msg += "Missed ident name.\n";
         return false;
     }
-    if (!isalnum(word.index_val(0)) && word.index_val(0) != '_')
+    if (!isalnum(word[0]) && word[0] != '_')
     {
-        state.error_msg += String::snprintf("Bad ident name \"%s\", expected lead by [_,a-z,A-Z].\n", 256,
-                                            word.c_str());
+        state.error_msg += simple::string().snprintf("Bad ident name \"%s\", expected lead by [_,a-z,A-Z].\n", 256,
+                                                     word.c_str());
         return false;
     }
 
@@ -110,9 +111,9 @@ bool match_ident_name(TokenState& state, String *ident_name)
 }
 
 // Grammar match: == word
-bool match_word(TokenState& state, const String& expect_word)
+bool match_word(TokenState& state, const simple::string& expect_word)
 {
-    String word(EMPTY_STRING);
+    simple::string word;
     if (!state.get_token(&word))
         return false;
 
@@ -127,7 +128,7 @@ bool match_arguments_list(TokenState& state, ArgumentsList *ptr_arguments)
 {
     ArgumentsList argument_list;
 
-    String token(EMPTY_STRING);
+    simple::string token;
     while (state.peek_token(&token) && token != ")")
     {
         if (token == "...")
@@ -172,7 +173,7 @@ bool match_argument(TokenState& state, Argument *ptr_argument)
         return false;
     }
 
-    String name(EMPTY_STRING);
+    simple::string name;
     if (!match_ident_name(state, &name))
     {
         state.error_msg += "Expect name for argument.\n";
@@ -180,7 +181,7 @@ bool match_argument(TokenState& state, Argument *ptr_argument)
     }
 
     bool has_default = false;
-    String token(EMPTY_STRING);
+    simple::string token;
     if (state.peek_token(&token) && token == "=")
     {
         if (!match_constant(state))
@@ -203,23 +204,23 @@ bool match_constant(TokenState& state)
     return false;
 }
 
-TokenState::TokenState(const String& prototype) :
-    words(parse_words(prototype)),
-    error_msg(EMPTY_STRING)
+TokenState::TokenState(const simple::string& prototype) :
+    words(parse_words(prototype))
 {
     cursor = 0;
     end = words.size();
 
     for (auto it = words.begin(); it != words.end(); ++it)
-        printf("%zd. %s\n", it.get_index(), it->as_string().m_string->c_str());////----
+        printf("%zd. %s\n", it.get_index(), it->c_str());////----
 }
 
 // Parse string text to words
 // Seperator by punctuation, space
-Array parse_words(const String& text)
+StringArray parse_words(const simple::string& text)
 {
     const unsigned char *p = (const unsigned char *) text.c_str();
-    Array arr(text.length() / 4);
+    StringArray arr(text.length() / 4);
+    
     size_t i = 0;
     while (i < text.length())
     {
@@ -237,7 +238,7 @@ Array parse_words(const String& text)
         {
             while (p[i] && (isalnum(p[i]) || p[i] == '_'))
                 i++;
-            arr.push_back(String((const char *)p + b, i - b));
+            arr.push_back(simple::string((const char *)p + b, i - b));
             continue;
         }
 
@@ -251,7 +252,7 @@ Array parse_words(const String& text)
                     has_dot = true;
                 i++;
             }
-            arr.push_back(String((const char *)p + b, i - b));
+            arr.push_back(simple::string((const char *)p + b, i - b));
             continue;
         }
 
@@ -279,7 +280,7 @@ Array parse_words(const String& text)
                 // Got .number
                 while (isdigit(p[i]))
                     i++;
-                arr.push_back(String((const char *)p + b, i - b));
+                arr.push_back(simple::string((const char *)p + b, i - b));
                 continue;
             }
 
@@ -290,7 +291,7 @@ Array parse_words(const String& text)
         }
 
         // Got single char
-        arr.push_back(String((const char *)p + i, 1));
+        arr.push_back(simple::string((const char *)p + i, 1));
         i++;
     }
     return arr;

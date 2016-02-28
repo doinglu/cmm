@@ -27,7 +27,7 @@ public:
 
         printf("Name: %s.\n", call_far(_thread, 1 /* Component:Name */, 1 /* get_name() */).m_string->c_str());
 
-        return Value(UNDEFINED);
+        return NIL;
     }
 
     Value perror(Thread *_thread, Value *__args, ArgNo __n)
@@ -36,7 +36,7 @@ public:
             throw_error("Bad parameters, expected %lld, got %lld.\n", (Int64)1, (Int64)__n);
 
         call_efun(_thread, "error", "perror(%O, %O, %O)!\n", __args[0], __args[1], __args[2]);
-        return Value(UNDEFINED);
+        return NIL;
     }
 };
 

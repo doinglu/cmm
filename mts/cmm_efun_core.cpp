@@ -30,7 +30,7 @@ DEFINE_EFUN(void, printf, (string format, ...))
     Output output;
     String ret = output.format_output(format.c_str(), &__args[1], __n - 1);
     printf("%s", ret.c_str());
-    return Value(UNDEFINED);
+    return NIL;
 }
 
 int init_efun_core()

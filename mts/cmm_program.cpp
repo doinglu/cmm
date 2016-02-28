@@ -14,11 +14,10 @@ namespace cmm
 {
 
 // Constructor of parameter
-SyntaxVariable::SyntaxVariable(Function* function, const String& name, ValueType type, Attrib attrib) :
-    m_default(UNDEFINED)
+SyntaxVariable::SyntaxVariable(Function* function, const String& name, ValueType type, Attrib attrib)
 {
     m_function = function;
-    m_name = Program::find_or_add_string(name);
+    m_name = Program::find_or_add_string(name.m_string);
     m_type = type;
     m_attrib = attrib;
 }
@@ -27,7 +26,7 @@ SyntaxVariable::SyntaxVariable(Function* function, const String& name, ValueType
 Function::Function(Program* program, const String& name)
 {
     m_program = program;
-    m_name = Program::find_or_add_string(name);
+    m_name = Program::find_or_add_string(name.m_string);
     m_min_arg_no = 0;
     m_max_arg_no = 0;
     m_max_local_no = 0;
@@ -128,7 +127,7 @@ void Function::set_byte_codes(Instruction* codes, size_t len)
 ObjectVar::ObjectVar(Program* program, const String& name)
 {
     m_program = program;
-    m_name = Program::find_or_add_string(name);
+    m_name = Program::find_or_add_string(name.m_string);
     m_type = (ValueType)0;
     m_no = 0;
 }
@@ -180,7 +179,8 @@ void Program::shutdown()
 // Create a program
 Program::Program(const String& name, Attrib attrib)
 {
-    m_name = Program::find_or_add_string(name);
+    m_name = Program::find_or_add_string(name.m_string);
+    m_value_list.set_name(m_name->c_str());
     auto* prev_program = find_program_by_name(m_name);
     if (prev_program)
     {
@@ -215,7 +215,7 @@ Program::~Program()
         XDELETE(it);
 
     // Destruct all constants
-    m_list.free();
+    m_value_list.free();
 
     std_enter_critical_section(m_program_cs);
     if (m_name_programs->find(m_name)->second == this)
@@ -229,9 +229,9 @@ Program::~Program()
 
 // Convert string to shared string in pool
 // The string.m_string may be updated if find in pool
-bool Program::convert_to_shared(const String* string)
+bool Program::convert_to_shared(StringImpl** string)
 {
-    if (!(string->m_string->attrib & ReferenceImpl::SHARED))
+    if (!((*string)->attrib & ReferenceImpl::SHARED))
     {
         // Not shared? Lookup in pool
         auto* string_impl_in_pool = find_string(*string);
@@ -239,14 +239,14 @@ bool Program::convert_to_shared(const String* string)
             return false;
 
         // Modify previous string
-        ((String*)string)->m_string = string_impl_in_pool;
+        *string = string_impl_in_pool;
     }
 
     return true;
 }
 
 // Find or add a string into pool
-StringImpl* Program::find_or_add_string(const String& string)
+StringImpl* Program::find_or_add_string(StringImpl* const string)
 {
     // Not found, create new string
     return m_string_pool->find_or_insert(string);
@@ -260,7 +260,7 @@ StringImpl* Program::find_or_add_string(const char* c_str)
 }
 
 // Find string in pool (return 0 if not found)
-StringImpl* Program::find_string(const String& string)
+StringImpl* Program::find_string(StringImpl* const string)
 {
     return m_string_pool->find(string);
 }
@@ -273,16 +273,16 @@ StringImpl* Program::find_string(const char* c_str)
 
 // Find a program by name (shared string)
 // The program_name may be updated during operation
-Program* Program::find_program_by_name(const String& program_name)
+Program* Program::find_program_by_name(StringImpl* const program_name)
 {
     Program* program;
 
-    if (!convert_to_shared(&program_name))
+    if (!convert_to_shared((StringImpl**)&program_name))
         // No such name in shared pool, program not found
         return 0;
 
     std_enter_critical_section(m_program_cs);
-    bool found = m_name_programs->try_get(program_name.ptr(), &program);
+    bool found = m_name_programs->try_get(program_name, &program);
     std_leave_critical_section(m_program_cs);
 
     if (!found)
@@ -314,7 +314,7 @@ ConstantIndex Program::define_constant(const Value& value)
     {
         if (dup.m_type == STRING)
         {
-            dup.m_string = Program::find_or_add_string(*(String*)&dup);
+            dup.m_string = Program::find_or_add_string(dup.m_string);
         } else
         {
             STD_ASSERT(("There are still values in thread local value list.\n",
@@ -591,7 +591,7 @@ void Program::add_component(const String& program_name)
 {
     // Lookup & add all new programs
     ComponentInfo component;
-    component.program_name = Program::find_or_add_string(program_name);
+    component.program_name = Program::find_or_add_string(program_name.m_string);
     component.program = 0; // Will be updated later in update_program()
     component.offset = 0;  // Will be updated later in update_program()
     m_components.push_back(component);
@@ -642,14 +642,14 @@ void Program::mark_constant(Value* value)
     if (value->m_type == STRING)
     {
         // For string, move them into shared string pool
-        value->m_string = Program::find_or_add_string(*(String*)value);
+        value->m_string = Program::find_or_add_string(value->m_string);
         return;
     }
 
     // Move non-string reference value to this program
     reference->attrib |= ReferenceImpl::CONSTANT;
     reference->unbind();
-    m_list.append_value(reference);
+    m_value_list.append_value(reference);
     switch (value->m_type)
     {
     case ARRAY:
@@ -732,6 +732,22 @@ void Program::update_callees()
     }
 }
 
+// Mark object's member variables
+void Program::mark_value(MarkValueState& state, Object* object)
+{
+    for (auto &it : m_components)
+    {
+        auto* p = (AbstractComponent*)(((Uint8*)object) + it.offset);
+        size_t n = it.program->m_object_vars.size();
+        for (auto i = 0; i < n; i++)
+        {
+            auto* value = &p->m_object_vars[i];
+            if (value->m_type >= REFERENCE_VALUE)
+                state.mark_value(value->m_reference);
+        }
+    }
+}
+
 // Create a new instance
 Object* Program::new_instance(Domain* domain)
 {
@@ -771,21 +787,26 @@ Object* Program::new_instance(Domain* domain)
 }
 
 // Invoke a function in program
+// ATTENTION: args[0..n) should be in local stack (see call_other)
 Value Program::invoke(Thread* thread, ObjectId oid, const Value& function_name, Value* args, ArgNo n) const
 {
     CalleeInfo callee;
 
+    // Make sure args in local stack ([0..64K] from &thread) 
+    STD_ASSERT(!args || (void*)args > (void*)&thread);
+    STD_ASSERT(!args || (char*)args - (char*)&thread < 65536);
+
     if (function_name.m_type != ValueType::STRING)
         // Bad type of function name
-        return Value(UNDEFINED);
+        return NIL;
 
     if (!get_public_callee_by_name((String*)&function_name, &callee))
         // No such function
-        return Value(UNDEFINED);
+        return NIL;
 
-    if (!thread->try_switch_object_by_id(thread, oid, args, n))
+    if (!thread->try_switch_object_by_id(thread, oid, args, n, Thread::get_stack_pointer_func()()))
         // The object is not existed or just destructed
-        return Value(UNDEFINED);
+        return NIL;
 
     // Call
     auto* object = Object::get_object_by_id(oid);
@@ -795,11 +816,18 @@ Value Program::invoke(Thread* thread, ObjectId oid, const Value& function_name, 
     Function::ScriptEntry func = callee.function->m_entry.script_entry;
 
     thread->push_call_context(object, callee.function, args, n, component_no);
-    thread->push_domain_context(&thread);
-    auto ret = (component_impl->*func)(thread, args, n);
-    ret = thread->pop_domain_context(ret);
+    // Push domain context with first argument as start_sp since when do GC, wo need to
+    // scan all arguments
+    // ATTENTION: When program executed here, it should push all registeres before calling
+    // this routine into stack(>=stack pointer). Since the GC will trace all root pointers
+    // in local stack. It will lose root if any registered was not saved now.
+    thread->push_domain_context(args + n);
+    thread->get_current_domain()->check_gc();  // Check target domain GC after copied arguments
+    Value other_ret = (component_impl->*func)(thread, args, n);
+    Value this_ret = thread->pop_domain_context(other_ret);
     thread->pop_call_context();
-    return ret;
+    thread->get_current_domain()->check_gc();  // Check source domain GC after copied return value
+    return this_ret; // Return value was in this_ret
 }
 
 // Invoke self function
@@ -810,7 +838,7 @@ Value Program::invoke_self(Thread* thread, const Value& function_name, Value* ar
 
     if (function_name.m_type != ValueType::STRING)
         // Bad type of function name
-        return Value(UNDEFINED);
+        return NIL;
 
     // Get program of the current module
     auto* object = thread->get_this_object();
@@ -819,7 +847,7 @@ Value Program::invoke_self(Thread* thread, const Value& function_name, Value* ar
 
     if (!to_program->get_self_callee_by_name((String*)&function_name, &callee))
         // No such function
-        return Value(UNDEFINED);
+        return NIL;
 
     // Call
     ComponentOffset offset = m_components[component_no].offset;
@@ -838,7 +866,7 @@ Program* Program::get_program_by_name(const Value& program_name)
         // Bad type of function name
         return NULL;
 
-    if (!convert_to_shared((String*)&program_name))
+    if (!convert_to_shared((StringImpl**)&program_name.m_string))
         // Not found in shared string, not a program name
         return NULL;
 

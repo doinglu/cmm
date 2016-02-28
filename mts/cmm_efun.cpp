@@ -37,7 +37,10 @@ void Efun::shutdown()
 // Add an efun
 bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, const String& prototype_text)
 {
-    bool is_system_package = (prefix.sub_string(0, 7) == "system.");
+    const char *c_str = prefix.c_str();
+    const char prefix_system[] = "system.";
+    size_t prefix_system_len = strlen(prefix_system);
+    bool is_system_package = strncmp(c_str, prefix_system, prefix_system_len) == 0;
 
     PrototypeGrammar::Prototype prototype;
     if (!parse_efun_prototype(prototype_text, &prototype))
@@ -77,12 +80,15 @@ bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, con
     }
     function->finish_adding_parameters();
 
+    auto* thread = Thread::get_current_thread();
+    String fun_name_with_prefix = NIL;
+
     // Add name->function to efun map
     // For system package, add two entries, one for short name (without package prefix)
     auto *fun_name = function->get_name();
-    auto *fun_name_with_prefix = (prefix + fun_name).ptr();
-    fun_name_with_prefix = Program::find_or_add_string(fun_name_with_prefix);
-    m_efun_map->put(fun_name_with_prefix, function);
+    fun_name_with_prefix = prefix.m_string->concat(fun_name);
+    fun_name_with_prefix = Program::find_or_add_string(fun_name_with_prefix.m_string);
+    m_efun_map->put(fun_name_with_prefix.ptr(), function);
 
     // Add short name for efun in system package
     if (is_system_package)
@@ -94,7 +100,8 @@ bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, con
 void Efun::add_efuns(const String& package_name, EfunDef *efun_def_array)
 {
     // Is package_name lead by "system."?
-    String prefix = package_name + ".";
+    String prefix = package_name;
+    prefix.concat(".");
 
     // Create program for this package
     auto *program = XNEW(Program, package_name);
@@ -112,7 +119,7 @@ void Efun::add_efuns(const String& package_name, EfunDef *efun_def_array)
 // mapping mapping_query(mapping a, mixed key = "/")
 // Grammar:
 // prototype = type function_name(argument_list)
-// type = "int" | "real" | "object" | "string" | "buffer" | "array" | "mapping"
+// type = "int" | "real" | "void" | "object" | "string" | "buffer" | "array" | "mapping"
 // function_name = {word}
 // argument_list = argument ["," argument_list]*
 // argument = type ["?"] argument_name [optional_assign]
@@ -121,7 +128,7 @@ void Efun::add_efuns(const String& package_name, EfunDef *efun_def_array)
 // constant = {json}
 bool Efun::parse_efun_prototype(const String& text, PrototypeGrammar::Prototype *ptr_prototype)
 {
-    PrototypeGrammar::TokenState state(text);
+    PrototypeGrammar::TokenState state(text.c_str());
     PrototypeGrammar::Prototype prototype;
 
     if (!PrototypeGrammar::match_prototype(state, &prototype))
@@ -141,17 +148,23 @@ bool Efun::parse_efun_prototype(const String& text, PrototypeGrammar::Prototype 
 Value Efun::invoke(Thread *thread, const Value& function_name, Value *args, ArgNo n)
 {
     if (function_name.m_type != ValueType::STRING)
+    {
         // Bad type of function name
-        return Value(UNDEFINED);
+        return NIL;
+    }
 
-    if (!Program::convert_to_shared((String*)&function_name))
+    if (!Program::convert_to_shared((StringImpl**)&function_name.m_string))
+    {
         // Not found name in shared string pool, no such efun
-        return Value(UNDEFINED);
+        return NIL;
+    }
 
     Function *function;
     if (!m_efun_map->try_get(simple::raw_type(function_name.m_string), &function))
+    {
         // Function is not found
-        return Value(UNDEFINED);
+        return NIL;
+    }
 
     auto func_entry = function->get_efun_entry();
     thread->push_call_context(thread->get_this_object(), (void *)func_entry, args, n,
@@ -172,7 +185,7 @@ Function* Efun::get_efun(const Value& function_name)
         // Bad type of function name
         return NULL;
 
-    if (!Program::convert_to_shared((String*)&function_name))
+    if (!Program::convert_to_shared((StringImpl**)&function_name.m_string))
         // Not found name in shared string pool, no such efun
         return NULL;
 

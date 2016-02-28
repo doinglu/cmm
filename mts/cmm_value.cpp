@@ -56,10 +56,7 @@ void ReferenceImpl::bind_to_current_domain()
 // Unbind me if already binded
 void ReferenceImpl::unbind()
 {
-    if (owner == 0)
-        // Not binded yet, do nothing
-        return;
-
+    STD_ASSERT(("Value is not belong to any list.", owner != 0));
     owner->remove(this);
 }
 
@@ -287,7 +284,7 @@ BufferImpl::~BufferImpl()
         size_t n = info->n;
         size_t size = info->size;
         STD_ASSERT(("Bad stamp of buffer class[].", info->stamp == CLASS_1_STAMP || info->stamp == CLASS_N_STAMP));
-        STD_ASSERT(("Bad n or size of buffer to contain class[].", size * n + RESERVE_FOR_CLASS_ARR == len));
+        STD_ASSERT(("Bad n or size of buffer to contain class[].", size * n + RESERVE_FOR_CLASS_ARR <= len));
         Uint8 *ptr_class = data() + RESERVE_FOR_CLASS_ARR;
         for (size_t i = 0; i < n; i++, ptr_class += size)
             destructor(ptr_class);
@@ -351,19 +348,32 @@ void BufferImpl::free(const char *file, int line, BufferImpl *buffer)
     std_free_memory(buffer, "cpp", file, line);
 }
 
-Value::Value(Object *ob) :
-    Value(ob->get_oid())
+Value& Value::operator =(Object *ob)
 {
+    *this = ob->get_oid();
+    return *this;
 }
 
-Value::Value(const char *c_str, size_t len) :
-    Value(STRING_ALLOC(c_str, len))
+Value& Value::operator =(const char *c_str)
 {
+    *this = STRING_ALLOC(c_str);
+    return *this;
 }
 
-Value::Value(const simple::string& str) :
-    Value(STRING_ALLOC(str))
+Value& Value::operator =(const simple::string& str)
 {
+    *this = STRING_ALLOC(str);
+    return *this;
+}
+
+Value::Value(const char *c_str)
+{
+    *this = STRING_ALLOC(c_str);
+}
+
+Value::Value(const simple::string& str)
+{
+    *this = STRING_ALLOC(str);
 }
 
 // Calculate & cache hash number of the value
@@ -387,24 +397,24 @@ Value& Value::bind_to(Domain *domain)
     return *this;
 }
 
-Value& Value::operator [](const Value& value)
+Value& Value::set(const Value& key, const Value& value)
 {
     switch (m_type)
     {
-    case MAPPING: return (*m_map).index_ptr(value);
-    case ARRAY: return (*m_array).index_ptr(value);
+    case MAPPING: return (*m_map).set(key, value);
+    case ARRAY: return (*m_array).set(key, value);
     default: throw_error("Bad type of value to index.\n");
     }
 }
 
 // Get index from container
-const Value Value::operator [](const Value& value) const
+Value Value::get(const Value& key) const
 {
     switch (m_type)
     {
-    case STRING: return (*m_string).index_val(value);
-    case MAPPING: return (*m_map).index_val(value);
-    case ARRAY: return (*m_array).index_val(value);
+    case STRING: return (*m_string).get(key);
+    case MAPPING: return (*m_map).get(key);
+    case ARRAY: return (*m_array).get(key);
     default: throw_error("Bad type of value to index.\n");
     }
 }
@@ -419,6 +429,22 @@ StringImpl *StringImpl::concat(const StringImpl *other) const
     char_t *p = (char_t *)string->buf;
     memcpy(p, this->buf, len1 * sizeof(char_t));
     memcpy(p + len1, other->buf, len2 * sizeof(char_t));
+    p[len] = 0;
+
+    // Replace with new string
+    return string;
+}
+
+// Concat with other c string
+StringImpl *StringImpl::concat(const char *c_str) const
+{
+    size_t len1 = this->length();
+    size_t len2 = strlen(c_str);
+    size_t len = len1 + len2;
+    auto *string = STRING_ALLOC(len);
+    char_t *p = (char_t *)string->buf;
+    memcpy(p, this->buf, len1 * sizeof(char_t));
+    memcpy(p + len1, c_str, len2 * sizeof(char_t));
     p[len] = 0;
 
     // Replace with new string

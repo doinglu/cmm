@@ -18,7 +18,7 @@ IdentInfo::IdentInfo(Lang* context) :
 // Add a new ident unit to ident table
 // ATTENTION:
 // tag of the ident unit must be larger or equal to previous existed one
-bool LangSymbols::add_ident_info(String name, IdentInfo* info, AstNode* node)
+bool LangSymbols::add_ident_info(const simple::string& name, IdentInfo* info, AstNode* node)
 {
     IdentInfo* next = 0;
 
@@ -34,7 +34,7 @@ bool LangSymbols::add_ident_info(String name, IdentInfo* info, AstNode* node)
             auto* decl = (AstDeclaration*)node;
             m_lang_context->syntax_errors(m_lang_context,
                 "%s(%d): error %d: '%s %s': redefinition\n",
-                node->location.file.c_str(), node->location.line,
+                node->location.file->c_str(), node->location.line,
                 C_REDEFINITION,
                 ast_var_type_to_string(decl->var_type).c_str(), decl->name.c_str());
             m_lang_context->m_error_code = PASS1_ERROR;
@@ -45,7 +45,7 @@ bool LangSymbols::add_ident_info(String name, IdentInfo* info, AstNode* node)
             auto* prototype = function->prototype;
             m_lang_context->syntax_errors(m_lang_context,
                 "%s(%d): error %d: '%s %s()': redefinition\n",
-                node->location.file.c_str(), node->location.line,
+                node->location.file->c_str(), node->location.line,
                 C_REDEFINITION,
                 ast_var_type_to_string(prototype->ret_var_type).c_str(), prototype->name.c_str());
             m_lang_context->m_error_code = PASS1_ERROR;
@@ -59,7 +59,7 @@ bool LangSymbols::add_ident_info(String name, IdentInfo* info, AstNode* node)
 }
 
 // Get a ident unit that matched expected type
-IdentInfo* LangSymbols::get_ident_info(String name, Uint32 expect_types)
+IdentInfo* LangSymbols::get_ident_info(const simple::string& name, Uint32 expect_types)
 {
     IdentInfo* p;
 

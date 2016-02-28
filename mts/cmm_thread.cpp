@@ -65,6 +65,7 @@ Thread::Thread(const char *name)
         m_name[sizeof(m_name) - 1] = 0;
     } else
         snprintf(m_name, sizeof(m_name), "Thread(%zu)", (size_t) std_get_current_task_id());
+    m_value_list.set_name(m_name);
 
     // Initialize call context
     m_all_call_contexts = new CallContext[m_max_call_context_level];
@@ -199,8 +200,7 @@ void Thread::restore_call_stack_for_error(CallContext *to_call_context)
                m_this_domain_context->value.m_call_context > call_context)
         {
             // Back to previous domain context according the call context
-            Value unused_ret(UNDEFINED);
-            pop_domain_context(unused_ret);
+            pop_domain_context(NIL);
         }
 
         call_context--;
@@ -282,7 +282,7 @@ void Thread::switch_domain(Domain *to_domain)
 // Switch object by oid
 // Since the object may be destructed in other thread, I must lock the
 // object & switch to it
-bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *args, ArgNo n)
+bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *args, ArgNo n, void* end_sp)
 {
     // ATTENTION:
     // We can these values no matter the entry is freed or allocated, since
@@ -294,6 +294,9 @@ bool Thread::try_switch_object_by_id(Thread *thread, ObjectId to_oid, Value *arg
 
     if (m_current_domain != to_domain)
     {
+        // Save sp to current domain context before switching
+        m_this_domain_context->value.m_end_sp = end_sp;
+
         // Domain will be changed
         // Copy arguments to thread local value list & pass to target
         for (ArgNo i = 0; i < n; i++)
@@ -376,8 +379,8 @@ Value Thread::get_domain_context_list()
     while (p)
     {
         Map map = p->value.m_domain->get_domain_detail();
-        map["stack_top"] = (size_t)p->value.m_start_sp;
-        map["stack_bottom"] = (size_t)p->value.m_end_sp;
+        map.set("stack_top", (size_t)p->value.m_start_sp);
+        map.set("stack_bottom", (size_t)p->value.m_end_sp);
         arr.push_back(map);
         p = p->prev;
     }
