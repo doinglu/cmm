@@ -74,7 +74,7 @@ public:
     void erase(iterator& it)
     {
         STD_ASSERT(it.m_size == size());
-        STD_ASSERT(it.m_index < size());
+        STD_ASSERT(it >= begin() && it < end());
         erase(m_peek_func(*it.m_cursor_ptr));
 
 #ifdef _DEBUG
@@ -327,13 +327,13 @@ class hash_base_iterator
     friend hash_base_type;
 
 public:
-    hash_base_iterator() :
+    hash_base_iterator()
 #ifdef _DEBUG
-        m_map(0),
+      : m_map(0),
         m_size(0),
-#endif
         m_index(0),
         m_cursor_ptr(0)
+#endif
     {
     }
 
@@ -344,37 +344,32 @@ private:
 #ifdef _DEBUG
         m_map = &m;
         m_size = (index_t)m.size();
-#endif
         m_index = index;
+#endif
         m_cursor_ptr = m.m_elements.get_array_address(index);
-    }
-
-public:
-    // Get index of iterator
-    index_t get_index()
-    {
-        return m_index;
     }
 
 public:
     T& operator * ()
     {
         STD_ASSERT(m_size == m_map->size());
-        STD_ASSERT(*this < m_map->end());
+        STD_ASSERT(m_index < m_size);
         return *m_cursor_ptr;
     }
 
     T *operator -> ()
     {
         STD_ASSERT(m_size == m_map->size());
-        STD_ASSERT(*this < m_map->end());
+        STD_ASSERT(m_index < m_size);
         return m_cursor_ptr;
     }
 
     // Move to next
     hash_base_iterator& operator ++ ()
     {
+#ifdef _DEBUG
         m_index++;
+#endif
         m_cursor_ptr++;
         return *this;
     }
@@ -388,12 +383,12 @@ public:
 
     bool operator == (const hash_base_iterator& it) const
     {
-        return m_index == it.m_index;
+        return m_cursor_ptr == it.m_cursor_ptr;
     }
 
     bool operator < (const hash_base_iterator& it) const
     {
-        return m_index < it.m_index;
+        return m_cursor_ptr < it.m_cursor_ptr;
     }
 
 private:
@@ -401,8 +396,8 @@ private:
 #ifdef _DEBUG
     hash_base_type *m_map;
     index_t m_size;
-#endif
     index_t m_index;
+#endif
     T *m_cursor_ptr;
 };
 

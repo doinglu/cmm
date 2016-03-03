@@ -2290,7 +2290,7 @@ static void _std_show_mem_block(Uint8 *buf, size_t len)
 static void _std_dump_mem_block(FILE *fp, Uint8 *buf, size_t len)
 {
     size_t i;
-    int    x;
+    int    x = 0;
     Uint8  temp[18] = "................\n";
 
     fprintf(fp, "--------------------------------------------------->>>\n");

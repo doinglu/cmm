@@ -210,8 +210,9 @@ TokenState::TokenState(const simple::string& prototype) :
     cursor = 0;
     end = words.size();
 
-    for (auto it = words.begin(); it != words.end(); ++it)
-        printf("%zd. %s\n", it.get_index(), it->c_str());////----
+    size_t index = 0;
+    for (auto it = words.begin(); it != words.end(); ++it, ++index)
+        printf("%zd. %s\n", index, it->c_str());////----
 }
 
 // Parse string text to words

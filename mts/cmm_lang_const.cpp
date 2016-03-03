@@ -14,42 +14,42 @@ namespace cmm
 {
 #include "cmm_grammar.h"
 
-Value          create_const_value(Lang* context, AstElement* element);
-Integer        const_to_int(Lang* context, Value val); 
-Real           const_to_real(Lang* context, Value val);
-String         const_to_string(Lang* context, Value val);
-bool           const_to_bool(Lang* context, Value val);
-AstElement* generate_const_to_element(Lang* context, Value val);
-AstElement* cast_const_to_number(Lang* context, AstElement* element);
-AstElement* cast_const_to_real(Lang* context, AstElement* element);
-AstElement* cast_const_to_string(Lang* context, AstElement* element);
-AstElement* add_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* sub_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* mul_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* mod_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* div_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* and_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* or_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* xor_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* neg_const(Lang* context, AstElement* element);
-AstElement* rev_const(Lang* context, AstElement* element);
-AstElement* ge_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* le_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* gt_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* lt_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* eq_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* ne_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* lsh_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* rsh_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* land_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* lor_const(Lang* context, AstElement* element, AstElement* node2);
-AstElement* lnot_const(Lang* context, AstElement* element);
-AstElement* select_const(Lang* context, AstElement* element, AstElement* node2, AstElement* pNodes3);
+Value          create_const_value(Lang* lang_context, AstElement* element);
+Integer        const_to_int(Lang* lang_context, Value val);
+Real           const_to_real(Lang* lang_context, Value val);
+String         const_to_string(Lang* lang_context, Value val);
+bool           const_to_bool(Lang* lang_context, Value val);
+AstElement* generate_const_to_element(Lang* lang_context, Value val);
+AstElement* cast_const_to_number(Lang* lang_context, AstElement* element);
+AstElement* cast_const_to_real(Lang* lang_context, AstElement* element);
+AstElement* cast_const_to_string(Lang* lang_context, AstElement* element);
+AstElement* add_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* sub_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* mul_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* mod_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* div_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* and_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* or_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* xor_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* neg_const(Lang* lang_context, AstElement* element);
+AstElement* rev_const(Lang* lang_context, AstElement* element);
+AstElement* ge_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* le_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* gt_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* lt_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* eq_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* ne_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* lsh_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* rsh_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* land_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* lor_const(Lang* lang_context, AstElement* element, AstElement* node2);
+AstElement* lnot_const(Lang* lang_context, AstElement* element);
+AstElement* select_const(Lang* lang_context, AstElement* element, AstElement* node2, AstElement* pNodes3);
 
 /* Generate operation const */
 AstExpression* Lang::gen_op_const(Uint32 op, AstExpression* left, AstExpression* right)
 {
-    auto* context = this;
+    auto* lang_context = this;
     AstElement* element = NULL;
     AstExpression* expression = NULL;
     AstElement* const_left = NULL, *const_right = NULL;
@@ -86,94 +86,94 @@ AstExpression* Lang::gen_op_const(Uint32 op, AstExpression* left, AstExpression*
     switch (op)
     {
     case '+':
-        element = add_const(context, const_left, const_right);
+        element = add_const(lang_context, const_left, const_right);
         break;
 
     case '-':
         if (const_left && const_right)
             /* sub */
-            element = sub_const(context, const_left, const_right);
+            element = sub_const(lang_context, const_left, const_right);
         else if (const_right)
             /* negativ */
-            element = neg_const(context, const_right);
+            element = neg_const(lang_context, const_right);
 
         break;
 
     case '*':
-        element = mul_const(context, const_left, const_right);
+        element = mul_const(lang_context, const_left, const_right);
         break;
 
     case '%':
-        element = mod_const(context, const_left, const_right);
+        element = mod_const(lang_context, const_left, const_right);
         break;
 
     case '/':
-        element = div_const(context, const_left, const_right);
+        element = div_const(lang_context, const_left, const_right);
         break;
 
     case '&':
-        element = and_const(context, const_left, const_right);
+        element = and_const(lang_context, const_left, const_right);
         break;
 
     case '|':
-        element = or_const(context, const_left, const_right);
+        element = or_const(lang_context, const_left, const_right);
         break;
 
     case '^':
-        element = xor_const(context, const_left, const_right);
+        element = xor_const(lang_context, const_left, const_right);
         break;
 
     case '~':
-        element = rev_const(context, const_right);
+        element = rev_const(lang_context, const_right);
         break;
 
     case F_GE:
-        element = ge_const(context, const_left, const_right);
+        element = ge_const(lang_context, const_left, const_right);
         break;
 
     case F_LE:
-        element = le_const(context, const_left, const_right);
+        element = le_const(lang_context, const_left, const_right);
         break;
 
     case F_GT:
-        element = gt_const(context, const_left, const_right);
+        element = gt_const(lang_context, const_left, const_right);
         break;
 
     case F_LT:
-        element = lt_const(context, const_left, const_right);
+        element = lt_const(lang_context, const_left, const_right);
         break;
 
     case L_EQ:
-        element = eq_const(context, const_left, const_right);
+        element = eq_const(lang_context, const_left, const_right);
         break;
     
     case L_NE:
-        element = ne_const(context, const_left, const_right);
+        element = ne_const(lang_context, const_left, const_right);
         break;
 
     case F_NE:
-        element = ne_const(context, const_left, const_right);
+        element = ne_const(lang_context, const_left, const_right);
         break;
 
     case L_LSH:
-        element = lsh_const(context, const_left, const_right);
+        element = lsh_const(lang_context, const_left, const_right);
         break;
 
     case L_RSH:
-        element = rsh_const(context, const_left, const_right);
+        element = rsh_const(lang_context, const_left, const_right);
         break;
         
     case L_LOR:
-        element = lor_const(context, const_left, const_right);
+        element = lor_const(lang_context, const_left, const_right);
         break;
 
     case L_LAND:
-        element = land_const(context, const_left, const_right);
+        element = land_const(lang_context, const_left, const_right);
         break;
 
     case L_LNOT:
     case '!':
-        element = lnot_const(context, const_right);
+        element = lnot_const(lang_context, const_right);
         break;
 
     default:
@@ -181,7 +181,7 @@ AstExpression* Lang::gen_op_const(Uint32 op, AstExpression* left, AstExpression*
         STD_ASSERT(0 && "not supported const operation!");
     }
 
-    expression = context->syntax_create_expression(element);
+    expression = lang_context->syntax_create_expression(element);
     expression->is_constant = 1;
 
     return expression;
@@ -191,7 +191,7 @@ AstExpression* Lang::gen_op_const(Uint32 op, AstExpression* left, AstExpression*
 /* cast const to type */
 AstExpression* Lang::gen_cast_const(AstExpression* exp, IntR type)
 {
-    auto* context = this;
+    auto* lang_context = this;
     AstElement* element = NULL;
     AstElement* element = NULL;
     AstExpression* expression = NULL;
@@ -204,15 +204,15 @@ AstExpression* Lang::gen_cast_const(AstExpression* exp, IntR type)
     switch (type)
     {
     case INTEGER:
-        element = cast_const_to_number(context, element);
+        element = cast_const_to_number(lang_context, element);
         break;
 
     case REAL:
-        element = cast_const_to_real(context, element);
+        element = cast_const_to_real(lang_context, element);
         break;
 
     case STRING:
-        element = cast_const_to_string(context, element);
+        element = cast_const_to_string(lang_context, element);
         break;
 
     default:
@@ -220,14 +220,14 @@ AstExpression* Lang::gen_cast_const(AstExpression* exp, IntR type)
         return NULL;
     }
 
-    expression = context->syntax_create_expression(element);
+    expression = lang_context->syntax_create_expression(element);
     expression->is_constant = 1;
     return expression;
 }
 
 /* Get value of const value */
 /* Return integer/real/string in pointer */
-Value create_const_value(Lang* context, AstElement* element)
+Value create_const_value(Lang* lang_context, AstElement* element)
 {
     STD_ASSERT(element->is_constant);
 
@@ -253,34 +253,34 @@ Value create_const_value(Lang* context, AstElement* element)
 }
 
 /* Convert const value to integer */
-Integer const_to_int(Lang* context, Value val)
+Integer const_to_int(Lang* lang_context, Value val)
 {
     return (Integer)val;
 }
 
 /* Convert const value to real */
-Real const_to_real(Lang* context, Value val)
+Real const_to_real(Lang* lang_context, Value val)
 {
     return (Real)val;
 }
 
 /* Convert const value to string (char *) */
-String const_to_string(Lang* context, Value val)
+String const_to_string(Lang* lang_context, Value val)
 {
     return (String)val;
 }
 
 /* Convert const value to string (1 or 0) */
-bool const_to_bool(Lang* context, Value val)
+bool const_to_bool(Lang* lang_context, Value val)
 {
     return (bool)val;
 }
 
 /* Generate element by const value */
-AstElement* generate_const_to_element(Lang* context, Value val)
+AstElement* generate_const_to_element(Lang* lang_context, Value val)
 {
     char output[64];
-    AstElement* element = context->syntax_create_element();
+    AstElement* element = lang_context->syntax_create_element();
 
     element->is_constant = true;
     element->type = val.m_type;
@@ -313,247 +313,247 @@ AstElement* generate_const_to_element(Lang* context, Value val)
 
 /* Const operations */
 /* cast type: (IntR) */
-AstElement* cast_const_to_number(Lang* context, AstElement* element)
+AstElement* cast_const_to_number(Lang* lang_context, AstElement* element)
 {
     Value a;
 
-    a = create_const_value(context, element);
-    a = const_to_int(context, a);
-    return generate_const_to_element(context, a);
+    a = create_const_value(lang_context, element);
+    a = const_to_int(lang_context, a);
+    return generate_const_to_element(lang_context, a);
 }
 
 /* cast type: (float) */
-AstElement* cast_const_to_real(Lang* context, AstElement* element)
+AstElement* cast_const_to_real(Lang* lang_context, AstElement* element)
 {
     Value a;
-    a = create_const_value(context, element);
-    a = const_to_real(context, a);
-    return generate_const_to_element(context, a);
+    a = create_const_value(lang_context, element);
+    a = const_to_real(lang_context, a);
+    return generate_const_to_element(lang_context, a);
 }
 
 /* cast type: (string) */
-AstElement* cast_const_to_string(Lang* context, AstElement* element)
+AstElement* cast_const_to_string(Lang* lang_context, AstElement* element)
 {
     Value a;
-    a = create_const_value(context, element);
-    a = const_to_string(context, a);
-    return generate_const_to_element(context, a);
+    a = create_const_value(lang_context, element);
+    a = const_to_string(lang_context, a);
+    return generate_const_to_element(lang_context, a);
 }
 
 /* a + b */
-AstElement* add_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* add_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a + b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a - b */
-AstElement* sub_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* sub_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a - b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a * b */
-AstElement* mul_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* mul_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a * b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a % b */
-AstElement* mod_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* mod_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a % b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a / b */
-AstElement* div_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* div_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a / b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a & b */
-AstElement* and_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* and_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a & b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a | b */
-AstElement* or_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* or_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a | b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a ^ b */
-AstElement* xor_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* xor_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a ^ b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* -a */
-AstElement* neg_const(Lang* context, AstElement* element)
+AstElement* neg_const(Lang* lang_context, AstElement* element)
 {
     Value a, r;
 
-    a = create_const_value(context, element);
+    a = create_const_value(lang_context, element);
     r = -a;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* ~a */
-AstElement* rev_const(Lang* context, AstElement* element)
+AstElement* rev_const(Lang* lang_context, AstElement* element)
 {
     Value a, r;
-    a = create_const_value(context, element);
+    a = create_const_value(lang_context, element);
     r = ~a;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a >= b */
-AstElement* ge_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* ge_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = (a >= b);
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a <= b */
-AstElement* le_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* le_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = (a <= b);
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a > b */
-AstElement* gt_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* gt_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = (a > b);
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a < b */
-AstElement* lt_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* lt_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = (a < b);
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a == b */
-AstElement* eq_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* eq_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = (a == b);
-    return generate_const_to_element(context, a);
+    return generate_const_to_element(lang_context, a);
 }
 
 /* a != b */
-AstElement* ne_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* ne_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = (a != b);
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a << b */
-AstElement* lsh_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* lsh_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a << b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a >> b */
-AstElement* rsh_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* rsh_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
     r = a >> b;
-    return generate_const_to_element(context, r);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a && b */
-AstElement* land_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* land_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
-    r = (const_to_bool(context, a) && const_to_bool(context, b));
-    return generate_const_to_element(context, r);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
+    r = (const_to_bool(lang_context, a) && const_to_bool(lang_context, b));
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a || b */
-AstElement* lor_const(Lang* context, AstElement* element, AstElement* node2)
+AstElement* lor_const(Lang* lang_context, AstElement* element, AstElement* node2)
 {
     Value a, b, r;
-    a = create_const_value(context, element);
-    b = create_const_value(context, node2);
-    r = (const_to_bool(context, a) || const_to_bool(context, b));
-    return generate_const_to_element(context, r);
+    a = create_const_value(lang_context, element);
+    b = create_const_value(lang_context, node2);
+    r = (const_to_bool(lang_context, a) || const_to_bool(lang_context, b));
+    return generate_const_to_element(lang_context, r);
 }
 
 /* ! a */
-AstElement* lnot_const(Lang* context, AstElement* element)
+AstElement* lnot_const(Lang* lang_context, AstElement* element)
 {
     Value a, r;
-    a = create_const_value(context, element);
-    r = !const_to_bool(context, a);
-    return generate_const_to_element(context, r);
+    a = create_const_value(lang_context, element);
+    r = !const_to_bool(lang_context, a);
+    return generate_const_to_element(lang_context, r);
 }
 
 /* a ? b : c */
-AstElement* select_const(Lang* context, AstElement* element, AstElement* node2, AstElement* node3)
+AstElement* select_const(Lang* lang_context, AstElement* element, AstElement* node2, AstElement* node3)
 {
     Value a;
-    a = create_const_value(context, element);
-    return const_to_bool(context, a) ? node2 : node3;
+    a = create_const_value(lang_context, element);
+    return const_to_bool(lang_context, a) ? node2 : node3;
 }
 
 }

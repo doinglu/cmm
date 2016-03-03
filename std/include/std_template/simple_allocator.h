@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <new>
 #include "std_memmgr/std_memmgr.h"
 
 namespace simple
@@ -41,9 +42,8 @@ public:
         count = 0;
         stamp = RESERVE_STAMP;
         T* p = (T*)(b + RESERVE_FOR_ARRAY);
-        for (count = 0; count < n; count++, p++)
-            new (p) T();
-        return (T*)(b + RESERVE_FOR_ARRAY);
+        init_class(p, n, count);
+        return p;
     }
 
     template<typename T>

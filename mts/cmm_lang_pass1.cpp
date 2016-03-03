@@ -316,7 +316,7 @@ bool Lang::pass1()
 
     // Lookup the AST from top to bottom
     // Work out all definitions
-    lookup_and_map_identifiers(m_root);
+    lookup_and_collect_info(m_root);
 
     // Lookup the AST from bottom to top
     // Work out type of all expressions
@@ -326,6 +326,9 @@ bool Lang::pass1()
     if (m_error_code != ErrorCode::OK)
         // Failed to define functions
         return false;
+
+    // Put root to entry_function
+    m_entry_function->body = m_root;
 
     return true;
 }
@@ -355,10 +358,12 @@ void Lang::init_symbol_table()
     }
 }
 
-// Lookup the whole AST from top to bottom
-// For those identifiers such as variables & functions, find out
-// their information & update to AST node
-void Lang::lookup_and_map_identifiers(AstNode *node)
+// Lookup the whole AST from top to bottom & collect basic information
+// 1. For those identifiers such as variables & functions, find out
+//    their information & update to AST node
+// 2. For those labels, save locations
+// 3. For those loop/switches, save break/continue locations
+void Lang::lookup_and_collect_info(AstNode *node)
 {
     bool new_frame = node->contains_new_frame();
 
@@ -465,13 +470,28 @@ void Lang::lookup_and_map_identifiers(AstNode *node)
         break;
     }
 
+    case AST_LABEL:
+    {
+        // Save label
+        auto* label = (AstLabel*)node;
+        m_symbols.add_label_info(label);
+        break;
+    }
+
     default:
         // Don't process for other nodes
         break;
     }
 
-    for (auto* p = node->children; p != 0; p = p->sibling)
-        lookup_and_map_identifiers(p);
+    // ATTENTION:
+    // p->sibling may be changed during parse (when pickup functions)
+    auto* p = node->children;
+    while (p != 0)
+    {
+        lookup_and_collect_info(p);
+        // Check for next sibling
+        p = p->sibling;
+    }
 
     if (new_frame)
         // Destruct the frame & definitions
@@ -752,7 +772,7 @@ VirtualRegNo Lang::alloc_virtual_reg(ValueType type, bool may_nil)
         {
             // Found a free local
             info.used = true;
-            return i;
+            return (VirtualRegNo)i;
         }
     }
 
@@ -829,7 +849,7 @@ ValueType Lang::derive_type_of_op(
     for (auto i = start_index; i < STD_SIZE_N(expr_op_types); i++)
     {
         auto* op_prototype = &expr_op_types[i];
-        if (op_prototype->op != op)
+        if (op_prototype->op != key_op)
             break;
 
         if ((op_prototype->operand1_type == operand1_type || op_prototype->operand1_type == ANY_TYPE) &&

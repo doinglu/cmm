@@ -47,9 +47,9 @@ struct MarkValueState;
 // Base type of VM referenced  value
 typedef enum : Uint8
 {
-    CONSTANT = 0x01,    // Unchanged/freed Referenced value
-    SHARED = 0x80,      // Shared in a values pool
-    MARKABLE = 0x40,    // Is this referring to other values?
+    REFERENCE_CONSTANT = 0x01,    // Unchanged Referenced value
+    REFERENCE_SHARED = 0x80,      // Shared in a values pool
+    REFERENCE_MARKABLE = 0x40,    // Is this referring to other values?
 } ReferenceImplAttrib;
 DECLARE_BITS_ENUM(ReferenceImplAttrib, Uint8);
 
@@ -69,7 +69,7 @@ public:
         next(0)
 	{
         if (type != STRING)
-            attrib |= ReferenceImplAttrib::MARKABLE;
+            attrib |= REFERENCE_MARKABLE;
     }
 
     virtual ~ReferenceImpl()
@@ -81,7 +81,13 @@ public:
     // Is this value a constant value?
     bool is_constant() const
     {
-        return (attrib & ReferenceImplAttrib::CONSTANT) ? true : false;
+        return (attrib & REFERENCE_CONSTANT) ? true : false;
+    }
+
+    // Is this value a shared value?
+    bool is_shared() const
+    {
+        return (attrib & REFERENCE_SHARED) ? true : false;
     }
 
 public:
@@ -104,7 +110,7 @@ public:
     size_t hash_value() const
     {
         if (!hash_cache)
-            hash_cache = (size_t)hash_this() + 1;
+            hash_cache = (decltype(hash_cache))hash_this() + 1;
 
         return hash_cache;
     }
@@ -113,7 +119,7 @@ public:
     bool need_mark_for_domain_gc()
     {
         // Markable & not shared, constant value?
-        return (attrib & MARKABLE) && !(attrib & (SHARED | CONSTANT));
+        return (attrib & REFERENCE_MARKABLE) && !(attrib & (REFERENCE_SHARED | REFERENCE_CONSTANT));
     }
 
     // This value will be freed manually, unbind it if necessary
@@ -489,6 +495,7 @@ public:
         case MAPPING:  return "mapping";
         case FUNCTION: return "function";
         case MIXED:    return "mixed";
+        case TVOID:    return "void";
         default:       return "bad type";
         }
     }

@@ -12,10 +12,11 @@ namespace cmm
 {
 
 class  Lang;
-struct AstDeclaration;
 struct AstNode;
+struct AstDeclaration;
 struct AstFunction;
 struct AstFunctionArg;
+struct AstLabel;
 
 // To speed up cleaning the hash table, and identify the union
 enum IdentType : Uint16
@@ -52,7 +53,7 @@ struct IdentInfo
     int        tag;                 // Tag (level) for this identifier 
     IdentInfo* next;
 
-    IdentInfo(Lang* context);
+    IdentInfo(Lang* lang_context);
 };
 
 class LangSymbols
@@ -69,12 +70,19 @@ public:
     IdentInfo*  get_ident_info(const simple::string& name, Uint32 expect_types);
     void        remove_ident_info_by_tag(int tag);
 
+public:
+    void        add_label_info(AstLabel* label);
+    AstLabel*   get_label_info(simple::string& label_name);
+
     // Utilities
 public:
 
 private:
     typedef simple::hash_map<simple::string, IdentInfo*> IdentTable;
     IdentTable m_ident_table;
+
+    typedef simple::hash_map<simple::string, AstLabel*> LabelTable;
+    LabelTable m_label_table;
 
     Lang* m_lang_context;
 };

@@ -5,7 +5,6 @@
 #ifndef XNEW
 // Other may replace the XNEW with themselves' definition
 
-#include <new>
 #include "std_memmgr/std_memmgr.h"
 #include "simple_util.h"
 
@@ -49,9 +48,8 @@ T* xnew_arr(const char* file, int line, size_t n)
     count = 0;
     stamp = RESERVE_STAMP;
     T* p = (T*)(b + RESERVE_FOR_ARRAY);
-    for (count = 0; count < n; count++, p++)
-        new (p) T();
-    return (T*)(b + RESERVE_FOR_ARRAY);
+    init_class(p, n, count);
+    return p;
 }
 
 // delete[]
@@ -74,4 +72,4 @@ void xdelete_arr(const char* file, int line, T* p)
 
 } // End of namespace: simple
 
-#endif
+#endif // XNEW

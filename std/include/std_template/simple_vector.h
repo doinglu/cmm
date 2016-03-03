@@ -5,6 +5,7 @@
 #include "simple.h"
 #include "std_port/std_port.h"
 #include "std_port/std_port_util.h"
+#include <vector>////----
 
 namespace simple
 {
@@ -17,6 +18,7 @@ class vector
 {
 public:
     typedef vector_iterator<T> iterator;
+    typedef int difference_type;
     friend iterator;
 
 public:
@@ -111,9 +113,8 @@ public:
     // Clear all elements
     void clear()
     {
-        T zero = T();
-        for (size_t i = 0; i < m_size; i++)
-            m_array[i] = zero;
+        size_t n = 0;
+        init_class(m_array, m_size, n);
         m_size = 0;
     }
 
@@ -154,6 +155,26 @@ public:
         m_array = new_array;
     }
 
+    // resize
+    void resize(size_t to)
+    {
+        if (to > m_size)
+        {
+            // Extend size
+            reserve(to);
+            init_class(m_array + m_size, to - m_size, m_size);
+            return;
+        } else
+        if (to < m_size)
+        {
+            // Don't use shrink since it may reallocate memory
+            // Erase elements
+            size_t n = m_size - to;
+            m_size = to;
+            init_class(m_array + m_size, n, to);
+        }
+    }
+
     // Shrink size
     void shrink(size_t to)
     {
@@ -189,6 +210,30 @@ public:
 
         // Not found
         return end();
+    }
+
+    // Insert an element
+    void insert(iterator it, const T& element)
+    {
+        insert(it - begin(), element);
+    }
+
+    // Insert an element
+    void insert(size_t index, const T& element)
+    {
+        if (index > m_size)
+            throw "Out of range for insertion.\n";
+
+        if (m_size >= m_space)
+        {
+            // Allocate new array with 2* size & move all elements
+            STD_ASSERT(m_size == m_space);
+            extend();
+        }
+        m_size++;
+        for (size_t i = m_size; i > index; i--)
+            m_array[i] = m_array[i - 1];
+        m_array[index] = element;
     }
 
     // Append an element
@@ -299,18 +344,24 @@ private:
 template<typename T>
 class vector_iterator
 {
+public:
     typedef vector<T> vector_type;
     typedef T value_type;
+    typedef T* pointer;
+    typedef T& reference;
+    typedef ptrdiff_t difference_type;
+    typedef typename std::random_access_iterator_tag iterator_category; // Let it suitable for STL usage
+
     friend vector_type;
 
 public:
-    vector_iterator() :
+    vector_iterator()
 #ifdef _DEBUG
-        m_vec(0),
+      : m_vec(0),
         m_size(0),
-#endif
+        m_index(0),
         m_cursor_ptr(0),
-        m_index(0)
+#endif
     {
     }
 
@@ -321,37 +372,33 @@ private:
 #ifdef _DEBUG
         m_vec = &vec;
         m_size = vec.size();
+        m_index = index;
 #endif
         m_cursor_ptr = &vec.m_array[index];
-        m_index = index;
-    }
-
-public:
-    size_t get_index()
-    {
-        return m_index;
     }
 
 public:
     value_type& operator * ()
     {
         STD_ASSERT(m_size == m_vec->size());
-        STD_ASSERT(*this < m_vec->end());
+        STD_ASSERT(m_index < m_size);
         return *m_cursor_ptr;
     }
 
     value_type *operator -> ()
     {
         STD_ASSERT(m_size == m_vec->size());
-        STD_ASSERT(*this < m_vec->end());
+        STD_ASSERT(m_index < m_size);
         return m_cursor_ptr;
     }
 
     // Move to next
     vector_iterator& operator ++ ()
     {
-        m_cursor_ptr++;
+#ifdef _DEBUG
         m_index++;
+#endif
+        m_cursor_ptr++;
         return *this;
     }
 
@@ -362,14 +409,47 @@ public:
         return tmp;
     }
 
+    vector_iterator operator + (difference_type offset)
+    {
+        return vector_iterator(*this) += offset;
+    }
+
+    vector_iterator operator += (difference_type offset)
+    {
+#ifdef _DEBUG
+        m_index += offset;
+#endif
+        m_cursor_ptr += offset;
+        return *this;
+    }
+
+    vector_iterator operator - (difference_type offset)
+    {
+        return vector_iterator(*this) -= offset;
+    }
+
+    vector_iterator operator -= (difference_type offset)
+    {
+#ifdef _DEBUG
+        m_index -= offset;
+#endif
+        m_cursor_ptr -= offset;
+        return *this;
+    }
+
+    difference_type operator - (vector_iterator other)
+    {
+        return (difference_type)(m_cursor_ptr - other.m_cursor_ptr);
+    }
+
     bool operator == (const vector_iterator& it) const
     {
-        return m_index == it.m_index;
+        return m_cursor_ptr == it.m_cursor_ptr;
     }
 
     bool operator < (const vector_iterator& it) const
     {
-        return m_index < it.m_index;
+        return m_cursor_ptr < it.m_cursor_ptr;
     }
 
 private:
@@ -377,9 +457,9 @@ private:
 #ifdef _DEBUG
     vector_type *m_vec;
     size_t m_size;
+    size_t m_index;
 #endif
     value_type *m_cursor_ptr;
-    size_t m_index;
 };
 
 // Unsafe vector (don't do bound check when index)

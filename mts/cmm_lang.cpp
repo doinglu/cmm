@@ -33,16 +33,11 @@ void Lang::shutdown()
 Lang::Lang() :
     m_components((size_t)0),
     m_lexer(this),
-    m_symbols(this)
+    m_symbols(this),
+    m_cfg(this)
 {
     // Initialize before any node created
     m_in_function = 0;
-
-    // Create the entry function @ no:0
-    m_entry_function = BUFFER_NEW(AstFunction, this);
-    m_entry_function->prototype = BUFFER_NEW(AstPrototype, this);
-    m_entry_function->no = 0;
-    m_functions.push_back(m_entry_function);
 
     m_num_errors = 0;
     m_num_warnings = 0;
@@ -57,6 +52,12 @@ Lang::Lang() :
 // Parse & generate AST
 ErrorCode Lang::parse()
 {
+    // Create the entry function @ no:0
+    m_entry_function = BUFFER_NEW(AstFunction, this);
+    m_entry_function->prototype = BUFFER_NEW(AstPrototype, this);
+    m_entry_function->no = 0;
+    m_functions.push_back(m_entry_function);
+
     // Set m_in_function to m_entry_function means start parse()
     m_in_function = m_entry_function;
     m_error_code = (ErrorCode)cmm_lang_parse(this);
@@ -71,79 +72,84 @@ ErrorCode Lang::parse()
 
     // Collect children
     collect_children(m_root);
+    for (auto& it : m_functions)
+        collect_children(it);
+
+    ErrorCode ret = OK;
 
     // Pass1
     if (!pass1())
-        return ErrorCode::PASS1_ERROR;
+        ret = ErrorCode::PASS1_ERROR;
 
-    if (!pass2())
-        return ErrorCode::PASS2_ERROR;
+    for (auto& it : m_functions)
+        if (!pass2(it))
+            ret = ErrorCode::PASS2_ERROR;
 
-    return ErrorCode::OK;
+    return ret;
 }
 
 // Compiler's error function 
-void Lang::syntax_error(Lang* context, const char *msg)
+void Lang::syntax_error(Lang* lang_context, const char *msg)
 {
-    context->m_num_errors++;
+    lang_context->m_num_errors++;
 
     cmm_errprintf("%s(%d): error %d: %s\n",
-                  context->m_lexer.m_current_file_name->c_str(),
-                  (int)context->m_lexer.m_current_line,
+                  lang_context->m_lexer.m_current_file_name->c_str(),
+                  (int)lang_context->m_lexer.m_current_line,
                   C_PARSER, msg);
 
-    context->m_num_errors++;
-    if (context->m_num_errors >= MAX_COMPILER_ERRORS)
+    lang_context->m_num_errors++;
+    if (lang_context->m_num_errors >= MAX_COMPILER_ERRORS)
     {
         cmm_errprintf("Max errors(%d) exceeded.\nCompiler terminated\n",
                       MAX_COMPILER_ERRORS);
-        syntax_stop(context, COMPILE_ERROR);
+        syntax_stop(lang_context, COMPILE_ERROR);
     }
 }
 
 // Compiler's error function 
-void Lang::syntax_errors(Lang* context, const char *format, ...)
+void Lang::syntax_errors(Lang* lang_context, const char *format, ...)
 {
-    context->m_num_errors++;
+    lang_context->m_num_errors++;
 
     va_list args;
     va_start(args, format);
     cmm_vprintf(format, args);
     va_end(args);
 
-    if (context->m_num_errors >= MAX_COMPILER_ERRORS)
+    if (lang_context->m_num_errors >= MAX_COMPILER_ERRORS)
     {
         cmm_errprintf("Max errors(%d) exceeded.\nCompiler terminated\n",
                       MAX_COMPILER_ERRORS);
-        syntax_stop(context, COMPILE_ERROR);
+        syntax_stop(lang_context, COMPILE_ERROR);
     }
 }
 
 
 // Compiler's warning function 
-void Lang::syntax_warn(Lang* context, const char *msg)
+void Lang::syntax_warn(Lang* lang_context, const char *msg)
 {
 #ifndef DISABLE_WARNING
     // If treat-warning-as-error flag is on 
-    if (context->m_will_treat_warnings_as_errors)
-        context->m_num_errors++;
+    if (lang_context->m_will_treat_warnings_as_errors)
+        lang_context->m_num_errors++;
 
     cmm_printf("%s(%d): warning %d: %s\n",
-                context->m_lexer.m_current_file_name->c_str(),
-                (int)context->m_lexer.m_current_line,
+                lang_context->m_lexer.m_current_file_name->c_str(),
+                (int)lang_context->m_lexer.m_current_line,
                 C_PARSER, msg);
 #endif        
 
-    context->m_num_warnings++;
+    lang_context->m_num_warnings++;
 }
 
 // Compiler's warning function 
-void Lang::syntax_warns(Lang* context, const char *format, ...)
+void Lang::syntax_warns(Lang* lang_context, const char *format, ...)
 {
 #ifndef DISABLE_WARNING
     // If treat-warning-as-error flag is on 
-    if (context->m_will_treat_warnings_as_errors)
-        context->m_num_errors++;
+    if (lang_context->m_will_treat_warnings_as_errors)
+        lang_context->m_num_errors++;
 
     va_list args;
     va_start(args, format);
@@ -151,18 +157,18 @@ void Lang::syntax_warns(Lang* context, const char *format, ...)
     va_end(args);
 #endif
 
-    context->m_num_warnings++;
+    lang_context->m_num_warnings++;
 }
 
 // Stop compile 
-void Lang::syntax_stop(Lang* context, ErrorCode ret)
+void Lang::syntax_stop(Lang* lang_context, ErrorCode ret)
 {
     // long jump 
-    longjmp(context->m_jmp_buf, (int)ret);
+    longjmp(lang_context->m_jmp_buf, (int)ret);
 }
 
 // Echo when compiling 
-void Lang::syntax_echo(Lang* context, const char *msg)
+void Lang::syntax_echo(Lang* lang_context, const char *msg)
 {
     cmm_printf(msg);
 }
@@ -175,12 +181,21 @@ void Lang::print_ast(AstNode* node, int level)
 
     for (auto i = 0; i < level; i++)
         printf("  ");
-    printf("%s: %s\n", ast_node_type_to_c_str(node->get_node_type()), node->to_string().c_str());
+    print_node(node);
 
     // Collect recursive in children
     level++;
     for (auto p = node->children; p != 0; p = p->sibling)
         print_ast(p, level);
+}
+
+// Print ast node
+void Lang::print_node(AstNode* node)
+{
+    printf("%s: %s%s\n",
+        ast_node_type_to_c_str(node->get_node_type()),
+        node->to_string().c_str(),
+        node->is_join_point() ? " <---" : "");
 }
 
 // Convert string 
@@ -223,19 +238,19 @@ int Lang::get_frame_tag()
 }
 
 // Return the nearest loop switch node
-AstNode* Lang::get_loop_switch(int level)
+AstBreakCont* Lang::get_loop_switch(int level)
 {
     return m_loop_switches[level];
 }
 
 // Return any block
-AstNode* Lang::get_node_for_break()
+AstBreakCont* Lang::get_node_for_break()
 {
     return m_loop_switches[m_loop_switches.size() - 1];
 }
 
 // Return nearest loop block (do / while / for / loop)
-AstNode* Lang::get_node_for_continue()
+AstBreakCont* Lang::get_node_for_continue()
 {
     auto i = m_loop_switches.size();
     while (i > 0)
@@ -244,10 +259,9 @@ AstNode* Lang::get_node_for_continue()
         auto* node = m_loop_switches[i];
         auto type = node->get_node_type();
         if (type == AST_DO_WHILE ||
-            type == AST_WHILE_LOOP ||
-            type == AST_FOR_LOOP ||
-            type == AST_LOOP_EACH ||
-            type == AST_LOOP_RANGE)
+            type == AST_WHILE ||
+            type == AST_FOR ||
+            type == AST_LOOP)
             return node;
     }
 
@@ -293,10 +307,20 @@ void Lang::pop_loop_switch(int level)
 }
 
 // Push a new loop-switch node
-int Lang::push_loop_switch(AstNode* node)
+int Lang::push_loop_switch(AstBreakCont* node)
 {
     m_loop_switches.push_back(node);
     return (int)m_loop_switches.size() - 1;
+}
+
+// Create a new label in current function
+AstLabel* Lang::new_label()
+{
+    auto* label = LANG_NEW(this, AstLabel, this);
+    char name[32];
+    snprintf(name, sizeof(name), "%zu", ++m_in_function->auto_label_id);
+    label->name = name;
+    return label;
 }
 
 void Lang::set_current_attrib(Uint32 attrib)

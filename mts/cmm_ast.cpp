@@ -9,7 +9,8 @@ namespace cmm
 
 AstNode::AstNode(Lang* context) :
     sibling(0),
-    children(0)
+    children(0),
+    attrib((AstNodeAttrib)0)
 {
     location.file = context->m_lexer.get_current_file_name();
     location.line = context->m_lexer.get_current_line();
@@ -98,18 +99,20 @@ const char* ast_node_type_to_c_str(AstNodeType nodeType)
     case AST_EXPR_TERNARY: return "ExprTernary";
     case AST_EXPR_UNARY: return "ExprUnary";
     case AST_EXPR_VARIABLE: return "ExprVariable";
-    case AST_FOR_LOOP: return "For-Loop";
+    case AST_FOR: return "For-Loop";
     case AST_FUNCTION: return "Function";
     case AST_FUNCTION_ARG: return "FunctionArg";
     case AST_GOTO: return "Goto";
     case AST_IF_ELSE: return "IfElse";
     case AST_LABEL: return "Label";
-    case AST_LOOP_EACH: return "Loop-Each";
-    case AST_LOOP_RANGE: return "Loop-Range";
+    case AST_LOOP: return "Loop";
+    case AST_LOOP_INIT_EACH: return "LoopInitEach";
+    case AST_LOOP_INIT_RANGE: return "LoopInitRange";
     case AST_LVALUE: return "LValue";
+    case AST_NOP: return "Nop";
     case AST_PROTOTYPE: return "Prototype";
     case AST_RETURN: return "Return";
-    case AST_WHILE_LOOP: return "While-Loop";
+    case AST_WHILE: return "While-Loop";
     case AST_STATEMENTS: return "Statements";
     case AST_SWITCH_CASE: return "Switch-Case";
     case AST_VAR_TYPE: return "VarType";
@@ -172,6 +175,12 @@ const char* value_type_to_c_str(ValueType value_type)
     return Value::type_to_name(value_type);
 }
 
+// eg. ""
+simple::string AstNode::to_string()
+{
+    return "";
+}
+
 // eg. default
 simple::string AstCase::to_string()
 {
@@ -220,6 +229,19 @@ simple::string AstExprBinary::to_string()
 simple::string AstExprCast::to_string()
 {
     return simple::string("(") + ast_var_type_to_string(var_type) + ")";
+}
+
+// eg. write()
+simple::string AstExprClosure::to_string()
+{
+    return function->prototype->name + "()";
+}
+
+// eg. "abc"
+simple::string AstExprConstant::to_string()
+{
+    Output output;
+    return output.type_value(&value).c_str();
 }
 
 // eg. ?
@@ -304,7 +326,7 @@ simple::string AstLabel::to_string()
 }
 
 // eg. step -1
-simple::string AstLoopRange::to_string()
+simple::string AstLoopInitRange::to_string()
 {
     char str[16];
     snprintf(str, sizeof(str), "Step %d", direction);

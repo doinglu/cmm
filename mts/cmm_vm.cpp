@@ -314,7 +314,7 @@ void Simulator::run()
         GET_P1;
         // The return value (p1) must be binded to current domain
         STD_ASSERT(p1->m_type < REFERENCE_VALUE ||
-                   (p1->m_reference->attrib & ReferenceImplAttrib::CONSTANT) ||
+                   (p1->m_reference->attrib & REFERENCE_CONSTANT) ||
                     p1->m_reference->owner == m_domain->get_value_list());
 #endif
     }

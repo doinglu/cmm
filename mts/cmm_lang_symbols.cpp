@@ -103,4 +103,30 @@ void LangSymbols::remove_ident_info_by_tag(int tag)
     }
 }
 
+// Add a label
+void LangSymbols::add_label_info(AstLabel* label)
+{
+    if (m_label_table.contains_key(label->name))
+    {
+        m_lang_context->syntax_errors(m_lang_context,
+            "%s(%d): error %d: '%s': label redefined\n",
+            label->location.file->c_str(), label->location.line,
+            C_LABEL_REDEFINED,
+            label->name.c_str());
+        m_lang_context->m_error_code = PASS1_ERROR;
+    }
+    m_label_table.put(label->name, label);
+}
+
+// Get a label
+AstLabel* LangSymbols::get_label_info(simple::string& label_name)
+{
+    AstLabel* label;
+    if (!m_label_table.try_get(label_name, &label))
+        // No such label
+        return 0;
+
+    return label;
+}
+
 }

@@ -20,8 +20,8 @@ bool Value::init()
     EMPTY_STRING = STRING_ALLOC("");
     EMPTY_BUFFER = BUFFER_ALLOC((size_t)0);
 
-    EMPTY_STRING->attrib |= ReferenceImplAttrib::CONSTANT;
-    EMPTY_BUFFER->attrib |= ReferenceImplAttrib::CONSTANT;
+    EMPTY_STRING->attrib |= REFERENCE_CONSTANT;
+    EMPTY_BUFFER->attrib |= REFERENCE_CONSTANT;
     return true;
 }
 
@@ -35,7 +35,7 @@ void Value::shutdown()
 // This value must be NEW one & never be binded
 void ReferenceImpl::bind_to_current_domain()
 {
-    if (attrib & (ReferenceImplAttrib::CONSTANT | ReferenceImplAttrib::SHARED))
+    if (attrib & (REFERENCE_CONSTANT | REFERENCE_SHARED))
         // For constant/shared value, don't bind
         return;
 

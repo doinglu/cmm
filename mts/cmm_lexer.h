@@ -112,7 +112,7 @@ public:
     static void shutdown();
 
 public:
-    Lexer(Lang* context);
+    Lexer(Lang* lang_context);
     ~Lexer();
 
 public:
@@ -156,7 +156,7 @@ private:
     static Keyword *get_keyword(const simple::string& name);
 
 private:
-    typedef simple::string(*ExpandFunc)(Lang* context);
+    typedef simple::string(*ExpandFunc)(Lang* lang_context);
     typedef simple::hash_map<simple::string, ExpandFunc> ExpandFuncMap;
     static ExpandFuncMap *expand_builtin_macro_funcs;
 
@@ -165,12 +165,12 @@ private:
     static void   add_predefine(const simple::string& macro, ExpandFunc func);
 
     // Predefine expansion functions
-    static simple::string expand_file_name(Lang* context);
-    static simple::string expand_pure_file_name(Lang* context);
-    static simple::string expand_dir_name(Lang* context);
-    static simple::string expand_line_no(Lang* context);
-    static simple::string expand_function_name(Lang* context);
-    static simple::string expand_counter(Lang* context);
+    static simple::string expand_file_name(Lang* lang_context);
+    static simple::string expand_pure_file_name(Lang* lang_context);
+    static simple::string expand_dir_name(Lang* lang_context);
+    static simple::string expand_line_no(Lang* lang_context);
+    static simple::string expand_function_name(Lang* lang_context);
+    static simple::string expand_counter(Lang* lang_context);
 
 private:
     // Language syntax context

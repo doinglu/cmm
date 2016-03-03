@@ -40,36 +40,36 @@ void Lexer::add_predefine(const simple::string& macro, ExpandFunc func)
 }
 
 // Get file name
-simple::string Lexer::expand_file_name(Lang* context)
+simple::string Lexer::expand_file_name(Lang* lang_context)
 {
-    return context->m_lexer.m_current_file_string;
+    return lang_context->m_lexer.m_current_file_string;
 }
 
 // Get pure file name
-simple::string Lexer::expand_pure_file_name(Lang* context)
+simple::string Lexer::expand_pure_file_name(Lang* lang_context)
 {
-    return context->m_lexer.m_current_pure_file_string;
+    return lang_context->m_lexer.m_current_pure_file_string;
 }
 
 // Get dir name
-simple::string Lexer::expand_dir_name(Lang* context)
+simple::string Lexer::expand_dir_name(Lang* lang_context)
 {
-    return context->m_lexer.m_current_dir_string;
+    return lang_context->m_lexer.m_current_dir_string;
 }
 
 // Get current line number
-simple::string Lexer::expand_line_no(Lang* context)
+simple::string Lexer::expand_line_no(Lang* lang_context)
 {
     char temp[16];
-    snprintf(temp, sizeof(temp), "%zu", (size_t)context->m_lexer.m_current_line);
+    snprintf(temp, sizeof(temp), "%zu", (size_t)lang_context->m_lexer.m_current_line);
     return temp;
 }
 
 // Get current function name
-simple::string Lexer::expand_function_name(Lang* context)
+simple::string Lexer::expand_function_name(Lang* lang_context)
 {
     const char* UNKNOWN_FUN_NAME = "\"Unknown Function\"";
-    auto* function = context->m_in_function;
+    auto* function = lang_context->m_in_function;
     
     if (function)
     {
@@ -81,10 +81,10 @@ simple::string Lexer::expand_function_name(Lang* context)
 }
 
 // Get global counter
-simple::string Lexer::expand_counter(Lang* context)
+simple::string Lexer::expand_counter(Lang* lang_context)
 {
     char temp[16];
-    snprintf(temp, sizeof(temp), "%zu", (size_t)context->m_lexer.m_unique_counter++);
+    snprintf(temp, sizeof(temp), "%zu", (size_t)lang_context->m_lexer.m_unique_counter++);
     return temp;
 }
 

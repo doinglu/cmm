@@ -58,12 +58,15 @@ enum ErrorCode
     PASS2_ERROR                 = -604,
 
     // Compiling error codes (with prefix C_)
+    C_FUNCTION_BODY_TOO_BIG     = 1998,
     C_PARSER                    = 1999,
+    C_LABEL_REDEFINED           = 2045,
     C_REDEFINITION              = 2051,
     C_UNDECLARED_IDENTIFER      = 2065,
     C_NOT_LVALUE                = 2106,
     C_NOT_CONTAINER             = 2109,
     C_CANNOT_OPER               = 2110,
+    C_FUNCTION_NOT_DEFINED      = 2129,
     C_CAST_TO_NON_CONST         = 2900,
     C_ASSIGN_TO_CONST           = 3892,
 

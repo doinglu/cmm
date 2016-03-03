@@ -5,12 +5,14 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <algorithm>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include "std_template/simple_hash_map.h"
 #include "std_template/simple_list.h"
 #include "std_template/simple_string.h"
+#include "std_template/simple_algorithm.h"
 #include "std_port/std_port.h"
 #include "std_port/std_port_type.h"
 #include "std_memmgr/std_memmgr.h"
@@ -234,6 +236,27 @@ void tgc()
 {
 }
 
+double imprecise_pow(long double x, int y)
+{
+    unsigned int uy;
+    long double result = 1.0;
+
+    if (y >= 0)
+        uy = static_cast<unsigned int>(y);
+    else
+        uy = static_cast<unsigned int>(-y);
+
+    while (uy)
+    {
+        if (uy & 1)
+            result *= x;
+        uy >>= 1;
+        x *= x;
+    }
+
+    return y >= 0 ? result : (1.0 / result);
+}
+
 int main(int argn, char *argv[])
 {
     Value::init();
@@ -300,9 +323,14 @@ void compile()
     auto ret = context->parse();
     auto root = context->m_root;
 
-    printf("ret = %d.\n", (int)ret);
+    printf("ret = %d.\n", (int)ret);////----
     // Debug output
     context->print_ast(context->m_root, 0);
+    for (auto& it : context->m_functions)
+    {
+        printf("-------------------- Function %d --------------------\n", (int)it->no);
+        context->print_ast(it, 0);
+    }
 
     fclose(fp);
 }
@@ -339,8 +367,9 @@ int main_body(int argn, char *argv[])
     list.remove_at(2);
     list.remove_at(1);
     list.remove_at(0);
-    for (auto it = list.begin(); it != list.end(); it++)
-        printf("%zu. %d\n", it.get_index(), (int) *it);
+    size_t index = 0;
+    for (auto it = list.begin(); it != list.end(); ++it, ++index)
+        printf("%zu. %d\n", index, (int) *it);
     return 0;
 #endif
 
@@ -434,7 +463,7 @@ int main_body(int argn, char *argv[])
     call_other(thread, ob->get_oid(), key = "create", &r1);
     call_other(thread, ob2->get_oid(), key = "create", &r1);
     auto b = std_get_os_us_counter();
-#if 0
+#if 1
     Value ret = call_other(thread, ob->get_oid(), key = "printf", &r1, value = "result: %O\n", ob2->get_oid());
 #else
     Value ret = call_other(thread, ob->get_oid(), key = "test_call", &r1, ob2->get_oid());

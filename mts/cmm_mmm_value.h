@@ -32,11 +32,12 @@ public:
     MMMValue(Real v) :
         Value(v)
     {
-        m_type = REAL;
-        m_real = v;
     }
 
     // Construct from StringImpl
+    // ATTENTION:
+    // Don't call base constructor since it will bind the reference value
+    // automatically
     MMMValue(StringImpl* const v)
     {
         m_string = v;
@@ -48,6 +49,16 @@ public:
     // should be created by caller to maintain the memory
     // MMMValue(const char* v)
 
+public:
+    // Free the memory if allocated
+    void cleanup()
+    {
+        if (is_reference_value())
+        {
+            STD_ASSERT(!m_reference->is_constant() && !m_reference->is_shared());
+            XDELETE(m_reference);
+        }
+    }
 };
 
 class MMMString : public MMMValue

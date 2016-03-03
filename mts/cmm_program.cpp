@@ -231,7 +231,7 @@ Program::~Program()
 // The string.m_string may be updated if find in pool
 bool Program::convert_to_shared(StringImpl** string)
 {
-    if (!((*string)->attrib & ReferenceImplAttrib::SHARED))
+    if (!(*string)->is_shared())
     {
         // Not shared? Lookup in pool
         auto* string_impl_in_pool = find_string(*string);
@@ -635,7 +635,7 @@ void Program::update_program()
 void Program::mark_constant(Value* value)
 {
     auto* reference = value->m_reference;
-    if (reference->attrib & ReferenceImplAttrib::CONSTANT)
+    if (reference->is_constant())
         // It's already a constant value
         return;
 
@@ -647,7 +647,7 @@ void Program::mark_constant(Value* value)
     }
 
     // Move non-string reference value to this program
-    reference->attrib |= ReferenceImplAttrib::CONSTANT;
+    reference->attrib |= REFERENCE_CONSTANT;
     reference->unbind();
     m_value_list.append_value(reference);
     switch (value->m_type)
@@ -689,9 +689,10 @@ void Program::update_callees()
     // Update "program" in Component info & build map: program->offset
     // Also calculate size of ComponentsNoMap
     size_t components_no_map_size = 0;
-    for (auto it = m_components.begin(); it != m_components.end(); ++it)
+    size_t index = 0;
+    for (auto it = m_components.begin(); it != m_components.end(); ++it, ++index)
     {
-        component_no_map.put(it->program_name, (ComponentNo)it.get_index());
+        component_no_map.put(it->program_name, (ComponentNo)index);
 
         // Count size of components
         components_no_map_size += it->program->m_components.size();
@@ -724,9 +725,10 @@ void Program::update_callees()
     // ]
 
     // Lookup all functions & add to callees map
-    for (auto it = m_components.begin(); it != m_components.end(); ++it)
+    index = 0;
+    for (auto it = m_components.begin(); it != m_components.end(); ++it, ++index)
     {
-        ComponentNo component_no = (ComponentNo)it.get_index();
+        ComponentNo component_no = (ComponentNo)index;
         for (auto function: it->program->m_functions)
             add_callee(component_no, function);
     }

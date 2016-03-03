@@ -35,11 +35,11 @@
 #ifdef PLATFORM64
 #define IntR    Int64
 #define UintR   Uint64
+#define AtomInt Int64
 #else
 #define IntR    Int32
 #define UintR   Uint32
+#define AtomInt Uint32
 #endif
-
-#define AtomInt UintR
 
 #endif  /* end of __STD_PORT_tYPE_H__ */

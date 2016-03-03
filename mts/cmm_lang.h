@@ -64,33 +64,38 @@ public:
 
     // Export to YACC
 public:
-    static void     syntax_error(Lang* context, const char* msg);
-    static void     syntax_errors(Lang* context, const char* format, ...);
-    static void     syntax_warn(Lang* context, const char* msg);
-    static void     syntax_warns(Lang* context, const char* format, ...);
-    static void     syntax_stop(Lang* context, ErrorCode ret);
-    static void     syntax_echo(Lang* context, const char* msg);
+    static void     syntax_error(Lang* lang_context, const char* msg);
+    static void     syntax_errors(Lang* lang_context, const char* format, ...);
+    static void     syntax_warn(Lang* lang_context, const char* msg);
+    static void     syntax_warns(Lang* lang_context, const char* format, ...);
+    static void     syntax_stop(Lang* lang_context, ErrorCode ret);
+    static void     syntax_echo(Lang* lang_context, const char* msg);
     static void     print_ast(AstNode* node, int level);
+    static void     print_node(AstNode* node);
 
     // Parse utility functions
 public:
     simple::string  add_back_slash_for_quote(const simple::string& str);
     void            add_component(const char* component);
     int             get_frame_tag();
-    AstNode*        get_loop_switch(int level);
-    AstNode*        get_node_for_break();
-    AstNode*        get_node_for_continue();
+    AstBreakCont*   get_loop_switch(int level);
+    AstBreakCont*   get_node_for_break();
+    AstBreakCont*   get_node_for_continue();
     bool            is_in_entry_function();
     bool            is_in_top_frame();
     void            pop_loop_switch(int level);
-    int             push_loop_switch(AstNode* node);
+    int             push_loop_switch(AstBreakCont* node);
+    AstLabel*       new_label();
     void            set_current_attrib(Uint32 attrib);
 
     // Pass1 - Collect object var & functions
 private:
     bool            pass1();
     void            init_symbol_table();
-    void            lookup_and_map_identifiers(AstNode *node);
+
+private:
+    // Steps for pass
+    void            lookup_and_collect_info(AstNode *node);
     void            lookup_expr_types_and_output(AstNode *node);
 
 private:
@@ -101,16 +106,25 @@ private:
     void            alloc_expr_output(AstExpr* expr);
     void            free_expr_output(AstExpr* expr);
 
-    // Pass2 - Create final result
 private:
-    bool pass2();
+    // Pass utilty functions
+    bool            are_expr_list_constant(AstExpr* expr);
+    ValueType       derive_type_of_op(AstExprOp* node, Op op, ValueType operand_type1, ValueType operand_type2, ValueType operand_type3);
+    bool            check_lvalue(AstExpr* node);
+    bool            try_map_assign_op_to_op(Op assign_op, Op* out_op);
+
+    // Pass2 - Analyse functions
+private:
+    bool            pass2(AstFunction* function);
+
+private:
+    // Steps for pass
+    void            lookup_and_find_out_branch(AstNode* node);
+    bool            lookup_and_gather_nodes(AstNode* node);
+    void            lookup_and_build_ssa(AstNode* node);
 
 private:
     // Pass utilty functions
-    bool       are_expr_list_constant(AstExpr* expr);
-    ValueType  derive_type_of_op(AstExprOp* node, Op op, ValueType operand_type1, ValueType operand_type2, ValueType operand_type3);
-    bool       check_lvalue(AstExpr* node);
-    bool       try_map_assign_op_to_op(Op assign_op, Op* out_op);
 
     // Frame relative functions
 private:
@@ -140,7 +154,7 @@ public:
     bool m_will_treat_warnings_as_errors;
 
     // context state
-    simple::vector<AstNode*> m_loop_switches;
+    simple::vector<AstBreakCont*> m_loop_switches;
 
     // the depth of loop
     Uint32 m_loop_depth;
@@ -172,6 +186,9 @@ public:
     typedef simple::vector<VirtualRegInfo> VirtualRegInfos;
     VirtualRegInfos m_virtual_regs;
 
+    // CFG
+    CFG m_cfg;
+
     // long jump buffer
     jmp_buf m_jmp_buf;
 
@@ -187,11 +204,14 @@ private:
 };
 
 // Internal routines
-int cmm_lang_parse(Lang* context);
+int cmm_lang_parse(Lang* lang_context);
 
-#define LANG_NEW(context, T, ...)   context->mem_list.new1<T>(__FILE__, __LINE__, ##__VA_ARGS__)
-#define LANG_NEWN(context, T, n)    context->mem_list.newn<T>(__FILE__, __LINE__, n)
-#define LANG_DELETE(context, p)     context->mem_list.delete1(__FILE__, __LINE__, p)
-#define LANG_DELETEN(context, p)    context->mem_list.deleten(__FILE__, __LINE__, p)
+#define LANG_NEW(lang_context, T, ...)  lang_context->mem_list.new1<T>(__FILE__, __LINE__, ##__VA_ARGS__)
+#define LANG_NEWN(lang_context, T, n)   lang_context->mem_list.newn<T>(__FILE__, __LINE__, n)
+#define LANG_DELETE(lang_context, p)    lang_context->mem_list.delete1(__FILE__, __LINE__, p)
+#define LANG_DELETEN(lang_context, p)   lang_context->mem_list.deleten(__FILE__, __LINE__, p)
+#define NEW_LABEL()                     lang_context->new_label()
+#define NEW_NOP()                       LANG_NEW(lang_context, AstNop, lang_context)
+#define SET_NULL_TO_NOP(node)           if (!(node)) (node) = NEW_NOP()
 
 }

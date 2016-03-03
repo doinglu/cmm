@@ -379,13 +379,13 @@ class list_iterator
     friend list_type;
 
 public:
-    list_iterator() :
+    list_iterator()
 #ifdef _DEBUG
-        m_list(0),
+      : m_list(0),
         m_size(0),
-#endif
         m_index(0),
         m_cursor_ptr(0)
+#endif
     {
     }
 
@@ -399,7 +399,6 @@ private:
         STD_ASSERT(("Expect valid index in [0..m_size].", index <= m_size));
 #endif
         STD_ASSERT(index >= 0 && index <= the_list.size());
-        m_index = index;
         m_cursor_ptr = p;
     }
 
@@ -407,22 +406,24 @@ public:
     value_type& operator * ()
     {
         STD_ASSERT(("List was changed.", m_size == m_list->size()));
-        STD_ASSERT(("Iterator is end.", m_index < m_size));
+        STD_ASSERT(m_index < m_size);
         return m_cursor_ptr->value;
     }
 
     value_type *operator -> ()
     {
         STD_ASSERT(("List was changed.", m_size == m_list->size()));
-        STD_ASSERT(("Iterator is end.", m_index < m_size));
+        STD_ASSERT(m_index < m_size);
         return &m_cursor_ptr->value;
     }
 
     // Move to next
     list_iterator& operator ++ ()
     {
-        m_cursor_ptr = m_cursor_ptr->next;
+#ifdef _DEBUG
         m_index++;
+#endif
+        m_cursor_ptr = m_cursor_ptr->next;
         return *this;
     }
 
@@ -438,20 +439,10 @@ public:
         return m_cursor_ptr == it.m_cursor_ptr;
     }
 
-    bool operator < (const list_iterator& it) const
-    {
-        return m_index < it.m_index;
-    }
-
 public:
     node* get_node() const
     {
         return m_cursor_ptr;
-    }
-
-    size_t get_index() const
-    {
-        return m_index;
     }
 
 private:
@@ -459,8 +450,8 @@ private:
 #ifdef _DEBUG
     list_type *m_list;
     size_t m_size;
-#endif
     size_t m_index;
+#endif
     node  *m_cursor_ptr;
 };
 

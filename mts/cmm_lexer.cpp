@@ -119,9 +119,9 @@ void Lexer::shutdown()
     XDELETE(m_keywords);
 }
 
-Lexer::Lexer(Lang* context)
+Lexer::Lexer(Lang* lang_context)
 {
-    m_lang_context = context;
+    m_lang_context = lang_context;
     m_out = 0;
     m_last_new_line = 0;
     m_default_attrib = 0;
@@ -218,7 +218,8 @@ char* Lexer::copy_string(const char* c_str, size_t len)
     if (len == SIZE_MAX)
         len = strlen(c_str);
     char* to = LANG_NEWN(m_lang_context, char, len + 1);
-    memcpy(to, c_str, len + 1);
+    memcpy(to, c_str, len);
+    to[len] = 0;
     return to;
 }
 

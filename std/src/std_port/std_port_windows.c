@@ -498,7 +498,11 @@ extern std_time_t std_get_os_time()
 /* Return ticks */
 extern std_tick_t std_get_os_tick()
 {
+#ifdef PLATFORM64
+    return GetTickCount64();
+#else
     return GetTickCount();
+#endif
 }
 
 /* Return us counter */
