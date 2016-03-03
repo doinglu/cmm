@@ -7,6 +7,9 @@
 #include "std_template/simple_vector.h"
 #include "cmm.h"
 
+namespace cmm
+{
+
 class Bitset
 {
     const size_t LenMask = sizeof(UintR) - 1;
@@ -44,3 +47,5 @@ private:
     UintR* m_bitmap;
     size_t m_size;
 };
+
+}

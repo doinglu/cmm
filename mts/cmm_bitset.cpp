@@ -6,6 +6,9 @@
 #include "cmm.h"
 #include "cmm_bitset.h"
 
+namespace cmm
+{
+
 void Bitset::set_size(size_t size)
 {
     // Align the size to sizeof(UintR)
@@ -92,4 +95,6 @@ void Bitset::to_array(simple::vector<T>& arr)
             }
         }
     }
+}
+
 }

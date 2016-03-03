@@ -325,7 +325,7 @@ void CFG::generate_dom()
         }
     }
 
-    getchar();
+////----    getchar();
 }
 
 // Print the blocks

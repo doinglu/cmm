@@ -266,7 +266,7 @@ protected:
     index_t insert(const T& element)
     {
         const K& key = m_peek_func(element);
-        STD_ASSERT(! contains_key(key));
+        STD_ASSERT(!contains_key(key));
 
         // Add the pair into table list
         index_t index;

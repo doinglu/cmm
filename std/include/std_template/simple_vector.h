@@ -5,7 +5,7 @@
 #include "simple.h"
 #include "std_port/std_port.h"
 #include "std_port/std_port_util.h"
-#include <vector>////----
+////----#include <vector>////----
 
 namespace simple
 {
@@ -41,9 +41,9 @@ public:
         m_allocator = allocator;
         m_space = count;
         m_size = count;
-        m_array = m_allocator->template newn<T>(__FILE__, __LINE__, count);
+        m_array = (T*)m_allocator->alloc(__FILE__, __LINE__, count * sizeof(T));
         for (size_t i = 0; i < count; i++)
-            m_array[i] = arr[i];
+            new (&m_array[i])T(arr[i]);
     }
 
     vector(size_t capacity = 8, Allocator* allocator = &Allocator::g)
@@ -54,30 +54,31 @@ public:
         if (capacity < 1)
             capacity = 1;
         m_space = capacity;
-        m_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
+        m_array = (T*)m_allocator->alloc(__FILE__, __LINE__, m_space * sizeof(T));
         m_size = 0;
     }
 
     ~vector()
     {
         if (m_array)
-            m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
-        STD_DEBUG_SET_NULL(m_array);
+            free_array();
     }
 
     vector& operator = (const vector& vec)
     {
-        if (m_space < vec.size())
+        if (!m_array || m_space < vec.size())
         {
             // Reallocate array
-            m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
+            if (m_array)
+                free_array();
+
             m_space = vec.size();
-            m_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
+            m_array = (T*)m_allocator->alloc(__FILE__, __LINE__, m_space * sizeof(T));
         }
 
         m_size = vec.size();
         for (size_t i = 0; i < m_size; i++)
-            m_array[i] = vec.m_array[i];
+            new (&m_array[i])T(vec.m_array[i]);
 
         return *this;
     }
@@ -89,7 +90,7 @@ public:
             return *this = vec;
 
         if (m_array)
-            m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
+            free_array();
 
         // Steal m_array from vec
         m_space = vec.m_space;
@@ -113,9 +114,7 @@ public:
     // Clear all elements
     void clear()
     {
-        size_t n = 0;
-        init_class(m_array, m_size, n);
-        m_size = 0;
+        resize(0);
     }
 
     // Enlarge space to double size
@@ -125,10 +124,13 @@ public:
         m_space *= 2;
         if (m_space < 8)
             m_space = 8;
-        new_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
-        for (size_t i = 0; i < m_size; i++)
-            new_array[i] = simple::move(m_array[i]);
-        m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
+        new_array = (T*)m_allocator->alloc(__FILE__, __LINE__, m_space * sizeof(T));
+        if (m_array)
+        {
+            for (size_t i = 0; i < m_size; i++)
+                new (&new_array[i])T(simple::move(m_array[i]));
+            free_array();
+        }
         m_array = new_array;
     }
 
@@ -148,10 +150,13 @@ public:
 
         T *new_array;
         m_space = to;
-        new_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
-        for (size_t i = 0; i < m_size; i++)
-            new_array[i] = simple::move(m_array[i]);
-        m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
+        new_array = (T*)m_allocator->alloc(__FILE__, __LINE__, m_space * sizeof(T));
+        if (m_array)
+        {
+            for (size_t i = 0; i < m_size; i++)
+                new (&new_array[i])T(simple::move(m_array[i]));
+            free_array();
+        }
         m_array = new_array;
     }
 
@@ -169,9 +174,9 @@ public:
         {
             // Don't use shrink since it may reallocate memory
             // Erase elements
-            size_t n = m_size - to;
+            for (size_t i = to; i < m_size; i++)
+                m_array[i].~T();
             m_size = to;
-            init_class(m_array + m_size, n, to);
         }
     }
 
@@ -193,10 +198,10 @@ public:
             if (to < 8)
                 to = 8;
             m_space = to;
-            new_array = m_allocator->template newn<T>(__FILE__, __LINE__, m_space);
+            new_array = (T*)m_allocator->alloc(__FILE__, __LINE__, m_space * sizeof(T));
             for (size_t i = 0; i < m_size; i++)
-                new_array[i] = simple::move(m_array[i]);
-            m_allocator->template deleten<T>(__FILE__, __LINE__, m_array);
+                new (&new_array[i])T(simple::move(m_array[i]));
+            free_array();
             m_array = new_array;
         }
     }
@@ -230,9 +235,10 @@ public:
             STD_ASSERT(m_size == m_space);
             extend();
         }
+        new (&m_array[m_size])T();
         m_size++;
-        for (size_t i = m_size; i > index; i--)
-            m_array[i] = m_array[i - 1];
+        for (size_t i = m_size - 1; i > index; i--)
+            m_array[i] = simple::move(m_array[i - 1]);
         m_array[index] = element;
     }
 
@@ -246,7 +252,8 @@ public:
             extend();
         }
 
-        m_array[m_size++] = element;
+        new (&m_array[m_size])T(element);
+        m_size++;
     }
 
     // Append an element
@@ -259,7 +266,8 @@ public:
             extend();
         }
 
-        m_array[m_size++] = simple::move(element);
+        new (&m_array[m_size])T(simple::move(element));
+        m_size++;
     }
 
     // Append an element N times
@@ -272,7 +280,7 @@ public:
             extend();
         // Put all values
         while (m_size < new_size)
-            m_array[m_size++] = e;
+            new (&m_array[m_size++])T(e);
     }
 
     // Append an array
@@ -286,7 +294,7 @@ public:
         // Put all values
         size_t i = 0;
         while (m_size < new_size)
-            m_array[m_size++] = ptr[i++];
+            new (&m_array[m_size++])T(ptr[i++]);
     }
 
     // Remove an element @ index
@@ -297,6 +305,7 @@ public:
         for (size_t i = index; i < m_size; i++)
             m_array[i] = simple::move(m_array[i + 1]);
         m_size--;
+        m_array[m_size].~T();
     }
 
     // Remove an element @ it
@@ -334,6 +343,20 @@ public:
     }
 
 private:
+    // Free the array
+    void free_array()
+    {
+        for (size_t i = 0; i < m_size; i++)
+            m_array[i].~T();
+        m_allocator->free(__FILE__, __LINE__, m_array);
+        m_array = 0;
+
+        // ATTENTION: KEEP the m_size/m_space, DON'T CHANGE THEM
+        // NO: m_size = 0;  
+        // NO: m_space = 0;
+    }
+
+private:
     // hash table
     Allocator *m_allocator;
     T         *m_array;
@@ -350,7 +373,7 @@ public:
     typedef T* pointer;
     typedef T& reference;
     typedef ptrdiff_t difference_type;
-    typedef typename std::random_access_iterator_tag iterator_category; // Let it suitable for STL usage
+////----    typedef typename std::random_access_iterator_tag iterator_category; // Let it suitable for STL usage
 
     friend vector_type;
 
