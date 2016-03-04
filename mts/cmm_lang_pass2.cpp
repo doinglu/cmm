@@ -24,6 +24,7 @@ bool Lang::pass2(AstFunction* function)
     // Save current function
     m_in_function = function;
 
+    auto b = std_get_current_us_counter();////----
     // Prepare to build CFG
     m_cfg.clear();
 
@@ -38,14 +39,15 @@ bool Lang::pass2(AstFunction* function)
 
     // Generate DOM/IDOM/DF
     m_cfg.generate_dom();
+    auto e = std_get_current_us_counter();
+    printf("CFG cost %zuus.\n", e - b);////----
 
     // Print blocks
-    printf("Blocks of '%s'(%zu), count:%zu, nodes:%zu\n",
-           function->prototype->name.c_str(),
-           (size_t)function->no,
-           m_cfg.m_blocks.size(),
-           m_cfg.m_nodes.size());
-    m_cfg.print_blocks();
+    STD_TRACE("Blocks of '%s'(%zu), count:%zu, nodes:%zu\n",
+        function->prototype->name.c_str(),
+        (size_t)function->no,
+        m_cfg.m_blocks.size(),
+        m_cfg.m_nodes.size());
 
     // Lookup the AST to create DOM/IDOM/DOM Frontiers
 

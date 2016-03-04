@@ -311,7 +311,7 @@ public:
     // Remove an element @ it
     void remove(iterator& it)
     {
-        remove((size_t) (it->m_cursor_ptr - m_array));
+        remove((size_t) (it.m_cursor_ptr - m_array));
     }
 
     // Get length of existed elements

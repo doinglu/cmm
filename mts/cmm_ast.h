@@ -97,7 +97,7 @@ enum AstRuntimeValueId : Uint8
 };
 
 // Define 4 chars as an integer
-#define MULTI_CHARS(c1, c2, c3, c4) ((c1) | ((c2) << 8) | ((c3) << 16) | ((c4) << 24))
+#define MULTI_CHARS(c1, c2, c3, c4) (((c1) | ((c2) << 8) | ((c3) << 16) | ((c4) << 24)))
 
 // Operator
 enum Op
@@ -283,10 +283,17 @@ simple::string ast_var_type_to_string(AstVarType var_type);
 // basic value to string
 const char* value_type_to_c_str(ValueType value_type);
 
+// There two kinds of join points
+// 1. GOTO
+// 2. Struct flow, eg:
+// if (cond) s1; else s2; <end_if>
+// The nodes "cond", "s1", "s2" are struct code. The control flow should
+// be cond->s1, cond->s2, s1->end_if, s2->end_if
 enum AstNodeAttrib : Uint8
 {
-    AST_JOIN_POINT = 0x01,      // Some branch may jmp to here
-    AST_BRANCH_NODE = 0x02,    // Branch to other node
+    AST_JOIN_POINT_GOTO = 0x01,         // Some branch may goto directly to here
+    AST_JOIN_POINT_STRUCT_ENTRY = 0x02, // Struct code entry
+    AST_BRANCH_NODE = 0x04,             // Branch to other node
 };
 DECLARE_BITS_ENUM(AstNodeAttrib, Uint8);
 
@@ -357,7 +364,13 @@ struct AstNode
     // Is this node a join point? (Others may jmp to this node)
     bool is_join_point()
     {
-        return (attrib & AST_JOIN_POINT) ? true : false;
+        return (attrib & (AST_JOIN_POINT_GOTO | AST_JOIN_POINT_STRUCT_ENTRY)) ? true : false;
+    }
+
+    // Is this node a join point of struct code entry?
+    bool is_struct_entry()
+    {
+        return (attrib & AST_JOIN_POINT_STRUCT_ENTRY) ? true : false;
     }
 
     // Set this node to join point
@@ -367,9 +380,12 @@ struct AstNode
     }
 
     // Set this node to join point
-    void set_join_point()
+    void set_join_point(AstNodeAttrib join_type)
     {
-        attrib |= AST_JOIN_POINT;
+        STD_ASSERT(("Bad join type.",
+                    join_type == AST_JOIN_POINT_GOTO ||
+                    join_type == AST_JOIN_POINT_STRUCT_ENTRY));
+        attrib |= join_type;
     }
 
     // Specified routine for collect children of this AstNode
@@ -397,6 +413,11 @@ public:
             node = node->children;
         return node;
     }
+
+    // Get last effect node
+    // SInce the statements node is a node container but does not effect.
+    // Pickup the last effect node from statements by this function.
+    static AstNode* get_last_effect_node(AstNode* node);
 
     // Return first non-null node
     template <typename... T>

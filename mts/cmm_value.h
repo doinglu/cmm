@@ -736,7 +736,7 @@ struct BufferImpl : public ReferenceImpl
 {
 public:
     static const ValueType this_type = ValueType::BUFFER;
-    typedef enum
+    typedef enum : Uint16
     {
         // The buffer contains 1 or N class
         CONTAIN_1_CLASS = 0x0001,

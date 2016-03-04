@@ -40,7 +40,7 @@ class SyntaxVariable
 friend Function;
 
 public:
-	typedef enum
+	typedef enum : Uint16
 	{
         NULLABLE = 0x0001,
         DEFAULT = 0x0002
@@ -107,7 +107,7 @@ friend Program;
 friend Efun;
 
 public:
-	typedef enum
+	typedef enum : Uint16
 	{
 		RANDOM_ARG = 0x0001,        // Accept random arguments
         RET_NULLABLE = 0x0002,      // Return nullable type
@@ -295,7 +295,7 @@ private:
 class Program
 {
 public:
-    typedef enum
+    typedef enum : Uint16
     {
         COMPILED_TO_NATIVE = 0x0001,    // This component was compiled to native class
         INTERPRETED = 0x8000,           // This is a interpreted program

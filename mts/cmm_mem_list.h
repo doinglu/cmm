@@ -11,7 +11,7 @@ namespace cmm
 class MemList
 {
 private:
-    typedef enum
+    typedef enum : Uint16
     {
         // The block contains 1 or N class
         CONTAIN_1_CLASS = 0x0001,

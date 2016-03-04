@@ -16,7 +16,26 @@ AstNode::AstNode(Lang* context) :
     location.line = context->m_lexer.get_current_line();
     in_function_no = context->m_in_function ? context->m_in_function->no : 0;
 }
-    
+
+// Get last effect node from a statements
+AstNode* AstNode::get_last_effect_node(AstNode* node)
+{
+    for (;;)
+    {
+        if (!node->children)
+            // No children, return me
+            return node;
+
+        if (node->get_node_type() != AST_STATEMENTS)
+            return node;
+
+        // Get last child
+        node = node->children;
+        while (node->sibling)
+            node = node->sibling;
+    }
+}
+
 // Append node to list
 AstNode *append_sibling_node(AstNode *node, AstNode *next)
 {

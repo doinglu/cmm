@@ -16,19 +16,32 @@ class Lang;
 // Node no (for build basic blocks)
 typedef Uint16 AstNodeNo;
 
+// Block attrib
+typedef enum : Uint8
+{
+    BASIC_BLOCK_NOT_REACH_0 = 0x01, // This block can't reach block 0
+} BasicBlockAttrib;
+DECLARE_BITS_ENUM(BasicBlockAttrib, Uint8);
+
 // Basic block
 typedef Uint16 BasicBlockId;
 typedef simple::vector<BasicBlockId> BasicBlockIds;
 typedef simple::vector<AstNode*> AstNodes;
 struct BasicBlock
 {
-    AstNodeNo     begin;    // Begin offset of ast nodes in m_nodes
-    AstNodeNo     count;    // nodes in this block
-    BasicBlockId  id;       // My ID
-    BasicBlockId  idom;     // My immediate dominator, the closest dominator
-    BasicBlockIds preds;    // Predecessors blocks of me
-    BasicBlockIds branches; // Branch to other blocks
-    BasicBlockIds df;       // Dominance Frontiers
+    BasicBlockId     id;       // My ID
+    BasicBlockAttrib attrib;   // Attrib of this block
+    AstNodeNo        begin;    // Begin offset of ast nodes in m_nodes
+    AstNodeNo        count;    // nodes in this block
+    BasicBlockId     idom;     // My immediate dominator, the closest dominator
+    BasicBlockIds    preds;    // Predecessors blocks of me
+    BasicBlockIds    branches; // Branch to other blocks
+    BasicBlockIds    df;       // Dominance Frontiers
+
+    bool is_not_reached_0()
+    {
+        return (attrib & BASIC_BLOCK_NOT_REACH_0) ? true : false;
+    }
 };
 typedef simple::vector<BasicBlock*> BasicBlocks;
 
@@ -58,10 +71,12 @@ public:
     void generate_dom();
 
 public:
+    void print_block(BasicBlock* block);
     void print_blocks();
 
 private:
-    void create_new_block(AstNodeNo node_no);
+    BasicBlock* create_new_block(AstNodeNo node_no);
+    void        mark_unreachable_blocks();
 
 private:
     Lang* m_lang_context;
