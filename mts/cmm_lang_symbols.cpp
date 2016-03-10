@@ -17,6 +17,11 @@ IdentInfo::IdentInfo(Lang* context) :
 {
 }
 
+LangSymbols::LangSymbols(Lang* lang_context) :
+    LangComponent(lang_context, "Symbols")
+{
+}
+
 // Add a new ident unit to ident table
 // ATTENTION:
 // tag of the ident unit must be larger or equal to previous existed one

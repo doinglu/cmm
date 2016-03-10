@@ -6,7 +6,7 @@
 #include "std_port/std_port.h"
 #include "cmm_common_util.h"
 #include "cmm_lang.h"
-#include "cmm_lexer.h"
+#include "cmm_lang_lexer.h"
 #include "cmm_value.h"
 
 #if 0

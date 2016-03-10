@@ -1,4 +1,4 @@
-// cmm_lex.cpp
+// cmm_lang_lex.cpp
 // Initial version 2001.12.12 by doing
 // Immigrated 2015.10.28 by doing
 
@@ -7,7 +7,7 @@
 #include "cmm_buffer_new.h"
 #include "cmm_common_util.h"
 #include "cmm_lang.h"
-#include "cmm_lexer.h"
+#include "cmm_lang_lexer.h"
 #include "cmm_program.h"
 #include "cmm_value.h"
 
@@ -34,7 +34,7 @@ int yydebug = 1;
 #define lex_stop(code)  Lang::syntax_stop(m_lang_context, code);
 
 // Key words
-Keyword Lexer::m_define_keywords[] =
+Keyword LangLexer::m_define_keywords[] =
 {
     { "array",       L_BASIC_TYPE,   ARRAY    },
     { "break",       L_BREAK,        0        },
@@ -84,15 +84,15 @@ Keyword Lexer::m_define_keywords[] =
 };
 
 // Mapping: name->keyword
-Lexer::KeywordMap* Lexer::m_keywords = 0;
+LangLexer::KeywordMap* LangLexer::m_keywords = 0;
 
 // All file names
-Lexer::FileNameList* Lexer::m_file_name_list = 0;
+LangLexer::FileNameList* LangLexer::m_file_name_list = 0;
 
 // Critical section for access
-std_critical_section_t* Lexer::m_cs = 0;
+std_critical_section_t* LangLexer::m_cs = 0;
 
-bool Lexer::init()
+bool LangLexer::init()
 {
     size_t i;
 
@@ -111,7 +111,7 @@ bool Lexer::init()
     return true;
 }
 
-void Lexer::shutdown()
+void LangLexer::shutdown()
 {
     std_delete_critical_section(m_cs);
     shutdown_predefines();
@@ -119,7 +119,8 @@ void Lexer::shutdown()
     XDELETE(m_keywords);
 }
 
-Lexer::Lexer(Lang* lang_context)
+LangLexer::LangLexer(Lang* lang_context) :
+    LangComponent(lang_context, "Lexer")
 {
     m_lang_context = lang_context;
     m_out = 0;
@@ -141,11 +142,11 @@ Lexer::Lexer(Lang* lang_context)
     m_unique_counter = 0;
 }
 
-Lexer::~Lexer()
+LangLexer::~LangLexer()
 {
 }
 
-void Lexer::handle_elif(char *sp)
+void LangLexer::handle_elif(char *sp)
 {
     if (this->m_if_top != NULL)
     {
@@ -180,7 +181,7 @@ void Lexer::handle_elif(char *sp)
     }
 }
 
-void Lexer::handle_else()
+void LangLexer::handle_else()
 {
     if (this->m_if_top != NULL)
     {
@@ -197,7 +198,7 @@ void Lexer::handle_else()
     }
 }
 
-void Lexer::handle_endif()
+void LangLexer::handle_endif()
 {
     if (this->m_if_top != NULL &&
         (this->m_if_top->state == IfStatement::EXPECT_ENDIF ||
@@ -213,7 +214,7 @@ void Lexer::handle_endif()
 }
 
 // Copy a c str to mem list of lang context
-char* Lexer::copy_string(const char* c_str, size_t len)
+char* LangLexer::copy_string(const char* c_str, size_t len)
 {
     if (len == SIZE_MAX)
         len = strlen(c_str);
@@ -254,7 +255,7 @@ enum
     QMARK  = 19,
 };
 
-char Lexer::m_optab[] =
+char LangLexer::m_optab[] =
 { 0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0,  0,  0,  0,  0,  0,
   0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0,  0,  0,  0,  0,  0,
   0, 4, 0, 0, 0, 26, 56, 0, 0, 0, 18, 14,  0, 10,  0, 22,
@@ -272,14 +273,14 @@ char Lexer::m_optab[] =
   0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0,  0,  0,  0,  0,  0,
   0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, };
 
-char Lexer::m_optab2[] =
+char LangLexer::m_optab2[] =
 {BNOT, 0, 0, LNOT, '=', NEQ, 7, 0, 0, UMINUS, 0, BMINUS, 10, UPLUS, 0, BPLUS, 10,
  0, 0, MULT, 11, 0, 0, DIV, 11, 0, 0, MOD, 11,
  0, '<', LSHIFT, 9, '=', LEQ, 8, 0, LESS, 8, 0, '>', RSHIFT, 9, '=', GEQ, 8, 0, GREAT, 8,
  0, '=', EQ, 7, 0, 0, 0, '&', LAND, 3, 0, BAND, 6, 0, '|', LOR, 2, 0, BOR, 4,
  0, 0, XOR, 5, 0, 0, QMARK, 1};
 
-IntR Lexer::cond_get_exp(IntR priority)
+IntR LangLexer::cond_get_exp(IntR priority)
 {
     IntR value, value2, x;
     int c;
@@ -489,7 +490,7 @@ IntR Lexer::cond_get_exp(IntR priority)
     return value;
 }
 
-void Lexer::handle_cond(IntR c)
+void LangLexer::handle_cond(IntR c)
 {
     IfStatement *p;
 
@@ -501,7 +502,7 @@ void Lexer::handle_cond(IntR c)
     p->state = c ? IfStatement::EXPECT_ENDIF : IfStatement::EXPECT_ELSE;
 }
 
-void Lexer::lex_errorp(const char *msg)
+void LangLexer::lex_errorp(const char *msg)
 {
     char buf[200];
     snprintf(buf, sizeof(buf), msg, '#');
@@ -510,7 +511,7 @@ void Lexer::lex_errorp(const char *msg)
 }
 
 // Skip token to expected one
-bool Lexer::skip_to(const char *token, const char *atoken)
+bool LangLexer::skip_to(const char *token, const char *atoken)
 {
     char b[20], *p;
     char c;
@@ -583,7 +584,7 @@ bool Lexer::skip_to(const char *token, const char *atoken)
     }
 }
 
-void Lexer::handle_pragma(char *name)
+void LangLexer::handle_pragma(char *name)
 {
     char *p;
 
@@ -600,7 +601,7 @@ void Lexer::handle_pragma(char *name)
 }
 
 // Update m_current_file_name.c_str() & m_current_line information of source file
-void Lexer::set_current_line_file(char *linefile)
+void LangLexer::set_current_line_file(char *linefile)
 {
     char *p, *p2;
 
@@ -634,7 +635,7 @@ void Lexer::set_current_line_file(char *linefile)
 }
 
 // Skip current line in buffer
-void Lexer::skip_line()
+void LangLexer::skip_line()
 {
     IntR c;
     char *yyp = this->m_out;
@@ -646,7 +647,7 @@ void Lexer::skip_line()
     this->m_out = yyp;
 }
 
-void Lexer::skip_comment()
+void LangLexer::skip_comment()
 {
     IntR c = '*';
     char *yyp = this->m_out;
@@ -696,7 +697,7 @@ void Lexer::skip_comment()
 }
 
 // Generate a dir & file name by m_current_file_name & path
-void Lexer::generate_file_dir_name()
+void LangLexer::generate_file_dir_name()
 {
     char buf[MAX_FILE_NAME_LEN];
     const char *tmp, *file;
@@ -758,7 +759,7 @@ void Lexer::generate_file_dir_name()
     m_current_dir_string = buf;
 }
 
-void Lexer::del_trail(char *sp)
+void LangLexer::del_trail(char *sp)
 {
     char *p;
 
@@ -783,13 +784,13 @@ void Lexer::del_trail(char *sp)
     }
 
 // Return current file path
-StringImpl* Lexer::get_current_file_name()
+StringImpl* LangLexer::get_current_file_name()
 {
     return m_current_file_name;
 }
 
 // Return current line
-LineNo Lexer::get_current_line()
+LineNo LangLexer::get_current_line()
 {
     if (m_fixed_line)
         return m_fixed_line;
@@ -798,20 +799,20 @@ LineNo Lexer::get_current_line()
 }
 
 // Get default attrib of compiler
-Uint32 Lexer::get_default_attrib()
+Uint32 LangLexer::get_default_attrib()
 {
     return m_default_attrib;
 }
 
 // Set default attrib of compiler
-bool Lexer::set_default_attrib(Uint32 attrib)
+bool LangLexer::set_default_attrib(Uint32 attrib)
 {
     m_default_attrib = attrib;
     return true;
 }
 
 // Load data from file & fill the process buffer
-void Lexer::refill_buffer()
+void LangLexer::refill_buffer()
 {
     char*  p;
     char*  end;
@@ -929,7 +930,7 @@ void Lexer::refill_buffer()
 #define returnOrder(opcode)     { yylval.number = opcode; return L_ORDER;  }
 
 // Lex in
-int Lexer::lex_in()
+int LangLexer::lex_in()
 {
     static char partial[MAXLINE + 5];   // extra 5 for safety buffer
     bool   is_real;
@@ -1759,7 +1760,7 @@ badlex:
  * by the return pointer won't be free during all VM running period. So user can
  * use the return pointer directly.
  */
-StringImpl* Lexer::add_file_name(const simple::string& file_name)
+StringImpl* LangLexer::add_file_name(const simple::string& file_name)
 {
     char regular_name[MAX_FILE_NAME_LEN];
     const char *c_str;
@@ -1793,7 +1794,7 @@ StringImpl* Lexer::add_file_name(const simple::string& file_name)
 }
 
 // Lookup in added file name list, return the regular name
-StringImpl* Lexer::find_file_name(const simple::string& file_name)
+StringImpl* LangLexer::find_file_name(const simple::string& file_name)
 {
     char regular_name[MAX_FILE_NAME_LEN];
     const char *c_str;
@@ -1822,7 +1823,7 @@ StringImpl* Lexer::find_file_name(const simple::string& file_name)
 // Lookup all file name name list, try to find nearest file name
 // For file name a/b.c, can match x/a/b.c or y/x/a/b.c ...
 // If matched multi file name, return NULL
-StringImpl* Lexer::find_file_name_not_exact_match(const simple::string& file_name)
+StringImpl* LangLexer::find_file_name_not_exact_match(const simple::string& file_name)
 {
     // Find in shared string
     StringImpl *name;
@@ -1878,7 +1879,7 @@ StringImpl* Lexer::find_file_name_not_exact_match(const simple::string& file_nam
 // This function can't be called only if the system is shutdown &
 // the shared string's pool is to be cleared.
 // The function is used to detected string leak.
-void Lexer::destruct_file_names()
+void LangLexer::destruct_file_names()
 {
     std_enter_critical_section(m_cs);
     m_file_name_list->clear();
@@ -1888,7 +1889,7 @@ void Lexer::destruct_file_names()
 // End of compiled. Close the file
 // The definesNeedFree is a flag indicate should I free all
 // the MACRO defines? It's set by the vm_startNewFile().
-bool Lexer::end_new_file(bool succ)
+bool LangLexer::end_new_file(bool succ)
 {
     this->m_if_top = NULL;
     return succ;
@@ -1896,7 +1897,7 @@ bool Lexer::end_new_file(bool succ)
 
 // Open a new file to compile
 // pProgram: compile to which program... NULL means compile to global program.
-bool Lexer::start_new_file(Program *program, IntR fd, const simple::string& file_name)
+bool LangLexer::start_new_file(Program *program, IntR fd, const simple::string& file_name)
 {
     // Generate full file name
     generate_file_dir_name();
@@ -1929,7 +1930,7 @@ bool Lexer::start_new_file(Program *program, IntR fd, const simple::string& file
     return true;
 }
 
-void Lexer::get_next_char(IntR *ptr_ch)
+void LangLexer::get_next_char(IntR *ptr_ch)
 {
     IntR ch;
     if ((ch = (Uint8)*this->m_out++) == '\n' &&
@@ -1938,7 +1939,7 @@ void Lexer::get_next_char(IntR *ptr_ch)
 }
 
 // Copy n bytes from p to [to, to_end]
-void Lexer::get_alpha_string_to(char* p, char* to, char* to_end)
+void LangLexer::get_alpha_string_to(char* p, char* to, char* to_end)
 {
     while (isalnum(*p))
     {
@@ -1955,7 +1956,7 @@ void Lexer::get_alpha_string_to(char* p, char* to, char* to_end)
     *to++ = 0;
 }
 
-IntR Lexer::cmy_get_char()
+IntR LangLexer::cmy_get_char()
 {
     IntR c;
 
@@ -1977,7 +1978,7 @@ IntR Lexer::cmy_get_char()
     }
 }
 
-void Lexer::refill()
+void LangLexer::refill()
 {
     char *p;
     IntR c;
@@ -2002,7 +2003,7 @@ void Lexer::refill()
 }
 
 // IDEA: linked buffers, to allow "unlimited" buffer expansion
-void Lexer::add_input(char *p)
+void LangLexer::add_input(char *p)
 {
     size_t l = strlen(p);
 
@@ -2030,7 +2031,7 @@ void Lexer::add_input(char *p)
 }
 
 #if 0
-void Lexer::skip_white()
+void LangLexer::skip_white()
 {
     do
     {
@@ -2043,7 +2044,7 @@ void Lexer::skip_white()
 }
 #endif
 
-void Lexer::skip_white()
+void LangLexer::skip_white()
 {
     int c;
     do
@@ -2053,7 +2054,7 @@ void Lexer::skip_white()
     this->m_out--;
 }
 
-int Lexer::get_char_in_cond_exp()
+int LangLexer::get_char_in_cond_exp()
 {
     char c, *yyp;
 
@@ -2074,7 +2075,7 @@ int Lexer::get_char_in_cond_exp()
 }
 
 // Get keyword token if input name is keyword, or return -1*/
-Keyword *Lexer::get_keyword(const simple::string& name)
+Keyword *LangLexer::get_keyword(const simple::string& name)
 {
     Keyword* keyword;
     if (m_keywords->try_get(name, &keyword))

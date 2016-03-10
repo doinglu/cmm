@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "cmm_lang_cfg.h"
+#include "cmm_lang_component.h"
 
 namespace cmm
 {
@@ -12,30 +12,12 @@ namespace cmm
 class Lang;
 class LangCFG;
 
-class LangPhi
+class LangPhi : LangComponent
 {
     friend Lang;
-    typedef BasicBlock::VarInfo VarInfo;
-    typedef BasicBlock::VarInfos VarInfos;
-    typedef BasicBlock::PhiNode PhiNode;
-    typedef BasicBlock::PhiNodes PhiNodes;
-    typedef BasicBlock::VersionNo VersionNo;
-    typedef BasicBlock::Incoming Incoming;
-    typedef BasicBlock::VarInfoLess VarInfoLess;
-    typedef BasicBlock::PhiNodeVarInfoLess PhiNodeVarInfoLess;
-
-    enum WhenNotFound
-    {
-        ADD_NEW = 0,
-        LOOKUP_IDOM = 1,
-    };
 
 public:
-    LangPhi(Lang* lang_context, LangCFG* cfg) :
-        m_lang_context(lang_context),
-        m_cfg(cfg)
-    {
-    }
+    LangPhi(Lang* lang_context);
 
 public:
     void create_phi_info();
@@ -62,7 +44,6 @@ private:
     void        update_input_var_version(VarInfo& var_info, VarInfos& current_versions);
 
 private:
-    Lang*    m_lang_context;
     LangCFG* m_cfg;
 
     // List to check uninitialized

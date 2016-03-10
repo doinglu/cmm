@@ -10,11 +10,6 @@
 #include "std_template/simple_list.h"
 #include "cmm.h"
 #include "cmm_ast.h"
-#include "cmm_lang_cfg.h"
-#include "cmm_lang_phi.h"
-#include "cmm_lang_symbols.h"
-#include "cmm_lex_util.h"
-#include "cmm_lexer.h"
 #include "cmm_mem_list.h"
 #include "cmm_value.h"
 
@@ -43,10 +38,18 @@ struct IfStatement
     }
 };
 
+class LangCFG;
+class LangLexer;
+class LangPhi;
+class LangSubexpr;
+class LangSymbols;
+
 class Lang
 {
-    friend class Lexer;
     friend class LangCFG;
+    friend class LangLexer;
+    friend class LangPhi;
+    friend class LangSubexpr;
     friend class LangSymbols;
 
 public:
@@ -150,11 +153,6 @@ public:
     // Memory list
     MemList mem_list;
 
-    // Lexer
-    Lexer m_lexer;
-
-    // Symbol manager
-    LangSymbols m_symbols;
 
     // number of errors
     Uint32 m_num_errors;
@@ -198,11 +196,14 @@ public:
     typedef simple::vector<VirtualRegInfo> VirtualRegInfos;
     VirtualRegInfos m_virtual_regs;
 
-    // CFG
-    LangCFG m_cfg;
+    // Lexer
 
-    // Phi
-    LangPhi m_phi;
+    // Components
+    LangLexer* m_lexer;
+    LangCFG* m_cfg;
+    LangPhi* m_phi;
+    LangSubexpr* m_sub_expr;
+    LangSymbols* m_symbols;
 
     // long jump buffer
     jmp_buf m_jmp_buf;

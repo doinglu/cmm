@@ -8,6 +8,7 @@
 #include "std_template/simple_vector.h"
 #include "cmm.h"
 #include "cmm_basic_block.h"
+#include "cmm_lang_component.h"
 
 namespace cmm
 {
@@ -15,7 +16,7 @@ namespace cmm
 class Lang;
 class LangPhi;
 
-class LangCFG
+class LangCFG : LangComponent
 {
     friend Lang;
     friend LangPhi;
@@ -28,10 +29,7 @@ public:
     };
 
 public:
-    LangCFG(Lang* lang_context) :
-        m_lang_context(lang_context)
-    {
-    }
+    LangCFG(Lang* lang_context);
 
     void init(AstFunction* in_functino);
 
@@ -53,8 +51,6 @@ private:
     int             version_no_to_int(BasicBlock::VersionNo version_no);
 
 private:
-    Lang* m_lang_context;
-
     // All nodes & blocks
     AstFunction*  m_in_ast_function;
     AstNodes      m_nodes;

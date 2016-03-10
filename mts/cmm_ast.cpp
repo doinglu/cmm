@@ -3,6 +3,7 @@
 #include "cmm.h"
 #include "cmm_ast.h"
 #include "cmm_lang.h"
+#include "cmm_lang_lexer.h"
 
 namespace cmm
 {
@@ -12,8 +13,8 @@ AstNode::AstNode(Lang* context) :
     children(0),
     attrib((AstNodeAttrib)0)
 {
-    location.file = context->m_lexer.get_current_file_name();
-    location.line = context->m_lexer.get_current_line();
+    location.file = context->m_lexer->get_current_file_name();
+    location.line = context->m_lexer->get_current_line();
     in_function_no = context->m_in_ast_function ? context->m_in_ast_function->no : 0;
 }
 

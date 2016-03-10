@@ -7,6 +7,11 @@
 #include "cmm_buffer_new.h"
 #include "cmm_efun.h"
 #include "cmm_lang.h"
+#include "cmm_lang_cfg.h"
+#include "cmm_lang_lexer.h"
+#include "cmm_lang_phi.h"
+#include "cmm_lang_sub_expr.h"
+#include "cmm_lang_symbols.h"
 #include "cmm_program.h"
 #include "cmm_shell.h"
 
@@ -32,11 +37,7 @@ void Lang::shutdown()
 
 // Initialize the context
 Lang::Lang() :
-    m_components((size_t)0),
-    m_lexer(this),
-    m_symbols(this),
-    m_cfg(this),
-    m_phi(this, &m_cfg)
+    m_components((size_t)0)
 {
     // Initialize before any node created
     m_in_ast_function = 0;
@@ -49,6 +50,12 @@ Lang::Lang() :
     m_current_attrib = 0;
     m_stop_error_code = ErrorCode::OK;
     m_frame_tag = 0;
+
+    // Create components
+    m_cfg     = LANG_NEW(this, LangCFG, this);
+    m_lexer   = LANG_NEW(this, LangLexer, this);
+    m_phi     = LANG_NEW(this, LangPhi, this);
+    m_symbols = LANG_NEW(this, LangSymbols, this);
 }
 
 Lang::~Lang()
@@ -99,8 +106,8 @@ void Lang::syntax_error(Lang* lang_context, const char *msg)
     lang_context->m_num_errors++;
 
     cmm_errprintf("%s(%d): error %d: %s\n",
-                  lang_context->m_lexer.m_current_file_name->c_str(),
-                  (int)lang_context->m_lexer.m_current_line,
+                  lang_context->m_lexer->m_current_file_name->c_str(),
+                  (int)lang_context->m_lexer->m_current_line,
                   C_PARSER, msg);
 
     lang_context->m_num_errors++;
@@ -140,8 +147,8 @@ void Lang::syntax_warn(Lang* lang_context, const char *msg)
         lang_context->m_num_errors++;
 
     cmm_printf("%s(%d): warning %d: %s\n",
-                lang_context->m_lexer.m_current_file_name->c_str(),
-                (int)lang_context->m_lexer.m_current_line,
+                lang_context->m_lexer->m_current_file_name->c_str(),
+                (int)lang_context->m_lexer->m_current_line,
                 C_PARSER, msg);
 #endif        
 
@@ -342,7 +349,7 @@ void Lang::create_new_frame()
 // Destruct current frame & release definitions
 void Lang::destruct_current_frame()
 {
-    m_symbols.remove_ident_info_by_tag(m_frame_tag);
+    m_symbols->remove_ident_info_by_tag(m_frame_tag);
     m_frame_tag--;
 }
 

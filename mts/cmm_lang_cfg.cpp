@@ -12,6 +12,11 @@
 namespace cmm
 {
 
+LangCFG::LangCFG(Lang* lang_context) :
+    LangComponent(lang_context, "CFG")
+{
+}
+
 // Clear data to build new CFG
 void LangCFG::init(AstFunction* in_ast_function)
 {

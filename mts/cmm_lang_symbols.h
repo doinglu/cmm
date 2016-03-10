@@ -6,6 +6,7 @@
 
 #include "std_template/simple_hash_map.h"
 #include "cmm.h"
+#include "cmm_lang_component.h"
 #include "cmm_mmm_value.h"
 
 namespace cmm
@@ -60,13 +61,10 @@ struct IdentInfo
     IdentInfo(Lang* lang_context);
 };
 
-class LangSymbols
+class LangSymbols : LangComponent
 {
 public:
-    LangSymbols(Lang* lang_context) :
-        m_lang_context(lang_context)
-    {
-    }
+    LangSymbols(Lang* lang_context);
 
     // Ident symbols manager
 public:
@@ -90,8 +88,6 @@ private:
 
     typedef simple::hash_map<simple::string, AstLabel*> LabelTable;
     LabelTable m_label_table;
-
-    Lang* m_lang_context;
 };
 
 }

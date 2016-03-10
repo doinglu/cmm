@@ -204,6 +204,8 @@
     <ClInclude Include="cmm_global_id.h" />
     <ClInclude Include="cmm_grammar.h" />
     <ClInclude Include="cmm_init_mmgr.h" />
+    <ClInclude Include="cmm_lang_component.h" />
+    <ClInclude Include="cmm_lang_sub_expr.h" />
     <ClInclude Include="cmm_lang_symbols.h" />
     <ClInclude Include="cmm_memory_pool.h" />
     <ClInclude Include="cmm_mem_list.h" />
@@ -227,7 +229,7 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="vm_compiler.h" />
-    <ClInclude Include="cmm_lexer.h" />
+    <ClInclude Include="cmm_lang_lexer.h" />
     <ClInclude Include="cmm_file_path.h" />
     <ClInclude Include="cmm_lex_util.h" />
     <ClInclude Include="cmm_register_allocator.h" />
@@ -272,6 +274,7 @@
     <ClCompile Include="cmm_grammar.cpp" />
     <ClCompile Include="cmm_lang_pass1.cpp" />
     <ClCompile Include="cmm_lang_pass2.cpp" />
+    <ClCompile Include="cmm_lang_sub_expr.cpp" />
     <ClCompile Include="cmm_lang_symbols.cpp" />
     <ClCompile Include="cmm_init_mmgr.cpp" />
     <ClCompile Include="cmm_memory_pool.cpp" />
@@ -290,7 +293,7 @@
     <ClCompile Include="cmm_value.cpp" />
     <ClCompile Include="mts.cpp" />
     <ClCompile Include="cmm_lang_const.cpp" />
-    <ClCompile Include="cmm_lexer.cpp" />
+    <ClCompile Include="cmm_lang_lexer.cpp" />
     <ClCompile Include="cmm_file_path.cpp" />
     <ClCompile Include="cmm_lex_util.cpp" />
     <ClCompile Include="cmm_lexer_predefines.cpp" />

@@ -20,7 +20,7 @@
 #include "cmm_domain.h"
 #include "cmm_efun.h"
 #include "cmm_lang.h"
-#include "cmm_lexer.h"
+#include "cmm_lang_lexer.h"
 #include "cmm_init_mmgr.h"
 #include "cmm_object.h"
 #include "cmm_program.h"
@@ -272,7 +272,7 @@ int main(int argn, char *argv[])
     Simulator::init();
     Efun::init();
     Lang::init();
-    Lexer::init();
+    LangLexer::init();
 #endif
 
     ////----test_gc();
@@ -293,7 +293,7 @@ int main(int argn, char *argv[])
 ////----        Thread::get_current_thread()->restore_call_stack_for_error(try_context);
     }
 
-    Lexer::shutdown();
+    LangLexer::shutdown();
     Lang::shutdown();
     Efun::shutdown();
     Simulator::shutdown();
@@ -319,7 +319,7 @@ void compile()
     fp = fopen("../script.c", "r");
     if (fp == 0)
         fp = fopen("z:/doing/Project/mts/script.c", "r");
-    context->m_lexer.start_new_file(NULL, (IntR)fp, "script.c");
+    context->m_lexer->start_new_file(NULL, (IntR)fp, "script.c");
     auto ret = context->parse();
     auto root = context->m_root;
 

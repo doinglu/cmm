@@ -5,6 +5,7 @@
 #include "cmm_ast.h"
 #include "cmm_buffer_new.h"
 #include "cmm_lang.h"
+#include "cmm_lang_symbols.h"
 #include "cmm_program.h"
 #include "cmm_thread.h"
 
@@ -356,7 +357,7 @@ void Lang::init_symbol_table()
         info->object_var_no = it->object_var_no;
         info->type = IDENT_OBJECT_VAR;
         info->decl = it;
-        m_symbols.add_ident_info(it->name, info, it);
+        m_symbols->add_ident_info(it->name, info, it);
     }
 
     for (auto it : m_ast_functions)
@@ -368,7 +369,7 @@ void Lang::init_symbol_table()
         info->function_no = it->no;
         info->type = IDENT_OBJECT_FUN;
         info->ast_function = it;
-        m_symbols.add_ident_info(prototype->name, info, it);
+        m_symbols->add_ident_info(prototype->name, info, it);
     }
 }
 
@@ -409,7 +410,7 @@ void Lang::lookup_and_collect_info(AstNode *node)
         }
         info->decl = decl;
         decl->ident_type = info->type;
-        m_symbols.add_ident_info(decl->name, info, node);
+        m_symbols->add_ident_info(decl->name, info, node);
         break;
     }
 
@@ -434,7 +435,7 @@ void Lang::lookup_and_collect_info(AstNode *node)
     case AST_EXPR_FUNCTION_CALL:
     {
         auto* expr = (AstExprFunctionCall*)node;
-        auto* function = m_symbols.get_function(expr->callee_name, node);
+        auto* function = m_symbols->get_function(expr->callee_name, node);
         if (!function)
             // Function not found
             break;
@@ -461,7 +462,7 @@ void Lang::lookup_and_collect_info(AstNode *node)
     {
         // Get var type of variable
         auto* expr = (AstExprVariable*)node;
-        auto* info = m_symbols.get_ident_info(expr->name, IDENT_ALL);
+        auto* info = m_symbols->get_ident_info(expr->name, IDENT_ALL);
         if (!info)
         {
             this->syntax_errors(this,
@@ -520,7 +521,7 @@ void Lang::lookup_and_collect_info(AstNode *node)
             arg_info->local_var_no = arg->arg_no;
             arg_info->type = IDENT_ARGUMENT;
             arg_info->arg = arg;
-            m_symbols.add_ident_info(arg->name, arg_info, arg);
+            m_symbols->add_ident_info(arg->name, arg_info, arg);
         }
 
         if (ast_function->prototype->attrib & AST_ANONYMOUS_CLOSURE)
@@ -535,7 +536,7 @@ void Lang::lookup_and_collect_info(AstNode *node)
         fun_info->function_no = ast_function->no;
         fun_info->type = IDENT_OBJECT_FUN;
         fun_info->ast_function = ast_function;
-        m_symbols.add_ident_info(ast_function->prototype->name, fun_info, node);
+        m_symbols->add_ident_info(ast_function->prototype->name, fun_info, node);
         break;
     }
 
@@ -543,7 +544,7 @@ void Lang::lookup_and_collect_info(AstNode *node)
     {
         // Save label
         auto* label = (AstLabel*)node;
-        m_symbols.add_label_info(label);
+        m_symbols->add_label_info(label);
         break;
     }
 
@@ -1069,7 +1070,7 @@ IdentInfo* Lang::define_new_local(simple::string& name, AstNode* node)
     info->decl = decl;
     info->type = IDENT_LOCAL_VAR;
     info->local_var_no = decl->var_no;
-    m_symbols.add_ident_info(name, info, node);
+    m_symbols->add_ident_info(name, info, node);
     return info;
 }
 

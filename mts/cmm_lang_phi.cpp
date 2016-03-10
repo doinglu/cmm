@@ -6,11 +6,18 @@
 #include "cmm.h"
 #include "cmm_ast.h"
 #include "cmm_lang.h"
+#include "cmm_lang_cfg.h"
 #include "cmm_lang_phi.h"
 #include "cmm_util.h"
 
 namespace cmm
 {
+
+LangPhi::LangPhi(Lang* lang_context) :
+    LangComponent(lang_context, "Phi")
+{
+    m_cfg = m_lang_context->m_cfg;
+}
 
 // Create Phi info
 void LangPhi::create_phi_info()

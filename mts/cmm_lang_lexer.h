@@ -1,4 +1,4 @@
-// cmm_lexer.h
+// cmm_lang_lexer.h
 // Initial version 2001.12.12 by doing
 // Immigrated 2015.10.28 by doing
 
@@ -8,7 +8,7 @@
 #include "cmm.h"
 #include "cmm_efun.h"
 #include "cmm_gc_alloc.h"
-#include "cmm_lang.h"
+#include "cmm_lang_component.h"
 #include "cmm_mmm_value.h"
 
 namespace cmm
@@ -72,7 +72,7 @@ typedef int LineNo;
 
 struct IfStatement;
 
-class Lexer
+class LangLexer : LangComponent
 {
     friend class Lang;
 
@@ -112,8 +112,8 @@ public:
     static void shutdown();
 
 public:
-    Lexer(Lang* lang_context);
-    ~Lexer();
+    LangLexer(Lang* lang_context);
+    ~LangLexer();
 
 public:
     StringImpl* add_file_name(const simple::string& file_name);
@@ -173,9 +173,6 @@ private:
     static simple::string expand_counter(Lang* lang_context);
 
 private:
-    // Language syntax context
-    Lang*        m_lang_context;
-
     // current output buffer point
     char*        m_out;
 
