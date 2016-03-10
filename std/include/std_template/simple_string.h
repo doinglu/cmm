@@ -84,6 +84,7 @@ public:
 
         set_length(s.m_len);
         memcpy(data_ptr(), s.data_ptr(), (m_len + 1) * sizeof(char_t));
+        m_hash_value = s.m_hash_value;
         return *this;
     }
 
@@ -104,6 +105,7 @@ public:
         else
             memcpy(data_ptr(), s.data_ptr(), (m_len + 1) * sizeof(char_t));
 
+        m_hash_value = s.m_hash_value;
         return *this;
     }
 

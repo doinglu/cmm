@@ -10,6 +10,8 @@
 #include "std_template/simple_list.h"
 #include "cmm.h"
 #include "cmm_ast.h"
+#include "cmm_lang_cfg.h"
+#include "cmm_lang_phi.h"
 #include "cmm_lang_symbols.h"
 #include "cmm_lex_util.h"
 #include "cmm_lexer.h"
@@ -18,6 +20,8 @@
 
 namespace cmm
 {
+
+class Function;
 
 // the state of context
 // #if state
@@ -42,6 +46,7 @@ struct IfStatement
 class Lang
 {
     friend class Lexer;
+    friend class LangCFG;
     friend class LangSymbols;
 
 public:
@@ -55,8 +60,9 @@ private:
     static void destruct_expr_op_type();
 
 public:
-    // Constructor
+    // Constructor/Destructor
     Lang();
+    ~Lang();
 
 public:
     // Do parse
@@ -97,6 +103,7 @@ private:
     // Steps for pass
     void            lookup_and_collect_info(AstNode *node);
     void            lookup_expr_types_and_output(AstNode *node);
+    void            lookup_and_remove_function_node(AstNode *node);
 
 private:
     VirtualRegNo    alloc_virtual_reg(ValueType type, bool may_nil);
@@ -109,8 +116,10 @@ private:
 private:
     // Pass utilty functions
     bool            are_expr_list_constant(AstExpr* expr);
-    ValueType       derive_type_of_op(AstExprOp* node, Op op, ValueType operand_type1, ValueType operand_type2, ValueType operand_type3);
     bool            check_lvalue(AstExpr* node);
+    Function*       create_function(AstFunction* ast_function);
+    IdentInfo*      define_new_local(simple::string& name, AstNode* node);
+    ValueType       derive_type_of_op(AstExprOp* node, Op op, ValueType operand_type1, ValueType operand_type2, ValueType operand_type3);
     bool            try_map_assign_op_to_op(Op assign_op, Op* out_op);
 
     // Pass2 - Analyse functions
@@ -128,8 +137,11 @@ private:
 
     // Frame relative functions
 private:
-    void create_new_frame();
-    void destruct_current_frame();
+    void            create_new_frame();
+    void            destruct_current_frame();
+
+private:
+    const simple::string& get_object_var_name(ObjectVarNo object_var_no) const;
 
 private:
     static void collect_children(AstNode* node);
@@ -160,19 +172,19 @@ public:
     Uint32 m_loop_depth;
 
     // current compiling function
-    AstFunction* m_in_function;
+    AstFunction* m_in_ast_function;
 
     // object entry function
-    AstFunction* m_entry_function;
+    AstFunction* m_entry_ast_function;
 
     // AST root
     AstNode* m_root;
 
-    // Program's object var variables
+    // Ast declaration of variables
     simple::vector<AstDeclaration*> m_object_vars;
 
-    // Program's method function
-    simple::vector<AstFunction*> m_functions;
+    // Ast functions
+    simple::vector<AstFunction*> m_ast_functions;
 
     // All components
     simple::vector<simple::string> m_components;
@@ -187,7 +199,10 @@ public:
     VirtualRegInfos m_virtual_regs;
 
     // CFG
-    CFG m_cfg;
+    LangCFG m_cfg;
+
+    // Phi
+    LangPhi m_phi;
 
     // long jump buffer
     jmp_buf m_jmp_buf;
@@ -196,11 +211,15 @@ public:
     Uint32 m_current_attrib;
 
 private:
-    // Error code during compiling
-    ErrorCode m_error_code;
+    // If set, stop compiling when necessary
+    // (normally stop when entering next phase)
+    ErrorCode m_stop_error_code;
 
     // Tag to declare new definition in symbol table
     int m_frame_tag;
+
+    // class Function (used by class Program)
+    simple::vector<Function*> m_program_functions;
 };
 
 // Internal routines

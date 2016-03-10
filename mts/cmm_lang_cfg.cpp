@@ -1,4 +1,4 @@
-// cmm_cfg.h
+// cmm_lang_cfg.h
 // Initial version by doing Mar/1/2016
 // Control-Flow-Graph
 
@@ -6,15 +6,18 @@
 #include "cmm.h"
 #include "cmm_ast.h"
 #include "cmm_bitset.h"
-#include "cmm_cfg.h"
 #include "cmm_lang.h"
+#include "cmm_lang_cfg.h"
 
 namespace cmm
 {
 
 // Clear data to build new CFG
-void CFG::clear()
+void LangCFG::init(AstFunction* in_ast_function)
 {
+    m_in_ast_function = in_ast_function;
+
+    // Clear nodes
     m_nodes.clear();
 
     // Free all blocks
@@ -32,28 +35,31 @@ void CFG::clear()
 }
 
 // Add an edge: node->node
-// CFG::EDGE_NOT_GOTO means this edge won't be added if from is an ast goto node.
-void CFG::add_edge(AstNode* from, AstNode* to, EdgeType type)
+// LangCFG::EDGE_NOT_GOTO means this edge won't be added if from is an ast goto node.
+void LangCFG::add_edge(AstNode* from, AstNode* to, EdgeType type)
 {
+    // Get last effect node of statements node
+    auto* effect_node = AstNode::get_last_effect_node(from);
+
+    if (type == LangCFG::EDGE_NOT_GOTO && effect_node->get_node_type() == AST_GOTO)
+        // This node will create a force jmp, don't add branch
+        // by condition
+        return;
+
     from->set_branch_node();
     auto join_type = (type == EDGE_GOTO) ? AST_JOIN_POINT_GOTO
                                          : AST_JOIN_POINT_STRUCT_ENTRY;
     to->set_join_point(join_type);
 
-    // Get last effect node of statements node
-    auto* effect_node = AstNode::get_last_effect_node(from);
-
-    if (type == CFG::EDGE_NOT_GOTO && effect_node->get_node_type() == AST_GOTO)
-        // This node will create a force jmp, don't add branch
-        // by condition
-        return;
-
     m_edges.push_back(Edge(from, to));
 }
 
 // Add new node
-bool CFG::add_node(AstNode* node)
+bool LangCFG::add_node(AstNode* node)
 {
+    STD_ASSERT(("node is not belonged to this function.\n",
+               node->in_function_no == m_in_ast_function->no));
+
     node->node_no = (AstNodeNo)m_nodes.size();
     if (m_nodes.size() >= (AstNodeNo)~0)
     {
@@ -70,7 +76,7 @@ bool CFG::add_node(AstNode* node)
 }
 
 // Create blocks by branch/join points
-void CFG::create_blocks()
+void LangCFG::create_blocks()
 {
     for (auto node : m_nodes)
     {
@@ -120,8 +126,8 @@ void CFG::create_blocks()
 
 // Debug options
 #define DEBUG_DOM_ALGORITHM         0
-#define DEBUG_ADD_NODES             1
-#define DEBUG_ADD_EDGES             1
+#define DEBUG_ADD_NODES             0
+#define DEBUG_ADD_EDGES             0
 
 // Output information when enable DEBUG_DOM_ALGORITHM
 #if DEBUG_DOM_ALGORITHM
@@ -130,7 +136,7 @@ void CFG::create_blocks()
 #endif
 
 // Generate DOM
-void CFG::generate_dom()
+void LangCFG::generate_dom()
 {
     // Empty nodes
     if (m_blocks.size() == 0)
@@ -307,12 +313,12 @@ void CFG::generate_dom()
         block->idom = 0;
 
     // Buffer to get set intersection
-    simple::vector<BasicBlockId> ordered_id(m_blocks.size()); // IDs sorted by level of IDOM tree
+    simple::vector<BasicBlockId> ordered_ids(m_blocks.size()); // IDs sorted by level of IDOM tree
     simple::vector<BasicBlockId> id_index(m_blocks.size());   // ID index in IDOM tree
     for (BasicBlockId i = 0; i < (BasicBlockId)m_blocks.size(); i++)
     {
         id_index.push_back(i);
-        ordered_id.push_back(i);
+        ordered_ids.push_back(i);
     }
 
     times = 0;
@@ -326,16 +332,6 @@ void CFG::generate_dom()
             if (preds_size < 1)
                 // Unreached - Dead block
                 continue;
-
-            if (preds_size == 1)
-            {
-                // From only 1 block, this is my IDOM
-                if (block->idom == block->preds[0])
-                    continue;
-                block->idom = block->preds[0];
-                changed = true;
-                continue;
-            }
 
             // set = set_intersection preds.DOM
             // Create cache for one set, then search other set in the cache to
@@ -380,10 +376,10 @@ void CFG::generate_dom()
                     // Move block->idom in front of this block
                     for (auto i = block_idom_index; i > this_block_index; i--)
                     {
-                        ordered_id[i] = ordered_id[i - 1];
-                        id_index[i]++;
+                        ordered_ids[i] = ordered_ids[i - 1];
+                        id_index[ordered_ids[i]]++;
                     }
-                    ordered_id[this_block_index] = block->idom;
+                    ordered_ids[this_block_index] = block->idom;
                     id_index[block->idom] = this_block_index;
                 }
 
@@ -418,6 +414,9 @@ void CFG::generate_dom()
             }
         }
     }
+
+    // Create idom ordered blocks
+    m_idom_ordered_ids = ordered_ids;
 
 #if DEBUG_DOM_ALGORITHM
     auto e2 = std_get_current_us_counter();
@@ -475,7 +474,7 @@ void CFG::generate_dom()
 }
 
 // Print a single block
-void CFG::print_block(BasicBlock* block)
+void LangCFG::print_block(BasicBlock* block)
 {
     printf("---------- Block %zu (nodes: %zu-%zu) ----------\n",
            (size_t)block->id,
@@ -486,18 +485,17 @@ void CFG::print_block(BasicBlock* block)
         auto* node = m_nodes[i];
         Lang::print_node(node);
     }
-    printf("From: ");
+    printf("From:");
     for (auto& id : block->preds)
-        printf("%zu ", (size_t)id);
+        printf(" %zu", (size_t)id);
     printf("\n");
 
-    printf("Dest: ");
+    printf("Dest:");
     for (auto& id : block->branches)
-        printf("%zu ", (size_t)id);
+        printf(" %zu", (size_t)id);
     printf("\n");
 
-#if 0
-    printf("DOM : ");
+    printf("DOM :");
     size_t dom_count = 1; // For block 0
     auto idom = block->id;
     while (idom != 0)
@@ -509,11 +507,11 @@ void CFG::print_block(BasicBlock* block)
     if (dom_count > 10)
     {
         // Print first n elements
-        printf("[%zu] ", dom_count);
+        printf(" [%zu]", dom_count);
         idom = block->id;
         for (auto i = 0; i < 10; i++)
         {
-            printf("%zu ", (size_t)idom);
+            printf(" %zu", (size_t)idom);
             idom = m_blocks[idom]->idom;
         }
         printf("...\n");
@@ -523,22 +521,47 @@ void CFG::print_block(BasicBlock* block)
         idom = block->id;
         while (idom != 0)
         {
-            printf("%zu ", (size_t)idom);
+            printf(" %zu", (size_t)idom);
             idom = m_blocks[idom]->idom;
         }
-        printf("0\n");
+        printf(" 0\n");
     }
-#endif
     printf("IDOM: %zu\n", (size_t)block->idom);
 
-    printf("DF  : ");
+    printf("DF  :");
     for (auto& id : block->df)
-        printf("%zu ", (size_t)id);
+        printf(" %zu", (size_t)id);
+    printf("\n");
+
+    printf("Phi :");
+    for (auto& phi_node : block->phi_nodes)
+    {
+        printf(" %s(%d)=",
+               get_var_name(phi_node.var_info).c_str(),
+               version_no_to_int(phi_node.var_info.version_no));
+        for (auto& incoming : phi_node.incoming)
+            printf("B%d(%d)", incoming.id, version_no_to_int(incoming.version_no));
+        printf(";");
+    }
+    printf("\n");
+
+    printf("In  :");
+    for (auto& var_info : block->inputs)
+        printf(" %s(%d)",
+               get_var_name(var_info).c_str(),
+               version_no_to_int(var_info.version_no));
+    printf("\n");
+
+    printf("Out :");
+    for (auto& var_info : block->outputs)
+        printf(" %s(%d)",
+               get_var_name(var_info).c_str(),
+               version_no_to_int(var_info.version_no));
     printf("\n");
 }
 
 // Print the blocks
-void CFG::print_blocks()
+void LangCFG::print_blocks()
 {
     size_t id = 0;
     for (auto& it : m_blocks)
@@ -547,18 +570,39 @@ void CFG::print_blocks()
 
 // New block is created before specified node_no
 // Block = [last free node..node_no)
-BasicBlock* CFG::create_new_block(AstNodeNo node_no)
+BasicBlock* LangCFG::create_new_block(AstNodeNo node_no)
 {
     AstNodeNo begin_no = 0;
-    if (m_blocks.size() > 0)
+    if (m_blocks.size() > 1) // block#0 is not counted in
     {
         // There is existed block, get last block for begin_no
         auto* last_block = m_blocks[m_blocks.size() - 1];
         begin_no = last_block->begin + last_block->count;
+
+        // Is nodes[begin_no..node_no) empty?
+        bool is_last_block_empty = true;
+        for (auto i = last_block->begin; i < begin_no; i++)
+        {
+            if (AstNode::is_effect_node(m_nodes[i]) ||
+                m_nodes[i]->is_branch_node())
+            {
+                is_last_block_empty = false;
+                // Not empty
+                break;
+            }
+        }
+        if (is_last_block_empty)
+        {
+            // Don't create new block, append to last block
+            for (auto i = begin_no; i < node_no; i++)
+                m_nodes[i]->block_id = last_block->id;
+            last_block->count = node_no - last_block->begin;
+            return last_block;
+        }
     }
 
-    if (node_no == begin_no)
-        // Don't create empty block
+    if (begin_no == node_no)
+        // No nodes, don't create block
         return 0;
 
     STD_ASSERT(("Bad branch node to create new block.", node_no > begin_no));
@@ -580,18 +624,51 @@ BasicBlock* CFG::create_new_block(AstNodeNo node_no)
     return block;
 }
 
+// Get variable name for output
+simple::string LangCFG::get_var_name(BasicBlock::VarInfo var_info)
+{
+    return get_var_name(var_info.storage, var_info.var_no);
+}
+
+// Get variable name for output
+simple::string LangCFG::get_var_name(VarStorage storage, VariableNo var_no)
+{
+    switch (storage)
+    {
+        case VAR_ARGUMENT:
+            // Get argument name of function
+            return m_in_ast_function->get_arg_name(var_no);
+
+        case VAR_OBJECT_VAR:
+            // Get object variable name
+            return simple::string(".") + m_lang_context->get_object_var_name(var_no);
+
+        case VAR_LOCAL_VAR:
+            // Get local variable name of function
+            return m_in_ast_function->get_local_var_name(var_no);
+
+        case VAR_VIRTUAL_REG:
+            return simple::string().snprintf("R%d", (int)var_no);
+
+        default:
+            // Can't output, not specified yet
+            STD_ASSERT(("Bad variable, expect ARGUMENT, LOCAL_VAR, OBJECT_VAR or VIRTUAL_REG.", 0));
+            return "N/A";
+    }
+}
+
 // Scan & mark all unreachable blocks attrib
-void CFG::mark_unreachable_blocks()
+void LangCFG::mark_unreachable_blocks()
 {
     simple::vector<BasicBlockId> scan_blocks;
 
     // Mark all blocks to UNREACHABLE first
     for (auto block : m_blocks)
-        block->attrib |= BASIC_BLOCK_NOT_REACH_0;
+        block->attrib |= BASIC_BLOCK_NOT_REACHABLE;
 
     // Put block#0 (start block) to scan list
     scan_blocks.push_back(0);
-    m_blocks[0]->attrib &= ~BASIC_BLOCK_NOT_REACH_0;
+    m_blocks[0]->attrib &= ~BASIC_BLOCK_NOT_REACHABLE;
     while (scan_blocks.size())
     {
         // Pick last one from scan list
@@ -613,12 +690,12 @@ void CFG::mark_unreachable_blocks()
                 // Only 1 branch, go through
                 auto branch_id = block->branches[0];
                 auto* branch_block = m_blocks[branch_id];
-                if (!(branch_block->attrib & BASIC_BLOCK_NOT_REACH_0))
+                if (!(branch_block->attrib & BASIC_BLOCK_NOT_REACHABLE))
                     // Already marked
                     break;
 
                 // Clear flag & continue go through the branch block
-                branch_block->attrib &= ~BASIC_BLOCK_NOT_REACH_0;
+                branch_block->attrib &= ~BASIC_BLOCK_NOT_REACHABLE;
                 block = branch_block;
                 continue;
             }
@@ -627,12 +704,12 @@ void CFG::mark_unreachable_blocks()
             for (auto branch_id : block->branches)
             {
                 auto* branch_block = m_blocks[branch_id];
-                if (!(branch_block->attrib & BASIC_BLOCK_NOT_REACH_0))
+                if (!(branch_block->attrib & BASIC_BLOCK_NOT_REACHABLE))
                     // Already marked
                     continue;
 
                 // Clear flag & add this branch block to scan list
-                branch_block->attrib &= ~BASIC_BLOCK_NOT_REACH_0;
+                branch_block->attrib &= ~BASIC_BLOCK_NOT_REACHABLE;
                 scan_blocks.push_back(branch_id);
             }
             // Do next scan
@@ -643,11 +720,21 @@ void CFG::mark_unreachable_blocks()
 #ifdef _DEBUG
     size_t not_reached = 0;
     for (auto block : m_blocks)
-        if (block->is_not_reached_0())
+        if (block->is_not_reachable())
             not_reached++;
     STD_TRACE("There is %zu/%zu blocks not reached block#0.\n",
               not_reached, m_blocks.size());
 #endif
+}
+
+// Convert the version no to int
+// Is no is UNINITIALIZED_VERSION, return -1
+int LangCFG::version_no_to_int(BasicBlock::VersionNo version_no)
+{
+    if (version_no == BasicBlock::VERSION_UNINITIALIZED)
+        return -1;
+
+    return (int)version_no;
 }
 
 }

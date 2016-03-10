@@ -3,7 +3,6 @@
 // Immigrated 2015.11.3 by doing
 
 #include "cmm_file_path.h"
-#include "cmm_util.h"
 #include "cmm_lang.h"
 #include "cmm_lexer.h"
 
@@ -69,11 +68,11 @@ simple::string Lexer::expand_line_no(Lang* lang_context)
 simple::string Lexer::expand_function_name(Lang* lang_context)
 {
     const char* UNKNOWN_FUN_NAME = "\"Unknown Function\"";
-    auto* function = lang_context->m_in_function;
+    auto* ast_function = lang_context->m_in_ast_function;
     
-    if (function)
+    if (ast_function)
     {
-        return function->prototype->name;
+        return ast_function->prototype->name;
     } else
     {
         return UNKNOWN_FUN_NAME;

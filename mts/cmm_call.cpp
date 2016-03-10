@@ -40,6 +40,7 @@ Value& Call::invoke_other_impl(Thread *thread, ObjectId oid, const Value& functi
         if (!program->get_public_callee_by_name((String *)&function_name, &callee))
         {
             *ret = NIL;
+            thread->pop_stack(n);
             return *ret;
         }
 
@@ -58,6 +59,7 @@ Value& Call::invoke_other_impl(Thread *thread, ObjectId oid, const Value& functi
     if (!program)
     {
         *ret = NIL;
+        thread->pop_stack(n);
         return *ret;
     }
 

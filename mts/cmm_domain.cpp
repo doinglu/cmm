@@ -292,7 +292,7 @@ void Domain::object_was_destructed(Object *ob)
 Map& Domain::get_domain_detail(Value* map)
 {
     auto* thread = Thread::get_current_thread();
-    auto r = ReserveStack(1, thread);
+    ReserveStack r(1, thread);
     Value& val = r[0];
     Value& key = r[1];
     *map = XNEW(MapImpl, 7);

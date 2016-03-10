@@ -14,9 +14,6 @@
 namespace cmm
 {
 
-// Get member offset of a class
-#define MEMBER_OFFSET(m)     ((MemberOffset)offsetof(Self, m))
-
 #define call_efun       Call::invoke_efun
 #define call_near       Call::invoke_near
 #define call_far        Call::invoke_far

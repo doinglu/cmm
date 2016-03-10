@@ -6,6 +6,7 @@
 #include "cmm_buffer_new.h"
 #include "cmm_lang.h"
 #include "cmm_program.h"
+#include "cmm_thread.h"
 
 namespace cmm
 {
@@ -314,6 +315,18 @@ bool Lang::pass1()
     // Init symbol table for object var & functions
     init_symbol_table();
 
+    // Lookup functions in whole AST
+    if (m_stop_error_code != ErrorCode::OK)
+        // Failed to define functions
+        return false;
+
+    // Put root to entry_function
+    m_entry_ast_function->body = m_root;
+
+    // Create all program functions
+    for (auto ast_function : m_ast_functions)
+        m_program_functions.push_back(create_function(ast_function));
+
     // Lookup the AST from top to bottom
     // Work out all definitions
     lookup_and_collect_info(m_root);
@@ -322,13 +335,14 @@ bool Lang::pass1()
     // Work out type of all expressions
     lookup_expr_types_and_output(m_root);
 
+    // Remove AstFunction node from ast, let each function body has only
+    // the implementation nodes
+    lookup_and_remove_function_node(m_root);
+
     // Lookup functions in whole AST
-    if (m_error_code != ErrorCode::OK)
+    if (m_stop_error_code != ErrorCode::OK)
         // Failed to define functions
         return false;
-
-    // Put root to entry_function
-    m_entry_function->body = m_root;
 
     return true;
 }
@@ -345,7 +359,7 @@ void Lang::init_symbol_table()
         m_symbols.add_ident_info(it->name, info, it);
     }
 
-    for (auto it : m_functions)
+    for (auto it : m_ast_functions)
     {
         auto* prototype = it->prototype;
         if (!(prototype->attrib & AST_MEMBER_METHOD))
@@ -353,7 +367,7 @@ void Lang::init_symbol_table()
         auto* info = LANG_NEW(this, IdentInfo, this);
         info->function_no = it->no;
         info->type = IDENT_OBJECT_FUN;
-        info->function = it;
+        info->ast_function = it;
         m_symbols.add_ident_info(prototype->name, info, it);
     }
 }
@@ -371,28 +385,26 @@ void Lang::lookup_and_collect_info(AstNode *node)
         create_new_frame();
 
     // Get context function
-    auto* in_function = m_functions[node->in_function_no];
+    auto* in_ast_function = m_ast_functions[node->in_function_no];
     switch (node->get_node_type())
     {
     case AST_DECLARATION:
     {
         auto* info = LANG_NEW(this, IdentInfo, this);
         auto* decl = (AstDeclaration*)node;
-        if (is_in_top_frame())
+        if (is_in_top_frame() && in_ast_function == m_entry_ast_function)
         {
-            // This is a object var
-            STD_ASSERT(("Top frame must be in entry function",
-                        in_function == m_entry_function));
+            // This is a object var, top level of entry function
             info->type = IDENT_OBJECT_VAR;
-            info->object_var_no = (VariableNo)m_object_vars.size();
+            info->object_var_no = (ObjectVarNo)m_object_vars.size();
             m_object_vars.push_back(decl);
             decl->object_var_no = info->object_var_no;
         } else
         {
             // This is a local var
             info->type = IDENT_LOCAL_VAR;
-            info->local_var_no = (LocalNo)in_function->local_vars.size();
-            in_function->local_vars.push_back(decl);
+            info->local_var_no = (LocalNo)in_ast_function->local_vars.size();
+            in_ast_function->local_vars.push_back(decl);
             decl->local_var_no = info->local_var_no;
         }
         info->decl = decl;
@@ -401,29 +413,46 @@ void Lang::lookup_and_collect_info(AstNode *node)
         break;
     }
 
-    case AST_FUNCTION:
+    case AST_EXPR_ASSIGN:
     {
-        auto* function = (AstFunction*)node;
-        if (function->prototype->attrib & AST_ANONYMOUS_CLOSURE)
-            // Skip anonymouse closure, don't add into symbol table
-            break;
-        if (function->prototype->attrib & AST_MEMBER_METHOD)
-            // Member method, already added into symbol table
-            break;
-        auto* info = LANG_NEW(this, IdentInfo, this);
-        info->function_no = function->no;
-        info->type = IDENT_OBJECT_FUN;
-        info->function = function;
-        m_symbols.add_ident_info(function->prototype->name, info, node);
-
-        // Add all arguments to symbol table
-        for (auto* p = function->prototype->arg_list; p != 0; p = (decltype(p))p->sibling)
+        // Mark variable of left expr to left_value
+        auto* expr = (AstExprAssign*)node;
+        auto* left_value = (AstExprVariable*)expr->expr1;
+        if (expr->op == OP_ASSIGN)
         {
-            info = LANG_NEW(this, IdentInfo, this);
-            info->local_var_no = p->arg_no;
-            info->type = IDENT_LOCAL_VAR;
-            info->arg = p;
-            m_symbols.add_ident_info(p->name, info, p);
+            // Assign only
+            left_value->var_access = VAR_ACCESS_AS_LEFT_VALUE;
+        } else
+        {
+            // Op & assign
+            left_value->var_access = VAR_ACCESS_AS_LEFT_VALUE |
+                                     VAR_ACCESS_AS_RIGHT_VALUE;
+        }
+        break;
+    }
+
+    case AST_EXPR_FUNCTION_CALL:
+    {
+        auto* expr = (AstExprFunctionCall*)node;
+        auto* function = m_symbols.get_function(expr->callee_name, node);
+        if (!function)
+            // Function not found
+            break;
+
+        expr->function = function;
+        break;
+    }
+
+    case AST_EXPR_UNARY:
+    {
+        auto* expr = (AstExprUnary*)node;
+        if (expr->op == OP_INC_POST || expr->op == OP_INC_PRE ||
+            expr->op == OP_DEC_POST || expr->op == OP_DEC_PRE)
+        {
+            // For ++, --
+            auto* left_value = (AstExprVariable*)expr->expr1;
+            left_value->var_access = VAR_ACCESS_AS_LEFT_VALUE |
+                                     VAR_ACCESS_AS_RIGHT_VALUE;
         }
         break;
     }
@@ -431,17 +460,20 @@ void Lang::lookup_and_collect_info(AstNode *node)
     case AST_EXPR_VARIABLE:
     {
         // Get var type of variable
-        auto* variable = (AstExprVariable*)node;
-        auto* info = m_symbols.get_ident_info(variable->name, IDENT_ALL);
+        auto* expr = (AstExprVariable*)node;
+        auto* info = m_symbols.get_ident_info(expr->name, IDENT_ALL);
         if (!info)
         {
             this->syntax_errors(this,
                 "%s(%d): error %d: '%s': undeclared identifier\n",
                 node->location.file->c_str(), node->location.line,
                 C_UNDECLARED_IDENTIFER,
-                variable->name.c_str());
-            this->m_error_code = PASS1_ERROR;
-            break;
+                expr->name.c_str());
+
+            // Define a new variable
+            info = define_new_local(expr->name, node);
+            if (!info)
+                break;
         }
         if (!(info->type & IDENT_VAR))
         {
@@ -449,24 +481,61 @@ void Lang::lookup_and_collect_info(AstNode *node)
                 "%s(%d): error %d: '%s': identifier is not variable\n",
                 node->location.file->c_str(), node->location.line,
                 C_UNDECLARED_IDENTIFER,
-                variable->name.c_str());
-            this->m_error_code = PASS1_ERROR;
+                expr->name.c_str());
+            this->m_stop_error_code = PASS1_ERROR;
             break;
         }
-        variable->var_type = info->decl->var_type;
-        variable->is_constant = false; // Variant, not constant
+        expr->is_constant = false; // Variant, not constant
 
+        if (info->type == IDENT_ARGUMENT)
+        {
+            expr->var_storage = VAR_ARGUMENT;
+            expr->var_no = info->arg_no;
+            expr->var_type = info->arg->var_type;
+        } else
         if (info->type == IDENT_LOCAL_VAR)
         {
-            variable->output.type = OUTPUT_LOCAL_VAR;
-            variable->output.index = info->local_var_no;
+            expr->var_storage = VAR_LOCAL_VAR;
+            expr->var_no = info->local_var_no;
+            expr->var_type = info->decl->var_type;
         } else
         {
-            STD_ASSERT(("Bad type of indent, expect LOCAL_VAR or OBJECT_VAR",
-                       info->type == IDENT_OBJECT_VAR));
-            variable->output.type = OUTPUT_OBJECT_VAR;
-            variable->output.index = info->object_var_no;
+            STD_ASSERT(("Bad type of indent, expect ARGUMENT, LOCAL_VAR or OBJECT_VAR",
+                        info->type == IDENT_OBJECT_VAR));
+            expr->var_storage = VAR_OBJECT_VAR;
+            expr->var_no = info->object_var_no;
+            expr->var_type = info->decl->var_type;
         }
+        break;
+    }
+
+    case AST_FUNCTION:
+    {
+        auto* ast_function = (AstFunction*)node;
+
+        // Add all arguments to symbol table
+        for (auto* arg : ast_function->args)
+        {
+            auto* arg_info = LANG_NEW(this, IdentInfo, this);
+            arg_info->local_var_no = arg->arg_no;
+            arg_info->type = IDENT_ARGUMENT;
+            arg_info->arg = arg;
+            m_symbols.add_ident_info(arg->name, arg_info, arg);
+        }
+
+        if (ast_function->prototype->attrib & AST_ANONYMOUS_CLOSURE)
+            // Skip anonymouse closure, don't add into symbol table
+            break;
+
+        if (ast_function->prototype->attrib & AST_MEMBER_METHOD)
+            // Member method, already added into symbol table
+            break;
+
+        auto* fun_info = LANG_NEW(this, IdentInfo, this);
+        fun_info->function_no = ast_function->no;
+        fun_info->type = IDENT_OBJECT_FUN;
+        fun_info->ast_function = ast_function;
+        m_symbols.add_ident_info(ast_function->prototype->name, fun_info, node);
         break;
     }
 
@@ -484,14 +553,8 @@ void Lang::lookup_and_collect_info(AstNode *node)
     }
 
     // ATTENTION:
-    // p->sibling may be changed during parse (when pickup functions)
-    auto* p = node->children;
-    while (p != 0)
-    {
+    for (auto* p = node->children; p != 0; p = p->sibling)
         lookup_and_collect_info(p);
-        // Check for next sibling
-        p = p->sibling;
-    }
 
     if (new_frame)
         // Destruct the frame & definitions
@@ -511,17 +574,15 @@ void Lang::lookup_expr_types_and_output(AstNode *node)
         {
             // Get constant value type
             auto* expr = (AstExprConstant*)node;
-            expr->var_type.basic_var_type = expr->value.m_type;
-            expr->var_type.var_attrib = (AstVarAttrib)0;
+            expr->var_type.set_type_attrib(expr->value.m_type);
             expr->is_constant = true;
-            return;
+            break;
         }
         case AST_EXPR_CLOSURE :
         {
             // The closure is a function
             auto* expr = (AstExprClosure*)node;
-            expr->var_type.basic_var_type = FUNCTION;
-            expr->var_type.var_attrib = (AstVarAttrib)0;
+            expr->var_type.set_type_attrib(FUNCTION);
             break;
         }
         case AST_EXPR_ASSIGN:
@@ -562,17 +623,16 @@ void Lang::lookup_expr_types_and_output(AstNode *node)
                 if (!try_map_assign_op_to_op(expr->op, &map_op))
                     STD_FATAL("Not found such assign operator.");
 
-                result_var_type.basic_var_type =
-                    derive_type_of_op(expr, map_op, operand1_type, operand2_type, ANY_TYPE);
-                result_var_type.var_attrib = (AstVarAttrib)0;
+                result_var_type.set_type_attrib(
+                    derive_type_of_op(expr, map_op, operand1_type, operand2_type, ANY_TYPE)
+                );
             }
 
             // Check type to assign
             if (result_var_type.basic_var_type == MIXED)
             {
                 // Assign a MIXED to lvalue, keep the left possible type
-                result_var_type.basic_var_type = operand1_type;
-                result_var_type.var_attrib = operand1_attrib;
+                result_var_type.set_type_attrib(operand1_type, operand1_attrib);
             } else
             if (operand1_type == MIXED)
             {
@@ -605,9 +665,17 @@ void Lang::lookup_expr_types_and_output(AstNode *node)
             // Got result type
             expr->var_type = result_var_type;
 
-            if (expr->expr1->get_node_type() == AST_EXPR_VARIABLE)
+            if (expr->op == OP_ASSIGN)
             {
-                // Assign to variable, use left as output
+                // Simple assign, use right value as output
+                expr->output = expr->expr2->output;
+                return;
+            }
+
+            if (expr->op == OP_ASSIGN &&
+                expr->expr1->get_node_type() == AST_EXPR_VARIABLE)
+            {
+                // Assign to variable directly, use left as output
                 expr->expr2->output = expr->expr1->output;
                 expr->output = expr->expr1->output;
                 return;
@@ -674,28 +742,46 @@ void Lang::lookup_expr_types_and_output(AstNode *node)
             }
 
             // Derive & set var_type to expr
-            expr->var_type.basic_var_type =
-                derive_type_of_op(expr, expr->op, operand1_type, operand2_type, operand3_type);
+            expr->var_type.set_type_attrib(
+                derive_type_of_op(expr, expr->op, operand1_type, operand2_type, operand3_type)
+            );
             break;
         }
         case AST_EXPR_CREATE_ARRAY:
         {
             auto* expr = (AstExprCreateArray*)node;
-            expr->var_type.basic_var_type = ARRAY;
             expr->is_constant = are_expr_list_constant(expr->expr_list);
             break;
         }
         case AST_EXPR_CREATE_FUNCTION:
         {
             auto* expr = (AstExprCreateFunction*)node;
-            expr->var_type.basic_var_type = FUNCTION;
+            expr->var_type.set_type_attrib(FUNCTION);
             break;
         }
         case AST_EXPR_CREATE_MAPPING:
         {
             auto* expr = (AstExprCreateMapping*)node;
-            expr->var_type.basic_var_type = MAPPING;
+            expr->var_type.set_type_attrib(MAPPING);
             expr->is_constant = are_expr_list_constant(expr->expr_list);
+            break;
+        }
+        case AST_EXPR_FUNCTION_CALL:
+        {
+            auto* expr = (AstExprFunctionCall*)node;
+            if (!expr->function)
+            {
+                // Bad function
+                expr->var_type.set_type_attrib(MIXED);
+                break;
+            }
+            AstVarType ret_type;
+            ret_type.set_type_attrib(expr->function->get_ret_type());
+            if (ret_type.basic_var_type == TVOID)
+                ret_type.basic_var_type = MIXED;
+            if (expr->function->is_ret_nullable())
+                ret_type.var_attrib |= AST_VAR_MAY_NIL;
+            expr->var_type = ret_type;
             break;
         }
         case AST_EXPR_INDEX:
@@ -714,6 +800,24 @@ void Lang::lookup_expr_types_and_output(AstNode *node)
                 derive_type_of_op(expr, expr->op, operand1_type, operand2_type, operand3_type);
             break;
         }
+        case AST_EXPR_RUNTIME_VALUE:
+        {
+            auto* expr = (AstExprRuntimeValue*)node;
+            switch (expr->value_id)
+            {
+                case AST_RV_INPUT_ARGUMENTS:
+                    expr->var_type.set_type_attrib(ARRAY);
+                    break;
+
+                case AST_RV_INPUT_ARGUMENTS_COUNT:
+                    expr->var_type.set_type_attrib(INTEGER);
+                    break;
+
+                default:
+                    break;
+            }
+            break;
+        }
         case AST_EXPR_SINGLE_VALUE:
         {
             // Get var type of last expr in list
@@ -722,14 +826,11 @@ void Lang::lookup_expr_types_and_output(AstNode *node)
 
             // Get last child
             auto* p = expr->children;
-            if (p->sibling)
+            while (p->sibling)
             {
-                while (p->sibling->sibling)
-                {
-                    // Free non-last expr's output
-                    free_expr_output((AstExpr*)p);
-                    p = p->sibling;
-                }
+                // Free non-last expr's output
+                free_expr_output((AstExpr*)p);
+                p = p->sibling;
             }
 
             // Use last expr's output
@@ -737,6 +838,32 @@ void Lang::lookup_expr_types_and_output(AstNode *node)
             expr->var_type = last_expr->var_type;
             expr->output = last_expr->output;
             return;
+        }
+        case AST_EXPR_VARIABLE:
+        {
+            auto* expr = (AstExprVariable*)node;
+            if (expr->is_left_value_only())
+            {
+                // Assign only, no other output
+                expr->output.storage = expr->var_storage;
+                expr->output.no = expr->var_no;
+                return;
+            }
+
+            // Not left value of assign expr only (may be op & assign)
+            expr->var_access |= VAR_ACCESS_AS_RIGHT_VALUE;
+
+            if (expr->var_storage == VAR_LOCAL_VAR ||
+                expr->var_storage == VAR_ARGUMENT)
+            {
+                // Use the local variable as output
+                expr->output.storage = expr->var_storage;
+                expr->output.no = expr->var_no;
+                return;
+            }
+
+            // Allocate virtual register
+            break;
         }
         default:
             // Not expression
@@ -748,9 +875,35 @@ void Lang::lookup_expr_types_and_output(AstNode *node)
     for (auto p = expr->children; p != 0; p = p->sibling)
         free_expr_output((AstExpr*)p);
 
-    // Allocate if output is not specified
-    if (expr->output.type == OUTPUT_NONE)
+    // Allocate virtual register if output is not specified
+    if (expr->output.storage == VAR_NONE)
         alloc_expr_output(expr);
+}
+
+// Lookup from bottom to top
+// When there is children node (AstFunction), replace it with AstNop
+void Lang::lookup_and_remove_function_node(AstNode* node)
+{
+    AstNode* p;
+    for (p = node->children; p != 0; p = p->sibling)
+        lookup_and_remove_function_node(p);
+
+    auto** pp = &node->children;
+    while ((p = *pp) != 0)
+    {
+        if (p->get_node_type() == AST_FUNCTION)
+        {
+            // Replace the function node with nop
+            auto* nop = LANG_NEW(this, AstNop, this);
+            nop->sibling = p->sibling;
+            *pp = nop;
+            p->sibling = 0;
+
+            // After removed, reset p to nop
+            p = nop;
+        }
+        pp = &(p->sibling);
+    }
 }
 
 // Allocate a virtual register with specified type
@@ -794,17 +947,17 @@ void Lang::free_virtual_reg(VirtualRegNo no)
 // Allocate virtual register for expr output
 void Lang::alloc_expr_output(AstExpr* expr)
 {
-    expr->output.type = OUTPUT_VIRTUAL_REG;
-    expr->output.index = alloc_virtual_reg(expr->var_type.basic_var_type,
-                                           (expr->var_type.var_attrib & AST_VAR_MAY_NIL) ? true : false);
+    expr->output.storage = VAR_VIRTUAL_REG;
+    expr->output.no = alloc_virtual_reg(expr->var_type.basic_var_type,
+                                        (expr->var_type.var_attrib & AST_VAR_MAY_NIL) ? true : false);
 }
 
 // Free output allocated by expr
 void Lang::free_expr_output(AstExpr* expr)
 {
-    if (expr->output.type == OUTPUT_VIRTUAL_REG)
+    if (expr->output.storage == VAR_VIRTUAL_REG)
         // Output to an allocated local, free it
-        free_virtual_reg(expr->output.index);
+        free_virtual_reg(expr->output.no);
 }
 
 // Are all the children constant expr?
@@ -820,6 +973,104 @@ bool Lang::are_expr_list_constant(AstExpr* expr_list)
     }
     // Yes
     return true;
+}
+
+// Check an expr for lvalue
+bool Lang::check_lvalue(AstExpr* node)
+{
+    switch (node->get_node_type())
+    {
+    case AST_EXPR_VARIABLE:
+        // OK
+        return true;
+
+    case AST_EXPR_INDEX:
+    {
+        // OK
+        auto* expr_index = (AstExprIndex*)node;
+
+        if (expr_index->var_type.is_const())
+        {
+            this->syntax_errors(this,
+                "%s(%d): error %d: you cannot assign to a variable that is const\n",
+                node->location.file->c_str(), node->location.line,
+                C_ASSIGN_TO_CONST);
+            return false;
+        }
+
+        if (expr_index->container->is_constant)
+        {
+            this->syntax_errors(this,
+                "%s(%d): error %d: you cannot assign to a variable that is const\n",
+                node->location.file->c_str(), node->location.line,
+                C_ASSIGN_TO_CONST);
+            return false;
+        }
+
+        if (expr_index->var_type.basic_var_type == STRING)
+        {
+            this->syntax_errors(this,
+                "%s(%d): error %d: you cannot modify char(s) in string\n",
+                node->location.file->c_str(), node->location.line,
+                C_ASSIGN_TO_CONST);
+            return false;
+        }
+        return true;
+    }
+
+    default:
+        // Not L-value
+        break;
+    }
+
+    this->syntax_errors(this,
+        "%s(%d): error %d: '=': left operand must be l-value\n",
+        node->location.file->c_str(), node->location.line,
+        C_NOT_LVALUE);
+    return false;
+}
+
+// Create program function from ast function node
+Function* Lang::create_function(AstFunction* ast_function)
+{
+    ReserveStack r(2);
+    String& name = (String&)r[0];
+    auto* function = XNEW(Function, (Program*)0, name = ast_function->prototype->name);
+    for (auto arg : ast_function->args)
+    {
+        auto attrib = (SyntaxVariable::Attrib)0;
+        if (arg->var_type.is_nullable())
+            attrib |= SyntaxVariable::Attrib::NULLABLE;
+        if (arg->default_value)
+            attrib |= SyntaxVariable::Attrib::DEFAULT;
+        function->define_parameter(name = arg->name, arg->var_type.basic_var_type, attrib);
+    }
+    auto ret_type = ast_function->prototype->ret_var_type;
+    auto ret_attrib = (SyntaxVariable::Attrib)0;
+    if (ret_type.is_nullable())
+        ret_attrib = SyntaxVariable::Attrib::NULLABLE;
+    function->define_ret_type(ret_type.basic_var_type, ret_attrib);
+
+    // Build only prototype relatives
+    return function;
+}
+
+// Define a new local variable during passing
+IdentInfo* Lang::define_new_local(simple::string& name, AstNode* node)
+{
+    auto* function = m_ast_functions[node->in_function_no];
+    auto* info = LANG_NEW(this, IdentInfo, this);
+    auto* decl = LANG_NEW(this, AstDeclaration, this);
+    decl->name = name;
+    decl->ident_type = IDENT_LOCAL_VAR;
+    decl->var_no = (LocalNo)function->local_vars.size();
+    decl->var_type.set_type_attrib(MIXED);
+    function->local_vars.push_back(decl);
+    info->decl = decl;
+    info->type = IDENT_LOCAL_VAR;
+    info->local_var_no = decl->var_no;
+    m_symbols.add_ident_info(name, info, node);
+    return info;
 }
 
 // Work out the type of op result
@@ -893,61 +1144,6 @@ ValueType Lang::derive_type_of_op(
             value_type_to_c_str(operand3_type));
     }
     return MIXED;
-}
-
-// Check an expr for lvalue
-bool Lang::check_lvalue(AstExpr* node)
-{
-    switch (node->get_node_type())
-    {
-        case AST_EXPR_VARIABLE:
-            // OK
-            return true;
-
-        case AST_EXPR_INDEX:
-        {
-            // OK
-            auto* expr_index = (AstExprIndex*)node;
-           
-            if (expr_index->var_type.is_const())
-            {
-                this->syntax_errors(this,
-                    "%s(%d): error %d: you cannot assign to a variable that is const\n",
-                    node->location.file->c_str(), node->location.line,
-                    C_ASSIGN_TO_CONST);
-                return false;
-            }
-
-            if (expr_index->container->is_constant)
-            {
-                this->syntax_errors(this,
-                    "%s(%d): error %d: you cannot assign to a variable that is const\n",
-                    node->location.file->c_str(), node->location.line,
-                    C_ASSIGN_TO_CONST);
-                return false;
-            }
-
-            if (expr_index->var_type.basic_var_type == STRING)
-            {
-                this->syntax_errors(this,
-                    "%s(%d): error %d: you cannot modify char(s) in string\n",
-                    node->location.file->c_str(), node->location.line,
-                    C_ASSIGN_TO_CONST);
-                return false;
-            }
-            return true;
-        }
-
-        default:
-            // Not L-value
-            break;
-    }
-
-    this->syntax_errors(this,
-        "%s(%d): error %d: '=': left operand must be l-value\n",
-        node->location.file->c_str(), node->location.line,
-        C_NOT_LVALUE);
-    return false;
 }
 
 // Get op from assign op

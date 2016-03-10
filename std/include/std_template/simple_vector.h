@@ -46,15 +46,16 @@ public:
             new (&m_array[i])T(arr[i]);
     }
 
-    vector(size_t capacity = 8, Allocator* allocator = &Allocator::g)
+    vector(size_t capacity = 0, Allocator* allocator = &Allocator::g)
     {
         m_allocator = allocator;
 
         // Allocate an empty array with reserved space
-        if (capacity < 1)
-            capacity = 1;
         m_space = capacity;
-        m_array = (T*)m_allocator->alloc(__FILE__, __LINE__, m_space * sizeof(T));
+        if (capacity)
+            m_array = (T*)m_allocator->alloc(__FILE__, __LINE__, m_space * sizeof(T));
+        else
+            m_array = 0;
         m_size = 0;
     }
 
@@ -114,7 +115,12 @@ public:
     // Clear all elements
     void clear()
     {
-        resize(0);
+        if (m_size > 0)
+        {
+            for (size_t i = 0; i < m_size; i++)
+                m_array[i].~T();
+            m_size = 0;
+        }
     }
 
     // Enlarge space to double size
@@ -218,13 +224,13 @@ public:
     }
 
     // Insert an element
-    void insert(iterator it, const T& element)
+    iterator insert(iterator it, const T& element)
     {
-        insert(it - begin(), element);
+        return insert(it - begin(), element);
     }
 
     // Insert an element
-    void insert(size_t index, const T& element)
+    iterator insert(size_t index, const T& element)
     {
         if (index > m_size)
             throw "Out of range for insertion.\n";
@@ -235,11 +241,16 @@ public:
             STD_ASSERT(m_size == m_space);
             extend();
         }
-        new (&m_array[m_size])T();
+        if (m_size > 0)
+        {
+            new (&m_array[m_size])T(m_array[m_size - 1]);
+            for (size_t i = m_size - 1; i > index; i--)
+                m_array[i] = simple::move(m_array[i - 1]);
+            m_array[index].~T();
+        }
         m_size++;
-        for (size_t i = m_size - 1; i > index; i--)
-            m_array[i] = simple::move(m_array[i - 1]);
-        m_array[index] = element;
+        new (&m_array[index])T(element);
+        return iterator(*this, index);
     }
 
     // Append an element

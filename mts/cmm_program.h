@@ -93,6 +93,7 @@ private:
 	Attrib      m_attrib;   // Attrib of this parmeters
     MMMValue    m_default;  // Default value (valid only for has_default()) ////----
 };
+DECLARE_BITS_ENUM(SyntaxVariable::Attrib, Uint16);
 
 class Variables : public simple::vector<SyntaxVariable*> { };
 typedef SyntaxVariable Parameter;
@@ -255,6 +256,12 @@ public:
         return !is_private();
     }
 
+    // Can this function return nil?
+    bool is_ret_nullable() const
+    {
+        return (m_attrib & RET_NULLABLE) ? true : false;
+    }
+
 private:
     StringImpl* m_name;
     Program*    m_program;
@@ -288,7 +295,7 @@ private:
     StringImpl*  m_name;
     Program*     m_program;
     ValueType    m_type;
-    VariableNo   m_no;
+    ObjectVarNo  m_no;
 };
 
 // Program of object
@@ -448,15 +455,15 @@ public:
     }
 
     // Get object var by index
-    const ObjectVar* get_object_var(VariableNo no) const
+    const ObjectVar* get_object_var(ObjectVarNo no) const
     {
         return m_object_vars[no];
     }
 
     // Get object vars count
-    VariableNo get_object_vars_count() const
+    ObjectVarNo get_object_vars_count() const
     {
-        return (VariableNo)m_object_vars.size();
+        return (ObjectVarNo)m_object_vars.size();
     }
 
     // Get name

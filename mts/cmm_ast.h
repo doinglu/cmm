@@ -3,7 +3,7 @@
 #pragma once
 
 #include "cmm.h"
-#include "cmm_cfg.h"
+#include "cmm_basic_block.h"
 #include "cmm_lang_symbols.h"
 #include "cmm_output.h"
 #include "cmm_value.h"
@@ -249,10 +249,23 @@ struct AstVarType
     ValueType    basic_var_type;       // basic variable type
     AstVarAttrib var_attrib;           // variable attribute
 
-    // Is this a const (readonly) varaible
+    // Is this a const (readonly) value
     bool is_const()
     {
         return (var_attrib & AST_VAR_CONST) ? true : false;
+    }
+
+    // Is this a nullable value
+    bool is_nullable()
+    {
+        return (var_attrib & AST_VAR_MAY_NIL) ? true : false;
+    }
+
+    // Initialize
+    void set_type_attrib(ValueType type, AstVarAttrib attrib = (AstVarAttrib)0)
+    {
+        basic_var_type = type;
+        var_attrib = attrib;
     }
 };
 
@@ -260,6 +273,7 @@ struct AstVarType
 class Lang;
 struct AstNode;
 struct AstExpr;
+struct AstExprAssign;
 struct AstFunction;
 struct AstFunctionArg;
 struct AstLValue;
@@ -276,6 +290,9 @@ const char* ast_node_type_to_c_str(AstNodeType nodeType);
 
 // Operator to string
 simple::string ast_op_to_string(Op op);
+
+// Output to string
+simple::string ast_output_to_string(VarStorage storage, VariableNo var_no);
 
 // VarType to string
 simple::string ast_var_type_to_string(AstVarType var_type);
@@ -350,7 +367,8 @@ struct AstNode
         children = 0;
         for (size_t i = 0; i < count; i++)
         {
-            STD_ASSERT(!nodes[i] || !nodes[i]->sibling);
+            STD_ASSERT(("Node shouldn't have any sibling during collecting.",
+                       !nodes[i] || !nodes[i]->sibling));
             add_child(nodes[i]);
         }
     }
@@ -429,6 +447,22 @@ public:
                 return nodes[i];
         return 0;
     }
+
+    // Is node an effect node, not like AST_STATEMTNS, AST_CASE, AST_NOP ...
+    static bool is_effect_node(AstNode* node)
+    {
+        switch (node->get_node_type())
+        {
+            case AST_CASE:
+            case AST_STATEMENTS:
+            case AST_LABEL:
+            case AST_NOP:
+                return false;
+
+            default:
+                return true;
+        }
+    }
 };
 
 // Root
@@ -473,7 +507,10 @@ struct AstCase : AstNode
 
     virtual void collect_children()
     {
-        collect_children_of(case_value, statement);
+        // ATTENTION:
+        // case_value is not children of me, it will be a child of
+        // AstSwitchCase
+        collect_children_of(statement);
     }
 
     virtual simple::string to_string();
@@ -497,14 +534,14 @@ struct AstDeclaration : AstNode
     union
     {
         LocalNo     local_var_no;   // Number of var as local
-        VariableNo object_var_no;  // Number of var in object
-        int         no;
+        ObjectVarNo object_var_no;  // Number of var in object
+        VariableNo  var_no;
     };
-    AstExpr*    expr;     // assign expression
+    AstExprAssign*  assign;     // assign expression
 
     virtual void collect_children()
     {
-        collect_children_of(expr);
+        collect_children_of(assign);
     }
 
     virtual simple::string to_string();
@@ -512,8 +549,8 @@ struct AstDeclaration : AstNode
     AstDeclaration(Lang* lang_context) :
         AstNode(lang_context),
         name(""),
-        no(0),
-        expr(0)
+        var_no(0),
+        assign(0)
     {
     }
 };
@@ -569,37 +606,65 @@ struct AstDoWhile : AstBreakCont
     }
 };
 
-enum OutputType
-{
-    OUTPUT_NONE        = 0,
-    OUTPUT_OBJECT_VAR  = 19,    // To object var
-    OUTPUT_LOCAL_VAR   = 47,    // To local var/argument
-    OUTPUT_VIRTUAL_REG = 62,    // To a virtual register
-};
+// No of virtual register
+typedef int VirtualRegNo;
 
-typedef int VirtualRegNo;       // No of virtual register
+// Access attrib
+typedef enum : Uint8
+{
+    VAR_ACCESS_AS_LEFT_VALUE = 0x01,    // Assign value
+    VAR_ACCESS_AS_RIGHT_VALUE = 0x02,   // Load value
+} VarAccess;
+DECLARE_BITS_ENUM(VarAccess, Uint8);
 
 // Primary Expression
 // Abstract node
 struct AstExpr : AstNode
 {
     AstVarType  var_type;       // Value type of this expression
+    VarAccess   var_access;     // Access type this expression (L-Value, R-Value)
     bool        is_constant;    // if this is a constant expression
     struct
     {
-        OutputType  type;       // Output to member variable or to local (include argument) 
-        int         index;      // Index of output variable
+        VarStorage storage;     // Output to member variable or to local (include argument) 
+        VariableNo no;          // Index of output variable
     } output;
 
     virtual simple::string to_string();
 
+    // As left value only, eg: var = xxx
+    bool is_left_value_only()
+    {
+        return (var_access & (VAR_ACCESS_AS_LEFT_VALUE | VAR_ACCESS_AS_RIGHT_VALUE)) ==
+            VAR_ACCESS_AS_LEFT_VALUE;
+    }
+
+    // As right value only, eg: xxx = var
+    bool is_right_value_only()
+    {
+        return (var_access & (VAR_ACCESS_AS_LEFT_VALUE | VAR_ACCESS_AS_RIGHT_VALUE)) ==
+            VAR_ACCESS_AS_RIGHT_VALUE;
+    }
+
+    // As left value
+    bool is_left_value()
+    {
+        return (var_access & VAR_ACCESS_AS_LEFT_VALUE) ? true : false;
+    }
+
+    // As right value
+    bool is_right_value()
+    {
+        return (var_access & VAR_ACCESS_AS_RIGHT_VALUE) ? true : false;
+    }
+
     AstExpr(Lang* lang_context) :
         AstNode(lang_context),
+        var_access(VAR_ACCESS_AS_RIGHT_VALUE), // Default is R-Value
         is_constant(false),
-        output{ OUTPUT_NONE, 0 }
+        output{ VAR_NONE, 0 }
     {
-        var_type.basic_var_type = MIXED;
-        var_type.var_attrib = (AstVarAttrib)0;
+        var_type.set_type_attrib(MIXED);
     }
 };
 
@@ -686,7 +751,7 @@ struct AstExprCast : AstExprOp
 struct AstExprClosure : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_CLOSURE; }
-    AstFunction* function;
+    AstFunction* ast_function;
 
     virtual void collect_children()
     {
@@ -696,7 +761,7 @@ struct AstExprClosure : AstExpr
 
     AstExprClosure(Lang* lang_context) :
         AstExpr(lang_context),
-        function(0)
+        ast_function(0)
     {
     }
 };
@@ -779,9 +844,10 @@ struct AstExprCreateMapping : AstExpr
 struct AstExprFunctionCall : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_FUNCTION_CALL; }
-    AstExpr*        target;            // target object or array
-    simple::string  callee_name;       // call function name
-    AstExpr*        arguments;         // arguments
+    AstExpr*        target;         // target object or array
+    simple::string  callee_name;    // call function name
+    Function*       function;       // program function
+    AstExpr*        arguments;      // arguments
 
     virtual void collect_children()
     {
@@ -794,6 +860,7 @@ struct AstExprFunctionCall : AstExpr
     AstExprFunctionCall(Lang* lang_context) :
         AstExpr(lang_context),
         callee_name(""),
+        function(0),
         arguments(0)
     {
     }
@@ -854,11 +921,13 @@ struct AstExprIsRef : AstExpr
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_IS_REF; }
     simple::string name;
 
+    virtual simple::string to_string();
+
     AstExprIsRef(Lang* lang_context) :
         AstExpr(lang_context),
         name("")
     {
-
+        var_type.set_type_attrib(INTEGER);
     }
 };
 
@@ -867,11 +936,13 @@ struct AstExprRuntimeValue : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_RUNTIME_VALUE; }
     AstVarType var_type;
-    Uint16     value_id;
+    AstRuntimeValueId value_id;
+
+    virtual simple::string to_string();
 
     AstExprRuntimeValue(Lang* lang_context) :
         AstExpr(lang_context),
-        value_id(0)
+        value_id((AstRuntimeValueId)0)
     {
     }
 };
@@ -907,6 +978,8 @@ struct AstExprSingleValue : AstExpr
     {
         children = expr_list;
     }
+
+    virtual simple::string to_string();
 
     AstExprSingleValue(Lang* lang_context) :
         AstExpr(lang_context),
@@ -963,13 +1036,21 @@ struct AstExprUnary : AstExprOp
 struct AstExprVariable : AstExpr
 {
     virtual AstNodeType get_node_type() { return AstNodeType::AST_EXPR_VARIABLE; }
-    simple::string name;   // Variable name
+    simple::string name;    // Variable name
+    VarStorage var_storage; // Storage type of variable (local/object)
+    VariableNo var_no;      // Index of variable
+    BasicBlock::VersionNo var_input_version_no;  // For SSA use only
+    BasicBlock::VersionNo var_output_version_no;  // For SSA use only
 
     virtual simple::string to_string();
 
     AstExprVariable(Lang* lang_context) :
         AstExpr(lang_context),
-        name("")
+        name(""),
+        var_storage(VAR_NONE),
+        var_no(0),
+        var_input_version_no(0),
+        var_output_version_no(0)
     {
     }
 };
@@ -1023,11 +1104,18 @@ struct AstFunction : AstNode
     // Function body
     AstNode* body;
 
-    // All local variable declaration
+    // All argument/local variable declaration
+    simple::vector<AstFunctionArg*> args;
     simple::vector<AstDeclaration*> local_vars;
 
     // Auto label
     size_t auto_label_id;
+
+    // Get name of argument
+    const simple::string& get_arg_name(ArgNo no) const;
+
+    // Get name of local variable
+    const simple::string& get_local_var_name(LocalNo no) const;
 
     virtual void collect_children()
     {
@@ -1266,8 +1354,7 @@ struct AstPrototype : AstNode
         arg_list(0),
         has_ret(false)
     {
-        ret_var_type.basic_var_type = TVOID;
-        ret_var_type.var_attrib = (AstVarAttrib)0;
+        ret_var_type.set_type_attrib(TVOID);
     }
 };
 
@@ -1310,11 +1397,15 @@ struct AstSwitchCase : AstBreakCont
     virtual AstNodeType get_node_type() { return AstNodeType::AST_SWITCH_CASE; }
     AstExpr* expr;
     AstCase* cases;
+    simple::hash_map<AstExpr*, AstCase*> case_labels;
 
     virtual void collect_children()
     {
-        // The cases is a list
-        children = append_sibling_node(expr, cases);
+        // Children: expr, case_exprs, cases
+        for (auto& it : case_labels)
+            add_child(it.first);
+        add_child(expr);
+        add_child(cases);
     }
 
     AstSwitchCase(Lang* lang_context) :

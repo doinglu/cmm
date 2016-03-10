@@ -123,7 +123,7 @@ namespace cmm
     AstDeclaration*     declares;
     AstExpr*            expression;
     AstExpr*            expr_list;
-    AstFunction*        function;
+    AstFunction*        ast_function;
     AstFunctionArg*     argument;
     AstFunctionArgsEx   arguments_ex;
     AstPrototype*       prototype;
@@ -222,7 +222,7 @@ namespace cmm
 %type <node>            trace shout
 %type <node>            command
 %type <expr_list>       mapping_pairs mapping_pair
-%type <function>        function
+%type <ast_function>    function
 %type <prototype>       prototype raw_prototype
 %type <argument>        arg_list new_arg
 %type <arguments_ex>    arguments_ex
@@ -267,7 +267,8 @@ statements:
     |
         statements function
         {
-            // The function is put into table: m_functions
+            // The function is already put into table: m_ast_functions
+            $1->add_child($2);
             $$ = $1;
         }
     |
@@ -371,7 +372,7 @@ statement:
 
             // change the entry function type
             if (lang_context->is_in_entry_function())
-                lang_context->m_entry_function->prototype->ret_var_type.basic_var_type = MIXED;
+                lang_context->m_entry_ast_function->prototype->ret_var_type.set_type_attrib(MIXED);
         }
     |
         command
@@ -396,22 +397,28 @@ function:
 
             auto* node = NEW_AST_NODE(AstFunction);
             node->prototype = $1;
-            node->no = (FunctionNo)lang_context->m_functions.size();
-            lang_context->m_functions.push_back(node);
+            node->no = (FunctionNo)lang_context->m_ast_functions.size();
+            lang_context->m_ast_functions.push_back(node);
 
-            auto* prev = lang_context->m_in_function;
-            lang_context->m_in_function = node;
+            for (auto* arg = $1->arg_list; arg != 0; arg = (AstFunctionArg*)arg->sibling)
+            {
+                STD_ASSERT(arg->arg_no == node->args.size());
+                node->args.push_back(arg);
+            }
+
+            auto* prev = lang_context->m_in_ast_function;
+            lang_context->m_in_ast_function = node;
 
             // Backup previous function
-            $<function>1 = prev;
+            $<ast_function>1 = prev;
         }
         '{' statements '}'
         {
-            auto* node = lang_context->m_in_function;
+            auto* node = lang_context->m_in_ast_function;
             node->body = $4;
 
             // Restore previous function context
-            lang_context->m_in_function = $<function>1;
+            lang_context->m_in_ast_function = $<ast_function>1;
 
             $$ = node;
         }
@@ -508,8 +515,7 @@ var_type:
         var_attrib L_BASIC_TYPE optional_question_mark
         {
             AstVarType var_type;
-            var_type.basic_var_type = $2;
-            var_type.var_attrib = $1 | $3;
+            var_type.set_type_attrib($2, $1 | $3 /* VarAttrib */);
             $$ = var_type;
         }
     ;
@@ -577,7 +583,7 @@ arg_list:
                 if ($1->default_value != 0 && $3->default_value == 0)
                     _yyerror("Bad argument, miss default value.\n");
             }
-            $3->arg_no = (ArgNo)$1->get_sibling_count();
+            $3->arg_no = (ArgNo)$1->get_sibling_count() + 1;
             $$ = (AstFunctionArg*)append_sibling_node($1, $3);
         }
     ;
@@ -681,7 +687,17 @@ declare_1_var:
 
             decl->name = $1;
             if ($2 != 0)
-                decl->expr = $2;
+            {
+                // Makr an assign expr: name = $2;
+                auto* expr_variable = NEW_AST_NODE(AstExprVariable);;
+                expr_variable->name = decl->name;
+
+                auto* assign = NEW_AST_NODE(AstExprAssign);
+                assign->op = OP_ASSIGN;
+                assign->expr1 = expr_variable;
+                assign->expr2 = $2;
+                decl->assign = assign;
+            }
 
             $$ = decl;
         }
@@ -890,7 +906,7 @@ loop_init:
             if (decls)
             {
                 auto* decl = decls->decl_list;
-                if (decl && !decl->expr)
+                if (decl && !decl->assign)
                     _yyerror("Missed initialization for new declaration in loop.\n");
             }
 
@@ -943,6 +959,13 @@ switch:
             STD_ASSERT(("Bad loop_switch node.", node->get_node_type() == AST_SWITCH_CASE));
             node->expr = $3;
             node->cases = $7;
+            // Fetch all exprs in cases (these are my children)
+            auto* case1 = node->cases;
+            while (case1)
+            {
+                node->case_labels.put(case1->case_value, case1);
+                case1 = (decltype(case1))case1->sibling;
+            }
             lang_context->pop_loop_switch($<int_val>1);
             $$ = node;
             if (!node->cases)
@@ -1093,9 +1116,15 @@ command:
 single_value:
         comma_expression
         {
-            auto* node = NEW_AST_NODE(AstExprSingleValue);
-            node->expr_list = $1;
-            $$ = node;
+            if ($1->get_sibling_count() == 0)
+                $$ = $1;
+            else
+            {
+                // More than 1 values
+                auto* node = NEW_AST_NODE(AstExprSingleValue);
+                node->expr_list = $1;
+                $$ = node;
+            }
         }
     ;
 
@@ -1499,7 +1528,6 @@ element:
 		'$' '<'
 		{
             auto* node = NEW_AST_NODE(AstExprRuntimeValue);
-            node->var_type.basic_var_type = ARRAY;
             node->value_id = AST_RV_INPUT_ARGUMENTS;
             $$ = node;
 		}
@@ -1507,7 +1535,6 @@ element:
         '$' '?'
         {
             auto* node = NEW_AST_NODE(AstExprRuntimeValue);
-            node->var_type.basic_var_type = INTEGER;
             node->value_id = AST_RV_INPUT_ARGUMENTS_COUNT;
             $$ = node;
         }
@@ -1541,33 +1568,32 @@ element:
         '(' arguments_ex ')' // closure
         {
             auto* prototype = NEW_AST_NODE(AstPrototype);
-            prototype->ret_var_type.basic_var_type = MIXED;
-            prototype->ret_var_type.var_attrib = (AstVarAttrib)0;
+            prototype->ret_var_type.set_type_attrib(MIXED);
             prototype->attrib = AST_RANDOM_ARG | AST_ANONYMOUS_CLOSURE;
             prototype->name = "";
             prototype->arg_list = $2.arg_list;
             if ($2.ddd)
                 prototype->attrib = prototype->attrib | AST_RANDOM_ARG;
 
-            auto* function = NEW_AST_NODE(AstFunction);
-            function->prototype = prototype;
-            function->no = (FunctionNo)lang_context->m_functions.size();
-            lang_context->m_functions.push_back(function);
+            auto* ast_function = NEW_AST_NODE(AstFunction);
+            ast_function->prototype = prototype;
+            ast_function->no = (FunctionNo)lang_context->m_ast_functions.size();
+            lang_context->m_ast_functions.push_back(ast_function);
 
-            auto* prev = lang_context->m_in_function;
-            lang_context->m_in_function = function;
-            $<function>1 = prev;
+            auto* prev = lang_context->m_in_ast_function;
+            lang_context->m_in_ast_function = ast_function;
+            $<ast_function>1 = prev;
         }
         '{' statements '}'
         {
-            auto* function = lang_context->m_in_function;
-            function->body = $6;
+            auto* ast_function = lang_context->m_in_ast_function;
+            ast_function->body = $6;
 
             // Restore previous function
-            lang_context->m_in_function = $<function>1;
+            lang_context->m_in_ast_function = $<ast_function>1;
 
             auto* node = NEW_AST_NODE(AstExprClosure);
-            node->function = function;
+            node->ast_function = ast_function;
             $$ = node;
         }
     ;

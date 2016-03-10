@@ -377,7 +377,7 @@ ObjectVar* Program::define_object_var(const String& name, ValueType type)
 {
     auto* object_var = XNEW(ObjectVar, this, name);
     object_var->m_type = type;
-    object_var->m_no = (VariableNo)m_object_vars.size();
+    object_var->m_no = (ObjectVarNo)m_object_vars.size();
     m_object_vars.push_back(object_var);
 
     // Calcuate object size for using interpreter
@@ -797,6 +797,7 @@ Value& Program::invoke(Thread* thread, ObjectId oid, const Value& function_name,
     {
         // Bad type of function name
         *ret = NIL;
+        thread->pop_stack(n);
         return *ret;
     }
 
@@ -804,6 +805,7 @@ Value& Program::invoke(Thread* thread, ObjectId oid, const Value& function_name,
     {
         // No such function
         *ret = NIL;
+        thread->pop_stack(n);
         return *ret;
     }
 
@@ -811,6 +813,7 @@ Value& Program::invoke(Thread* thread, ObjectId oid, const Value& function_name,
     {
         // The object is not existed or just destructed
         *ret = NIL;
+        thread->pop_stack(n);
         return *ret;
     }
 
@@ -841,6 +844,7 @@ Value& Program::invoke_self(Thread* thread, const Value& function_name, Value* r
     {
         // Bad type of function name
         *ret = NIL;
+        thread->pop_stack(n);
         return *ret;
     }
 
@@ -853,6 +857,7 @@ Value& Program::invoke_self(Thread* thread, const Value& function_name, Value* r
     {
         // No such function
         *ret = NIL;
+        thread->pop_stack(n);
         return *ret;
     }
 

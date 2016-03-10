@@ -162,7 +162,7 @@ void test_gc()
 {
     Uint8 ins[] = { 0x48, 0x89, 0x43, 0x08 };
     auto* thread = Thread::get_current_thread();
-    auto r = ReserveStack(20);
+    ReserveStack r(20);
     Value& key = r[0];
     Value& value = r[1];
     Value& mo = r[2];
@@ -324,13 +324,15 @@ void compile()
     auto root = context->m_root;
 
     printf("ret = %d.\n", (int)ret);////----
+#if 1
     // Debug output
     context->print_ast(context->m_root, 0);
-    for (auto& it : context->m_functions)
+    for (auto& it : context->m_ast_functions)
     {
         printf("-------------------- Function %d --------------------\n", (int)it->no);
         context->print_ast(it, 0);
     }
+#endif
 
     fclose(fp);
 }
@@ -340,7 +342,7 @@ int main_body(int argn, char *argv[])
     static bool flag = 1;
 
     auto* thread = Thread::get_current_thread();
-    auto r = ReserveStack(20);
+    ReserveStack r(20);
 
 #if 0
     simple::vector<int> arr;
@@ -435,16 +437,6 @@ int main_body(int argn, char *argv[])
     Value& r1 = r[17];
     call_efun(thread, key = "printf", &r1, "*** a=%d ***\n", 555);
 
-    auto *a1 = BUFFER_NEW(AAA, 888);
-    auto *a2 = BUFFER_NEWN(AAA, 3);
-    auto *a11 = BUFFER_ALLOC(a1, sizeof(*a1));
-    auto *a21 = BUFFER_ALLOC(a2, sizeof(*a2));
-    BUFFER_DELETE(a1);
-    BUFFER_DELETEN(a2);
-    a11->bind_to_current_domain();
-    a21->bind_to_current_domain();
-    a11 = 0;
-
     printf("Start GC...\n");
     Thread::get_current_thread_domain()->gc();
     printf("End GC...\n");
@@ -463,7 +455,7 @@ int main_body(int argn, char *argv[])
     call_other(thread, ob->get_oid(), key = "create", &r1);
     call_other(thread, ob2->get_oid(), key = "create", &r1);
     auto b = std_get_os_us_counter();
-#if 0
+#if 1
     Value ret = call_other(thread, ob->get_oid(), key = "printf", &r1, value = "result: %O\n", ob2->get_oid());
 #else
     Value ret = call_other(thread, ob->get_oid(), key = "test_call", &r1, ob2->get_oid());

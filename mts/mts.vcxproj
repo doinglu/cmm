@@ -191,10 +191,11 @@
     <ClInclude Include="a_entity.h" />
     <ClInclude Include="cmm.h" />
     <ClInclude Include="cmm_ast.h" />
+    <ClInclude Include="cmm_basic_block.h" />
     <ClInclude Include="cmm_bitset.h" />
     <ClInclude Include="cmm_buffer_new.h" />
     <ClInclude Include="cmm_call.h" />
-    <ClInclude Include="cmm_cfg.h" />
+    <ClInclude Include="cmm_lang_cfg.h" />
     <ClInclude Include="cmm_common_util.h" />
     <ClInclude Include="cmm_domain.h" />
     <ClInclude Include="cmm_efun.h" />
@@ -207,6 +208,7 @@
     <ClInclude Include="cmm_memory_pool.h" />
     <ClInclude Include="cmm_mem_list.h" />
     <ClInclude Include="cmm_mmm_value.h" />
+    <ClInclude Include="cmm_lang_phi.h" />
     <ClInclude Include="cmm_shell.h" />
     <ClInclude Include="cmm_vm.h" />
     <ClInclude Include="cmm_prototype_grammar.h" />
@@ -257,10 +259,11 @@
     <ClCompile Include="a_name.h" />
     <ClCompile Include="a_name_2.h" />
     <ClCompile Include="cmm_ast.cpp" />
+    <ClCompile Include="cmm_basic_block.cpp" />
     <ClCompile Include="cmm_basic_types.cpp" />
     <ClCompile Include="cmm_bitset.cpp" />
     <ClCompile Include="cmm_call.cpp" />
-    <ClCompile Include="cmm_cfg.cpp" />
+    <ClCompile Include="cmm_lang_cfg.cpp" />
     <ClCompile Include="cmm_common_util.cpp" />
     <ClCompile Include="cmm_domain.cpp" />
     <ClCompile Include="cmm_efun.cpp" />
@@ -272,6 +275,7 @@
     <ClCompile Include="cmm_lang_symbols.cpp" />
     <ClCompile Include="cmm_init_mmgr.cpp" />
     <ClCompile Include="cmm_memory_pool.cpp" />
+    <ClCompile Include="cmm_lang_phi.cpp" />
     <ClCompile Include="cmm_shell.cpp" />
     <ClCompile Include="cmm_value_oper.cpp" />
     <ClCompile Include="cmm_vm.cpp" />

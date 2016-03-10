@@ -229,7 +229,7 @@ private:
     ArgNo  m_argn;
     LocalNo m_localn;
     ConstantIndex m_constantn;
-    VariableNo    m_object_varn;
+    ObjectVarNo   m_object_varn;
 
 private:
     Thread   *m_thread;

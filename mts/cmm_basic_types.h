@@ -13,6 +13,7 @@ typedef simple::uchar_t uchar_t; // Unsigned character
 
 typedef IntR Handle;                // Handle
 
+// ATTENTION: sizeof(Argno) == sizeof(LocalNo) == sizeof(VariableNo)
 #if 1
 typedef Int16  ArgNo;               // Argument count/no
 typedef Uint16 ComponentNo;         // Number of component in a program
@@ -21,7 +22,8 @@ typedef Uint32 ComponentOffset;     // Offset of component in class Object
 typedef Uint32 FunctionNo;          // Number of function in a program
 typedef ArgNo  LocalNo;             // Local variables count/no: should be same as ArgNo
 typedef Uint32 MapOffset;           // MapImpl offset for component no map
-typedef Uint32 VariableNo;          // Index of member in AbstractClass object
+typedef Uint16 ObjectVarNo;         // Index of member in AbstractClass object
+typedef Uint16 VariableNo;          // Common type to carray ArgNo/LocalNo/ObjectVarNo
 
 #else
 typedef IntR   ArgNo;               // Argument count/no
@@ -31,7 +33,8 @@ typedef size_t ComponentOffset;     // Offset of component in class Object
 typedef size_t FunctionNo;          // Number of function in a program
 typedef ArgNo  LocalNo;             // Local variables count/no
 typedef size_t MapOffset;           // MapImpl offset for component no map
-typedef size_t VariableNo;          // Index of member in AbstractClass object
+typedef size_t ObjectVarNo;         // Index of member in AbstractClass object
+typedef size_t VariableNo;          // Common type to carray ArgNo/LocalNo/ObjectVarNo
 #endif
 
 enum ValueType : Uint8

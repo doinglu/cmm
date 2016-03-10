@@ -7,6 +7,7 @@
 #include "cmm_buffer_new.h"
 #include "cmm_efun.h"
 #include "cmm_lang.h"
+#include "cmm_program.h"
 #include "cmm_shell.h"
 
 namespace cmm
@@ -34,10 +35,11 @@ Lang::Lang() :
     m_components((size_t)0),
     m_lexer(this),
     m_symbols(this),
-    m_cfg(this)
+    m_cfg(this),
+    m_phi(this, &m_cfg)
 {
     // Initialize before any node created
-    m_in_function = 0;
+    m_in_ast_function = 0;
 
     m_num_errors = 0;
     m_num_warnings = 0;
@@ -45,47 +47,50 @@ Lang::Lang() :
     m_loop_depth = 0;
     m_root = 0;
     m_current_attrib = 0;
-    m_error_code = ErrorCode::OK;
+    m_stop_error_code = ErrorCode::OK;
     m_frame_tag = 0;
+}
+
+Lang::~Lang()
+{
+    for (auto function : m_program_functions)
+        XDELETE(function);
 }
 
 // Parse & generate AST
 ErrorCode Lang::parse()
 {
     // Create the entry function @ no:0
-    m_entry_function = BUFFER_NEW(AstFunction, this);
-    m_entry_function->prototype = BUFFER_NEW(AstPrototype, this);
-    m_entry_function->no = 0;
-    m_functions.push_back(m_entry_function);
+    m_entry_ast_function = BUFFER_NEW(AstFunction, this);
+    m_entry_ast_function->prototype = BUFFER_NEW(AstPrototype, this);
+    m_entry_ast_function->prototype->name = "::entry";
+    m_entry_ast_function->no = 0;
+    m_ast_functions.push_back(m_entry_ast_function);
 
-    // Set m_in_function to m_entry_function means start parse()
-    m_in_function = m_entry_function;
-    m_error_code = (ErrorCode)cmm_lang_parse(this);
+    // Set m_in_ast_function to m_entry_ast_function means start parse()
+    m_in_ast_function = m_entry_ast_function;
+    m_stop_error_code = (ErrorCode)cmm_lang_parse(this);
     if (m_num_errors)
         // Got error
-        m_error_code = COMPILE_ERROR;
+        m_stop_error_code = COMPILE_ERROR;
     if (!m_root)
-        return m_error_code;
+        return m_stop_error_code;
 
-    // Set m_in_function to 0 means parse() is finished, start pass()
-    m_in_function = 0;
+    // Set m_in_ast_function to 0 means parse() is finished, start pass()
+    m_in_ast_function = 0;
 
     // Collect children
     collect_children(m_root);
-    for (auto& it : m_functions)
-        collect_children(it);
-
-    ErrorCode ret = OK;
 
     // Pass1
     if (!pass1())
-        ret = ErrorCode::PASS1_ERROR;
+        return m_stop_error_code;
 
-    for (auto& it : m_functions)
+    for (auto& it : m_ast_functions)
         if (!pass2(it))
-            ret = ErrorCode::PASS2_ERROR;
+            return m_stop_error_code;
 
-    return ret;
+    return ErrorCode::OK;
 }
 
 // Compiler's error function 
@@ -285,8 +290,8 @@ int b;              -       Y               Y
 // Valid when in parse()
 bool Lang::is_in_entry_function()
 {
-    STD_ASSERT(("is_in_entry_function() valid for parse() only.", m_in_function != 0));
-    return m_in_function == m_entry_function;
+    STD_ASSERT(("is_in_entry_function() valid for parse() only.", m_in_ast_function != 0));
+    return m_in_ast_function == m_entry_ast_function;
 }
 
 // Is the parser in top frame?
@@ -294,7 +299,7 @@ bool Lang::is_in_entry_function()
 // Valid when in pass()
 bool Lang::is_in_top_frame()
 {
-    STD_ASSERT(("is_in_top_frame() valid for pass() only.", m_in_function == 0));
+    STD_ASSERT(("is_in_top_frame() valid for pass() only.", m_in_ast_function == 0));
     return m_frame_tag == 1;
 }
 
@@ -318,7 +323,7 @@ AstLabel* Lang::new_label()
 {
     auto* label = LANG_NEW(this, AstLabel, this);
     char name[32];
-    snprintf(name, sizeof(name), "%zu", ++m_in_function->auto_label_id);
+    snprintf(name, sizeof(name), "%zu", ++m_in_ast_function->auto_label_id);
     label->name = name;
     return label;
 }
@@ -339,6 +344,12 @@ void Lang::destruct_current_frame()
 {
     m_symbols.remove_ident_info_by_tag(m_frame_tag);
     m_frame_tag--;
+}
+
+// Get name of object var
+const simple::string& Lang::get_object_var_name(ObjectVarNo object_var_no) const
+{
+    return m_object_vars[object_var_no]->name;
 }
 
 // Collect children to create tree

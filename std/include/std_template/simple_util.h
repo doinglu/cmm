@@ -90,7 +90,6 @@ struct less
 template<>
 struct less<void>
 {	// functor for operator<
-
     template<typename T1, typename T2>
     constexpr bool operator()(const T1& left, const T2& right) const
     {	// apply operator< to operands

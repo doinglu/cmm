@@ -417,7 +417,7 @@ Value& Thread::get_domain_context_list(Value* ptr)
     // Update the end_sp
     update_end_sp_of_current_domain_context();
 
-    auto r = ReserveStack(4);
+    ReserveStack r(4);
     Map& detail = (Map&)r[0];
     Value& temp = r[1];
     Value& start_sp = r[2];

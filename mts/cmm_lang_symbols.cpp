@@ -4,8 +4,10 @@
 
 #include "cmm.h"
 #include "cmm_buffer_new.h"
+#include "cmm_efun.h"
 #include "cmm_lang.h"
 #include "cmm_lang_symbols.h"
+#include "cmm_thread.h"
 
 namespace cmm
 {
@@ -37,18 +39,18 @@ bool LangSymbols::add_ident_info(const simple::string& name, IdentInfo* info, As
                 node->location.file->c_str(), node->location.line,
                 C_REDEFINITION,
                 ast_var_type_to_string(decl->var_type).c_str(), decl->name.c_str());
-            m_lang_context->m_error_code = PASS1_ERROR;
+            m_lang_context->m_stop_error_code = PASS1_ERROR;
         } else
         if (info->type & (IDENT_OBJECT_FUN))
         {
-            auto* function = (AstFunction*)node;
-            auto* prototype = function->prototype;
+            auto* ast_function = (AstFunction*)node;
+            auto* prototype = ast_function->prototype;
             m_lang_context->syntax_errors(m_lang_context,
                 "%s(%d): error %d: '%s %s()': redefinition\n",
                 node->location.file->c_str(), node->location.line,
                 C_REDEFINITION,
                 ast_var_type_to_string(prototype->ret_var_type).c_str(), prototype->name.c_str());
-            m_lang_context->m_error_code = PASS1_ERROR;
+            m_lang_context->m_stop_error_code = PASS1_ERROR;
         } else
             STD_ASSERT(("Unknown ident type.", 0));
         return false;
@@ -113,13 +115,13 @@ void LangSymbols::add_label_info(AstLabel* label)
             label->location.file->c_str(), label->location.line,
             C_LABEL_REDEFINED,
             label->name.c_str());
-        m_lang_context->m_error_code = PASS1_ERROR;
+        m_lang_context->m_stop_error_code = PASS1_ERROR;
     }
     m_label_table.put(label->name, label);
 }
 
 // Get a label
-AstLabel* LangSymbols::get_label_info(simple::string& label_name)
+AstLabel* LangSymbols::get_label_info(const simple::string& label_name)
 {
     AstLabel* label;
     if (!m_label_table.try_get(label_name, &label))
@@ -127,6 +129,46 @@ AstLabel* LangSymbols::get_label_info(simple::string& label_name)
         return 0;
 
     return label;
+}
+
+// Get function
+Function* LangSymbols::get_function(const simple::string& name, AstNode* node)
+{
+    // Try lookup symbole table first
+    auto* info = get_ident_info(name, IDENT_ALL);
+    if (!info)
+    {
+        // Not found function in symbol table, try efun
+        ReserveStack r(1);
+        String& temp = (String&)r[0];
+
+        auto* function = Efun::get_efun(temp = name);
+        if (!function)
+        {
+            m_lang_context->syntax_errors(m_lang_context,
+                "%s(%d): error %d: '%s': identifier not found\n",
+                node->location.file->c_str(), node->location.line,
+                C_IDENTIFIER_NOT_FOUND,
+                name.c_str());
+            return 0;
+        }
+        return function;
+    }
+
+    if (!(info->type & IDENT_FUN))
+    {
+        // Not found function
+        m_lang_context->syntax_errors(m_lang_context,
+            "%s(%d): error %d: '%s' does not evaluate to a function\n",
+            node->location.file->c_str(), node->location.line,
+            C_NOT_FUNCTION,
+            name.c_str());
+        return 0;
+    }
+
+    STD_ASSERT(("Expected object function only.", info->type & IDENT_OBJECT_FUN));
+
+    return m_lang_context->m_program_functions[info->function_no];
 }
 
 }

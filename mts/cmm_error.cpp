@@ -16,7 +16,7 @@ namespace cmm
 void print_variables(const Variables& variables, const char *type, Value *arr, ArgNo n)
 {
     Output output;
-    auto r = ReserveStack(1);
+    ReserveStack r(1);
     Value& ret = r[0];
 
     ArgNo i = 0;

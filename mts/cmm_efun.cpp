@@ -47,7 +47,7 @@ bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, con
         // Failed to add efun
         return false;
 
-    auto r = ReserveStack(2);
+    ReserveStack r(2);
     String& temp = (String&)r[0];
 
     // Create the function
@@ -101,7 +101,7 @@ bool Efun::add_efun(Program *program, const String& prefix, EfunEntry entry, con
 // Add multiple efuns
 void Efun::add_efuns(const String& package_name, EfunDef *efun_def_array)
 {
-    auto r = ReserveStack(2);
+    ReserveStack r(2);
     String& prefix = (String&)r[0];
     String& temp = (String&)r[1];
 
@@ -157,6 +157,7 @@ Value& Efun::invoke(Thread *thread, const Value& function_name, Value* ret, ArgN
     {
         // Bad type of function name
         *ret = NIL;
+        thread->pop_stack(n);
         return *ret;
     }
 
@@ -164,6 +165,7 @@ Value& Efun::invoke(Thread *thread, const Value& function_name, Value* ret, ArgN
     {
         // Not found name in shared string pool, no such efun
         *ret = NIL;
+        thread->pop_stack(n);
         return *ret;
     }
 
@@ -172,6 +174,7 @@ Value& Efun::invoke(Thread *thread, const Value& function_name, Value* ret, ArgN
     {
         // Function is not found
         *ret = NIL;
+        thread->pop_stack(n);
         return *ret;
     }
 

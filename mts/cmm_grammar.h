@@ -130,7 +130,7 @@ typedef union YYSTYPE
     AstDeclaration*     declares;
     AstExpr*            expression;
     AstExpr*            expr_list;
-    AstFunction*        function;
+    AstFunction*        ast_function;
     AstFunctionArg*     argument;
     AstFunctionArgsEx   arguments_ex;
     AstPrototype*       prototype;

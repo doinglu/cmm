@@ -14,7 +14,7 @@ AstNode::AstNode(Lang* context) :
 {
     location.file = context->m_lexer.get_current_file_name();
     location.line = context->m_lexer.get_current_line();
-    in_function_no = context->m_in_function ? context->m_in_function->no : 0;
+    in_function_no = context->m_in_ast_function ? context->m_in_ast_function->no : 0;
 }
 
 // Get last effect node from a statements
@@ -26,7 +26,8 @@ AstNode* AstNode::get_last_effect_node(AstNode* node)
             // No children, return me
             return node;
 
-        if (node->get_node_type() != AST_STATEMENTS)
+        if (is_effect_node(node))
+            // Got effect node
             return node;
 
         // Get last child
@@ -149,6 +150,29 @@ simple::string ast_op_to_string(Op op)
     return str;
 }
 
+// Expression output to string
+simple::string ast_output_to_string(AstExpr* expr)
+{
+    // Append output information
+    char buf[32];
+    if (expr->get_node_type() == AST_EXPR_VARIABLE)
+    {
+        // This is named variable
+        auto* expr_variable = (AstExprVariable*)expr;
+        snprintf(buf, sizeof(buf), "%s(%d)", // eg. x(0)
+                 expr_variable->name.c_str(),
+                 expr_variable->is_left_value() ? expr_variable->var_output_version_no : 
+                                                  expr_variable->var_input_version_no);
+    } else
+    {
+        // Anonymouse expression
+        snprintf(buf, sizeof(buf), "%s%d",   // eg. L1
+                 var_storage_to_c_str(expr->output.storage),
+                 (int)expr->output.no);
+    }
+    return buf;
+}
+
 // VarType to string
 simple::string ast_var_type_to_string(AstVarType var_type)
 {
@@ -214,8 +238,9 @@ simple::string AstDeclaration::to_string()
 {
     char buf[16];
     snprintf(buf, sizeof(buf), " %s@%d",
+             ident_type == IDENT_ARGUMENT ? "arg" :
              ident_type == IDENT_LOCAL_VAR ? "local" :
-             ident_type == IDENT_OBJECT_VAR ? "object_var" : "", no);
+             ident_type == IDENT_OBJECT_VAR ? "object_var" : "", var_no);
     return ast_var_type_to_string(var_type) + " " + name + buf;
 }
 
@@ -223,10 +248,14 @@ simple::string AstExpr::to_string()
 {
     char buf[32];
     simple::string str = ast_var_type_to_string(var_type);
-    snprintf(buf, sizeof(buf), ":%c%d%s",   // type index "(constant)"
-             output.type == OUTPUT_OBJECT_VAR ? 'm' :
-             output.type == OUTPUT_LOCAL_VAR ? 'l' : 'r',
-             (int)output.index,
+    if (output.storage == VAR_NONE)
+        // No output
+        return str;
+
+    // Append output information
+    snprintf(buf, sizeof(buf), " %s%d :=%s",   // type index "(constant)"
+             var_storage_to_c_str(output.storage),
+             (int)output.no,
              is_constant ? " (constant)" : "");
     str += buf;
     return str;
@@ -235,75 +264,167 @@ simple::string AstExpr::to_string()
 // eg. *=
 simple::string AstExprAssign::to_string()
 {
-    return AstExpr::to_string() + " " + ast_op_to_string(op);
+    return simple::string().snprintf("%s %s %s %s", 256,
+        AstExpr::to_string().c_str(),
+        ast_output_to_string(expr1).c_str(),
+        ast_op_to_string(op).c_str(),
+        ast_output_to_string(expr2).c_str());
 }
 
 // eg. +
 simple::string AstExprBinary::to_string()
 {
-    return AstExpr::to_string() + " " + ast_op_to_string(op);
+    return simple::string().snprintf("%s %s %s %s", 256,
+        AstExpr::to_string().c_str(),
+        ast_output_to_string(expr1).c_str(),
+        ast_op_to_string(op).c_str(),
+        ast_output_to_string(expr2).c_str());
 }
 
 // eg. (int)
 simple::string AstExprCast::to_string()
 {
-    return simple::string("(") + ast_var_type_to_string(var_type) + ")";
+    return simple::string().snprintf("%s (%s)%s", 256,
+        AstExpr::to_string().c_str(),
+        ast_var_type_to_string(var_type).c_str(),
+        ast_output_to_string(expr1).c_str());
 }
 
 // eg. write()
 simple::string AstExprClosure::to_string()
 {
-    return function->prototype->name + "()";
+    return ast_function->prototype->name + "()";
 }
 
 // eg. "abc"
 simple::string AstExprConstant::to_string()
 {
     Output output;
-    return output.type_value(&value).c_str();
+    return AstExpr::to_string() + " " + output.type_value(&value).c_str();
+}
+
+// eg. is_ref(xxx)
+simple::string AstExprIsRef::to_string()
+{
+    return simple::string().snprintf("%s is_ref(%s)", 256,
+        AstExpr::to_string().c_str(),
+        name.c_str());
+}
+
+// eg. $1
+simple::string AstExprRuntimeValue::to_string()
+{
+    return simple::string().snprintf("%s ", 256,
+        AstExpr::to_string().c_str(),
+        value_id == AST_RV_INPUT_ARGUMENTS ? "$<" :
+        value_id == AST_RV_INPUT_ARGUMENTS_COUNT ? "$?" :
+        "<Bad>");
+}
+
+// eg: (x, y, z)
+simple::string AstExprSingleValue::to_string()
+{
+    auto str = AstExpr::to_string() + " (";
+    auto* p = children;
+    while (p)
+    {
+        str += ast_output_to_string((AstExpr*)p);
+        p = p->sibling;
+        if (p)
+            str += ", ";
+    }
+    str += ")";
+    return str;
 }
 
 // eg. ?
 simple::string AstExprTernary::to_string()
 {
-    return AstExpr::to_string() + " " + ast_op_to_string(op);
+    return simple::string().snprintf("%s %s %s %s, %s", 256,
+        AstExpr::to_string().c_str(),
+        ast_output_to_string(expr1).c_str(),
+        ast_op_to_string(op).c_str(),
+        ast_output_to_string(expr2).c_str(),
+        ast_output_to_string(expr3).c_str());
 }
 
 // eg. --
 simple::string AstExprUnary::to_string()
 {
-    return AstExpr::to_string() + " " + ast_op_to_string(op);
+    return simple::string().snprintf("%s %s%s", 256,
+        AstExpr::to_string().c_str(),
+        ast_op_to_string(op).c_str(),
+        ast_output_to_string(expr1).c_str());
 }
 
 // eg. i
 simple::string AstExprVariable::to_string()
 {
-    return AstExpr::to_string() + " " + name;
+    if (is_left_value_only())
+        return simple::string().snprintf("%s ref %s(%d)", 256,
+            AstExpr::to_string().c_str(), name.c_str(), (int)var_output_version_no);
+    
+    if (is_right_value_only())
+        return simple::string().snprintf("%s %s(%d)", 256,
+            AstExpr::to_string().c_str(), name.c_str(), (int)var_input_version_no);
+
+    return simple::string().snprintf("%s ref %s(%d/%d)", 256,
+            AstExpr::to_string().c_str(), name.c_str(), (int)var_output_version_no, (int)var_input_version_no);
 }
 
 // eg. write
 simple::string AstExprFunctionCall::to_string()
 {
-    return callee_name;
+    auto str = simple::string().snprintf("%s %s(", 256,
+        AstExpr::to_string().c_str(), callee_name.c_str());
+    auto* p = children;
+    while (p)
+    {
+        str += ast_output_to_string((AstExpr*)p);
+        p = p->sibling;
+        if (p)
+            str += ", ";
+    }
+    str += ")";
+    return str;
 }
 
-// eg. [..<]
+// eg. c[x..<y]
 simple::string AstExprIndex::to_string()
 {
-    char buf[16];
     if (op == OP_IDX)
     {
-        // []
-        snprintf(buf, sizeof(buf), "[%s]", is_reverse_from ? "<" : "");
-    }
-    else
+        // c[x]
+        return simple::string().snprintf("%s %s%s[%s%s]", 256,
+                    AstExpr::to_string().c_str(),
+                    is_left_value() ? "ref " : "",
+                    ast_output_to_string(container).c_str(),
+                    is_reverse_from ? "<" : "",
+                    ast_output_to_string(index_from).c_str());
+    } else
     {
-        // [..]
-        snprintf(buf, sizeof(buf), "[%s..%s]",
-                 is_reverse_from ? "<" : "",
-                 is_reverse_to ? "<" : "");
+        // c[x..y]
+        return simple::string().snprintf("%s %s%s[%s%s..%s%s]", 256,
+                    AstExpr::to_string().c_str(),
+                    is_left_value() ? "ref " : "",
+                    ast_output_to_string(container).c_str(),
+                    is_reverse_from ? "<" : "",
+                    ast_output_to_string(index_from).c_str(),
+                    is_reverse_to ? "<" : "",
+                    ast_output_to_string(index_to).c_str());
     }
-    return buf;
+}
+
+// Get name of argument
+const simple::string& AstFunction::get_arg_name(ArgNo no) const
+{
+    return args[no]->name;
+}
+
+// Get name of local variable
+const simple::string& AstFunction::get_local_var_name(LocalNo no) const
+{
+    return local_vars[no]->name;
 }
 
 // eg. mixed func() @1
